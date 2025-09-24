@@ -27,7 +27,7 @@ def main():
     # To zapewnia, że API Whisper otrzyma pliki w jednolitym, obsługiwanym formacie.
     encode_audio_files()
 
-    # === KROK 3 i 4: Transkrypcja plików ===
+    # === KROK 3: Transkrypcja plików ===
     # Tworzymy instancję (obiekt) klasy TranscriptionProcessor.
     # Ta klasa zarządza całym procesem transkrypcji.
     processor = TranscriptionProcessor()
