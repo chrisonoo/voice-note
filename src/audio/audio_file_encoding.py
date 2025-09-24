@@ -32,12 +32,14 @@ def encode_audio_files():
             new_path = os.path.join(config.OUTPUT_DIR, relative_path)
             # Zmieniamy rozszerzenie pliku na `.wav`, odcinając stare rozszerzenie.
             new_path = os.path.splitext(new_path)[0] + '.wav'
+            # Zamieniamy spacje na podkreślenia w nazwie pliku
+            new_path = new_path.replace(' ', '_')
 
             # `os.makedirs` tworzy wszystkie potrzebne foldery w ścieżce, jeśli nie istnieją.
             # `exist_ok=True` zapobiega błędowi, jeśli folder już istnieje.
             os.makedirs(os.path.dirname(new_path), exist_ok=True)
 
-            print(f"  Konwertowanie: {original_path} -> {new_path}")
+            print(f"  Konwertowanie: {os.path.basename(original_path)} -> {os.path.basename(new_path)}")
 
             # Składamy pełną komendę FFMPEG do wykonania w systemie.
             # Używamy f-stringów do wstawienia naszych zmiennych.

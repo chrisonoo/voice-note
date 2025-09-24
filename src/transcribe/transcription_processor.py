@@ -69,7 +69,7 @@ class TranscriptionProcessor:
             # Dla każdego pliku tworzymy nową instancję klasy Whisper.
             whisper = Whisper(audio_file)
 
-            print(f"  Przetwarzanie pliku: {audio_file}")
+            print(f"  Przetwarzanie pliku: {os.path.basename(audio_file)}")
             # Wywołujemy metodę `transcribe`, która wysyła plik do API OpenAI.
             transcription = whisper.transcribe()
 
@@ -77,8 +77,6 @@ class TranscriptionProcessor:
             if transcription:
                 # Otwieramy plik zbiorczy w trybie 'a' (append - dopisywanie na końcu).
                 with open(config.TRANSCRIPTIONS_FILE, 'a', encoding='utf8') as f:
-                    # Dodajemy nagłówek, aby łatwo było zidentyfikować, do którego pliku należy transkrypcja.
-                    f.write(f"--- Transkrypcja dla: {os.path.basename(audio_file)} ---\n")
                     # Dopisujemy właściwy tekst transkrypcji.
                     f.write(f"{transcription.text}\n\n")
 
