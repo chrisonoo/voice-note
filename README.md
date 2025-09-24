@@ -1,87 +1,85 @@
-# Project Generator
+# Aplikacja do Transkrypcji Notatek Głosowych
 
-Ten projekt zawiera skrypt Pythona (`app.py`), który generuje strukturę pełnej aplikacji internetowej, w tym backend Node.js i frontend React.
+Ta aplikacja służy do automatycznej transkrypcji plików audio przy użyciu API OpenAI Whisper. Projekt został zoptymalizowany pod kątem prostoty użycia i modułowej, czytelnej struktury kodu.
+
+## Jak to działa?
+
+Aplikacja wykonuje następujące kroki:
+1.  Wyszukuje pliki audio (np. `.mp3`, `.wav`, `.m4a`) w folderze `rec/input`.
+2.  Konwertuje znalezione pliki do standardowego formatu `.wav` za pomocą `ffmpeg` i zapisuje je w `rec/output`.
+3.  Wysyła przekonwertowane pliki do API OpenAI Whisper w celu transkrypcji.
+4.  Zapisuje wszystkie uzyskane transkrypcje w jednym, zbiorczym pliku `rec/5_transcriptions.txt`.
+
+Aplikacja tworzy również pliki pomocnicze w folderze `rec`, które pozwalają śledzić postęp i wznowić pracę w przypadku błędu.
+
+## Wymagania
+
+*   Python 3.x
+*   `ffmpeg` - musi być zainstalowany i dostępny w ścieżce systemowej (PATH).
+*   Klucz API do OpenAI - zapisany w pliku `.env`.
 
 ## Instalacja
 
-Aby uruchomić skrypt generatora projektu, należy skonfigurować wirtualne środowisko Pythona i zainstalować wymagane zależności.
+1.  **Sklonuj repozytorium:**
+    ```bash
+    git clone <adres-repozytorium>
+    cd <nazwa-repozytorium>
+    ```
 
-### 1. Utwórz wirtualne środowisko
+2.  **Utwórz i aktywuj wirtualne środowisko:**
+    *   Dla macOS/Linux: `python3 -m venv venv && source venv/bin/activate`
+    *   Dla Windows: `python -m venv venv && .\\venv\\Scripts\\activate`
 
-Środowisko wirtualne pozwala na oddzielne zarządzanie zależnościami dla danego projektu.
+3.  **Zainstaluj zależności:**
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-**Dla systemów macOS i Linux:**
-```bash
-python3 -m venv venv
-```
+4.  **Skonfiguruj klucz API:**
+    *   Utwórz plik o nazwie `.env` w głównym katalogu projektu.
+    *   W pliku `.env` dodaj swój klucz API w następującym formacie:
+        ```
+        API_KEY_WHISPER="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+        ```
 
-**Dla systemu Windows:**
-```bash
-python -m venv venv
-```
+## Jak używać?
 
-### 2. Aktywuj wirtualne środowisko
+1.  **Umieść swoje pliki audio** w folderze `rec/input`. Możesz tworzyć wewnątrz podfoldery – aplikacja przeszuka je wszystkie.
 
-Przed rozpoczęciem instalacji lub używania pakietów należy aktywować środowisko wirtualne.
+2.  **Uruchom aplikację** za pomocą jednej komendy:
+    ```bash
+    python main.py
+    ```
 
-**Dla systemów macOS i Linux:**
-```bash
-source venv/bin/activate
-```
+3.  **Gotowe!** Po zakończeniu procesu, wszystkie transkrypcje znajdziesz w pliku `rec/5_transcriptions.txt`.
 
-**Dla systemu Windows:**
-```bash
-.\venv\Scripts\activate
-```
+## Zarządzanie Zależnościami
 
-### 3. Zainstaluj zależności
+Aby upewnić się, że korzystasz z najnowszych wersji bibliotek, możesz okresowo je aktualizować.
 
-Zainstaluj wymagane pakiety Pythona za pomocą `pip` i pliku `requirements.txt`.
+1.  **Sprawdź dostępne aktualizacje:**
+    ```bash
+    pip list --outdated
+    ```
 
-```bash
-pip install -r requirements.txt
-```
+2.  **Zaktualizuj biblioteki:**
+    ```bash
+    pip install --upgrade -r requirements.txt
+    ```
 
-## Aktualizacja zależności
+3.  **Zapisz nowe wersje w pliku:**
+    Po aktualizacji, wygeneruj nowy plik `requirements.txt`, aby zapisać zmiany.
+    ```bash
+    pip freeze > requirements.txt
+    ```
+    *Uwaga: W tym projekcie używamy tylko `openai` i `python-dotenv`. Po wykonaniu `freeze` warto ręcznie usunąć z pliku inne, niepotrzebne zależności.*
 
-Aby upewnić się, że korzystasz z najnowszych wersji bibliotek, możesz sprawdzić dostępność aktualizacji i zaktualizować plik `requirements.txt`.
 
-### 1. Sprawdź nieaktualne pakiety
+## Struktura projektu
 
-Użyj poniższego polecenia, aby wyświetlić listę pakietów, które mają nowsze wersje:
-
-```bash
-pip list --outdated
-```
-
-### 2. Zaktualizuj pakiety
-
-Aby zaktualizować konkretny pakiet, użyj polecenia:
-
-```bash
-pip install -U nazwa_pakietu
-```
-
-Możesz również zaktualizować wszystkie pakiety z pliku `requirements.txt` za pomocą jednego polecenia:
-
-```bash
-pip install -r requirements.txt --upgrade
-```
-
-### 3. Zapisz zmiany w `requirements.txt`
-
-Po zaktualizowaniu pakietów należy wygenerować nowy plik `requirements.txt`, aby zapisać zmiany:
-
-```bash
-pip freeze > requirements.txt
-```
-
-## Uruchomienie generatora
-
-Po zainstalowaniu zależności możesz uruchomić skrypt `app.py`, aby wygenerować całą strukturę projektu:
-
-```bash
-python app.py
-```
-
-Skrypt utworzy w bieżącym katalogu foldery `backend` i `frontend` wraz z całą strukturą plików aplikacji.
+*   `main.py`: Główny plik uruchomieniowy. Jego zadaniem jest wywołanie funkcji z poszczególnych modułów w odpowiedniej kolejności.
+*   `src/config.py`: Centralny plik konfiguracyjny, w którym zdefiniowane są wszystkie ścieżki i parametry.
+*   `src/audio/`: Moduł odpowiedzialny za operacje na plikach audio (wyszukiwanie, konwersja).
+*   `src/whisper/`: Moduł będący "opakowaniem" (wrapperem) dla API OpenAI Whisper.
+*   `src/transcribe/`: Moduł zarządzający całym procesem transkrypcji.
+*   `rec/`: Folder na wszystkie pliki robocze (wejściowe, przekonwertowane, wyjściowe i pliki stanu).
