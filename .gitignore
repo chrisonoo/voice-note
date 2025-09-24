@@ -15,17 +15,6 @@ __pycache__/
 .env.*
 !.env.example
 
-# Pliki generowane przez proces transkrypcji
-# Ignorujemy cały katalog wyjściowy, ponieważ jest generowany dynamicznie
-rec/output/
-
-# Ignorujemy pliki stanu, ponieważ są specyficzne dla danego uruchomienia
-rec/1_audio_list_to_encode.txt
-rec/2_audio_list_to_transcribe.txt
-rec/3_processing_list.txt
-rec/4_processed_list.txt
-rec/5_transcriptions.txt
-
 # Pliki systemowe
 .DS_Store
 
@@ -33,3 +22,15 @@ rec/5_transcriptions.txt
 .idea/
 .vscode/
 *.swp
+
+# Pliki projektu
+# Ignoruj zawartość folderów wejściowych i wyjściowych,
+# ale zachowaj same foldery dzięki plikom .gitkeep.
+rec/input/*
+!rec/input/.gitkeep
+
+rec/output/*
+!rec/output/.gitkeep
+
+# Ignoruj pliki stanu generowane w folderze rec
+rec/*.txt
