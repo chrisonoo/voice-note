@@ -1,25 +1,50 @@
+# Ten plik jest głównym punktem wejścia do aplikacji.
+# Jego zadaniem jest zaimportowanie potrzebnych funkcji z poszczególnych modułów
+# i wywołanie ich w odpowiedniej kolejności, aby przeprowadzić cały proces transkrypcji.
+
+# Importujemy potrzebne funkcje z naszych modułów.
+# Dzięki plikom __init__.py w każdym module, możemy to zrobić w bardzo czytelny sposób.
 from src.audio import get_audio_file_list, encode_audio_files
 from src.transcribe import TranscriptionProcessor
 
 
 def main():
     """
-    Główna funkcja orkiestrująca procesem transkrypcji.
+    Główna funkcja orkiestrująca całym procesem transkrypcji.
+    Wykonuje po kolei wszystkie kroki potrzebne do przetworzenia plików audio.
     """
+    # Wyświetlamy komunikat na starcie, aby użytkownik wiedział, że proces się rozpoczął.
     print("--- Rozpoczynam proces transkrypcji ---")
 
-    # Krok 1: Znajdź pliki audio do przetworzenia
+    # === KROK 1: Wyszukiwanie plików audio ===
+    # Wywołujemy funkcję, która przeszukuje folder `rec/input` i tworzy listę
+    # plików do przetworzenia. Lista ta jest zapisywana w pliku tekstowym.
     get_audio_file_list()
 
-    # Krok 2: Przekonwertuj pliki audio do formatu WAV
+    # === KROK 2: Konwersja plików audio ===
+    # Wywołujemy funkcję, która czyta listę plików z poprzedniego kroku
+    # i konwertuje każdy z nich do standardowego formatu .wav za pomocą FFMPEG.
+    # To zapewnia, że API Whisper otrzyma pliki w jednolitym, obsługiwanym formacie.
     encode_audio_files()
 
-    # Krok 3 & 4: Przetwórz (transkrybuj) przekonwertowane pliki
+    # === KROK 3 i 4: Transkrypcja plików ===
+    # Tworzymy instancję (obiekt) klasy TranscriptionProcessor.
+    # Ta klasa zarządza całym procesem transkrypcji.
     processor = TranscriptionProcessor()
+
+    # Wywołujemy metodę, która najpierw tworzy listę przekonwertowanych plików,
+    # a następnie wysyła każdy z nich do API OpenAI Whisper i zapisuje wyniki.
     processor.process_transcriptions()
 
+    # Na koniec informujemy użytkownika, że cały proces został zakończony pomyślnie.
     print("\n--- Proces transkrypcji zakończony pomyślnie! ---")
 
 
+# Ten warunek sprawdza, czy plik `main.py` został uruchomiony bezpośrednio
+# (np. komendą `python main.py`), a nie zaimportowany do innego pliku.
+# To standardowa, dobra praktyka w Pythonie, która zapobiega automatycznemu
+# uruchomieniu kodu, gdybyśmy chcieli w przyszłości zaimportować z tego pliku
+# jakąś funkcję do innego modułu.
 if __name__ == "__main__":
+    # Jeśli warunek jest spełniony, wywołujemy naszą główną funkcję.
     main()
