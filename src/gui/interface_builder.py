@@ -3,7 +3,6 @@
 from tkinter import ttk
 
 from .files_view import FilesView
-from .status_view import StatusView
 from .transcription_view import TranscriptionView
 
 
@@ -25,7 +24,6 @@ class InterfaceBuilder:
         """Create and place all UI components in the window."""
         self._create_buttons()
         self._create_views()
-        self._create_counters()
         self._create_reset_button()
     
     def _create_buttons(self):
@@ -76,55 +74,21 @@ class InterfaceBuilder:
         self.app.file_selection_panel = FilesView(self.app, "Wybrane")
         self.app.file_selection_panel.grid(row=1, column=0, sticky="nsew", padx=(10, 5), pady=5)
 
-        # --- Column 1: Conversion Status Panel (shows loaded/converted files) ---
-        self.app.conversion_status_panel = StatusView(self.app, text="Wczytane")
+        # --- Column 1: Conversion Status Panel (unified with TranscriptionView) ---
+        self.app.conversion_status_panel = TranscriptionView(self.app, text="Wczytane")
         self.app.conversion_status_panel.grid(row=1, column=1, sticky="nsew", padx=(10, 5), pady=5)
 
-        # --- Column 2: Transcription Queue Panel (files waiting for processing) ---
-        self.app.transcription_queue_panel = StatusView(self.app, text="Do przetworzenia")
+        # --- Column 2: Transcription Queue Panel (unified with TranscriptionView) ---
+        self.app.transcription_queue_panel = TranscriptionView(self.app, text="Do przetworzenia")
         self.app.transcription_queue_panel.grid(row=1, column=2, sticky="nsew", padx=5, pady=5)
 
-        # --- Column 3: Completed Files Panel (successfully transcribed files) ---
-        self.app.completed_files_panel = StatusView(self.app, text="Przetworzone")
+        # --- Column 3: Completed Files Panel (unified with TranscriptionView) ---
+        self.app.completed_files_panel = TranscriptionView(self.app, text="Przetworzone")
         self.app.completed_files_panel.grid(row=1, column=3, sticky="nsew", padx=5, pady=5)
 
         # --- Column 4: Transcription Output Panel (final text results) ---
         self.app.transcription_output_panel = TranscriptionView(self.app, text="Transkrypcja")
         self.app.transcription_output_panel.grid(row=1, column=4, sticky="nsew", padx=(5, 10), pady=5)
-    
-    def _create_counters(self):
-        """Create counter labels at the bottom level of each column."""
-        # --- Column 0: File Selection Counters ---
-        files_counter_frame = ttk.Frame(self.app)
-        files_counter_frame.grid(row=2, column=0, sticky="ew", padx=(10, 5), pady=(5, 0))
-        
-        self.app.total_files_label = ttk.Label(files_counter_frame, text="Wszystkich: 0")
-        self.app.total_files_label.pack(side="left", padx=5)
-        self.app.approved_files_label = ttk.Label(files_counter_frame, text="Zatwierdzonych: 0")
-        self.app.approved_files_label.pack(side="left", padx=5)
-        self.app.long_files_label = ttk.Label(files_counter_frame, text="Za długich: 0")
-        self.app.long_files_label.pack(side="left", padx=5)
-        
-        # --- Column 1: Conversion Status Counter ---
-        conversion_counter_frame = ttk.Frame(self.app)
-        conversion_counter_frame.grid(row=2, column=1, sticky="ew", padx=(10, 5), pady=(5, 0))
-        
-        self.app.conversion_total_label = ttk.Label(conversion_counter_frame, text="Liczba plików: 0")
-        self.app.conversion_total_label.pack(side="left", padx=5)
-        
-        # --- Column 2: Transcription Queue Counter ---
-        queue_counter_frame = ttk.Frame(self.app)
-        queue_counter_frame.grid(row=2, column=2, sticky="ew", padx=5, pady=(5, 0))
-        
-        self.app.queue_total_label = ttk.Label(queue_counter_frame, text="Liczba plików: 0")
-        self.app.queue_total_label.pack(side="left", padx=5)
-        
-        # --- Column 3: Completed Files Counter ---
-        completed_counter_frame = ttk.Frame(self.app)
-        completed_counter_frame.grid(row=2, column=3, sticky="ew", padx=5, pady=(5, 0))
-        
-        self.app.completed_total_label = ttk.Label(completed_counter_frame, text="Liczba plików: 0")
-        self.app.completed_total_label.pack(side="left", padx=5)
     
     def _create_reset_button(self):
         """Create reset button with custom styling."""

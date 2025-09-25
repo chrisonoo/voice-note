@@ -73,18 +73,8 @@ class App(tk.Tk):
     
     def update_files_counter(self, total, approved, long_files):
         """Update file selection counters in the bottom row."""
-        self.total_files_label.config(text=f"Wszystkich: {total}")
-        self.approved_files_label.config(text=f"Zatwierdzonych: {approved}")
-        self.long_files_label.config(text=f"Za długich: {long_files}")
-    
-    def update_status_counter(self, status_view, count):
-        """Update status panel counters in the bottom row based on which panel called it."""
-        if status_view == self.conversion_status_panel:
-            self.conversion_total_label.config(text=f"Liczba plików: {count}")
-        elif status_view == self.transcription_queue_panel:
-            self.queue_total_label.config(text=f"Liczba plików: {count}")
-        elif status_view == self.completed_files_panel:
-            self.completed_total_label.config(text=f"Liczba plików: {count}")
+        # Only for FilesView in column 0
+        pass  # No longer showing counters
 
     # --- UI Panel Management Delegation ---
     def refresh_all_views(self):
