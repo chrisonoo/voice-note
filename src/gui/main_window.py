@@ -106,29 +106,34 @@ class App(tk.Tk):
         is_ready_to_start = processing_list and not processed_list
         is_paused = processing_list and processed_list
 
-        self.action_panel.show_button("start", not is_paused and not is_processing)
-        self.action_panel.show_button("pause_resume", is_paused or is_processing)
+        # Domyślny stan przycisków (aplikacja bezczynna)
+        self.action_panel.set_button_state("start", "normal" if is_ready_to_start else "disabled")
+        self.action_panel.show_button("pause_resume", False)
+        self.action_panel.set_button_state("pause_resume", "disabled")
+        self.action_panel.set_pause_resume_button_config("Pauza", self.pause_transcription)
 
+        # Stan: Wstrzymano
+        if is_paused:
+            self.action_panel.set_button_state("start", "disabled")
+            self.action_panel.show_button("pause_resume", True)
+            self.action_panel.set_button_state("pause_resume", "normal")
+            self.action_panel.set_pause_resume_button_config("Wznów", self.start_transcription_process)
+
+        # Stan: Przetwarzanie (nadpisuje stan wstrzymania, jeśli aktywny)
         if is_processing:
             self.action_panel.set_button_state("start", "disabled")
-            self.action_panel.set_pause_resume_button_config("Pauza", self.pause_transcription)
+            self.action_panel.show_button("pause_resume", True)
             self.action_panel.set_button_state("pause_resume", "normal")
-        elif is_paused:
-            self.action_panel.set_button_state("start", "disabled")
-            self.action_panel.set_pause_resume_button_config("Wznów", self.start_transcription_process)
-            self.action_panel.set_button_state("pause_resume", "normal")
-        else:
-            self.action_panel.set_button_state("start", "normal" if is_ready_to_start else "disabled")
             self.action_panel.set_pause_resume_button_config("Pauza", self.pause_transcription)
-            self.action_panel.set_button_state("pause_resume", "disabled")
 
-        is_finished = not processing_list and processed_list
-        self.action_panel.set_button_state("copy", "normal" if is_finished else "disabled")
+        self.action_panel.set_button_state("copy", "normal")
 
     def select_source_files(self):
         if self.processing_thread and self.processing_thread.is_alive(): return
         paths = filedialog.askopenfilenames(title="Wybierz pliki audio", filetypes=[("Pliki audio", " ".join(config.AUDIO_EXTENSIONS))])
         if not paths: return
+
+        self.control_panel.set_info_label(f"Wybrano plików: {len(paths)}")
 
         with open(config.AUDIO_LIST_TO_ENCODE_FILE, 'w', encoding='utf-8') as f:
             for p in paths: f.write(p + '\n')
