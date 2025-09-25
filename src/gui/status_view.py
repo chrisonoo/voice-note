@@ -1,7 +1,6 @@
 # This file contains a generic component for "To Process" and "Processed" lists.
 # It consists of a label, a list, and a counter panel.
 
-import tkinter as tk
 import customtkinter as ctk
 import os
 
@@ -39,27 +38,17 @@ class StatusView(ctk.CTkFrame):
         )
         self.text.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 
-    def update_from_file(self, file_path):
-        """Reads a text file and inserts its content into the textbox, showing only filenames."""
+    def update_from_list(self, file_paths):
+        """Populates the textbox with a list of filenames."""
         self.text.configure(state="normal")
         self.text.delete('1.0', "end")
         try:
-            if os.path.exists(file_path):
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                    # Convert full paths to filenames
-                    lines = content.strip().split('\n')
-                    file_names = []
-                    for line in lines:
-                        line = line.strip()
-                        if line:  # Skip empty lines
-                            file_name = os.path.basename(line)
-                            file_names.append(file_name)
-
-                    # Insert filenames into the textbox
-                    self.text.insert("end", '\n'.join(file_names))
+            # Convert full paths to filenames
+            file_names = [os.path.basename(path) for path in file_paths if path]
+            # Insert filenames into the textbox
+            self.text.insert("end", '\n'.join(file_names))
         except Exception as e:
-            print(f"Error reading file {file_path}: {e}")
+            print(f"Error updating status view: {e}")
         self.text.configure(state="disabled")
 
     def clear_view(self):

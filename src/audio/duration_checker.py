@@ -3,7 +3,7 @@
 import os
 import subprocess
 import json
-from src import config
+from src import config, database
 
 def get_file_duration(file_path):
     """
@@ -15,7 +15,6 @@ def get_file_duration(file_path):
     Returns:
         float: Czas trwania pliku w sekundach lub 0.0, jeśli wystąpi błąd.
     """
-    # Polecenie ffprobe do uzyskania informacji o pliku w formacie JSON
     command = [
         'ffprobe',
         '-v', 'quiet',
@@ -25,35 +24,35 @@ def get_file_duration(file_path):
         file_path
     ]
     try:
-        # Uruchomienie polecenia
         result = subprocess.run(command, capture_output=True, text=True, check=True)
-        # Parsowanie wyniku JSON
         data = json.loads(result.stdout)
-        # Zwracanie czasu trwania z informacji o formacie
         return float(data['format']['duration'])
     except Exception as e:
-        # Obsługa błędów, np. gdy ffprobe nie jest zainstalowany lub plik jest uszkodzony
         print(f"Błąd podczas sprawdzania czasu trwania pliku {os.path.basename(file_path)}: {e}")
         return 0.0
 
 def validate_file_durations():
     """
-    Waliduje czas trwania plików z listy `SELECTED_LIST`.
+    Waliduje czas trwania plików pobranych z bazy danych (ze statusem 'selected').
+    Aktualizuje ich czas trwania w bazie danych.
     Ta funkcja jest głównie używana w trybie CLI.
 
     Returns:
         list: Lista ścieżek do plików, które są dłuższe niż dozwolony limit.
     """
     long_files = []
-    try:
-        with open(config.SELECTED_LIST, 'r', encoding='utf-8') as f:
-            files_to_check = [line.strip() for line in f.readlines()]
+    files_to_check = database.get_files_by_status('selected')
 
-        for file_path in files_to_check:
-            duration = get_file_duration(file_path)
-            if duration > config.MAX_FILE_DURATION_SECONDS:
-                long_files.append(os.path.basename(file_path))
-    except FileNotFoundError:
-        print("Plik z listą audio do sprawdzenia nie istnieje.")
+    if not files_to_check:
+        print("Brak plików do walidacji.")
+        return long_files
+
+    for file_path in files_to_check:
+        duration = get_file_duration(file_path)
+        # Aktualizujemy czas trwania w bazie danych, aby nie obliczać go ponownie
+        database.update_file_duration(file_path, duration)
+
+        if duration > config.MAX_FILE_DURATION_SECONDS:
+            long_files.append(os.path.basename(file_path))
 
     return long_files

@@ -10,6 +10,7 @@ import os
 from src.audio import encode_audio_files, validate_file_durations
 from src.transcribe import TranscriptionProcessor
 from src import config
+from src import database
 
 def main_cli(args):
     """
@@ -77,6 +78,9 @@ def main_cli(args):
 # (np. komendą `python main.py`), a nie zaimportowany do innego pliku.
 # To standardowa, dobra praktyka w Pythonie.
 if __name__ == "__main__":
+    # Inicjalizacja bazy danych na samym początku
+    database.initialize_database()
+
     parser = argparse.ArgumentParser(description="Transkrypcja plików audio z użyciem API OpenAI Whisper.")
     parser.add_argument(
         "-l", "--allow-long",

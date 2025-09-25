@@ -141,8 +141,8 @@ class InterfaceBuilder:
         # --- Row 2: Reset Button ---
         self.app.reset_application_button = ctk.CTkButton(
             self.app,
-            text="Resetuj",
-            command=self.app.file_handler.reset_app_state,
+            text="Wyczyść dane",
+            command=self.app.file_handler.clear_database_and_reset_gui,
             fg_color="red",
             hover_color="#C00000"
         )

@@ -1,9 +1,7 @@
 # This file contains the component for the "Transcription" field.
 # It consists of a label, a textbox, and a scrollbar.
 
-import tkinter as tk
 import customtkinter as ctk
-import os
 
 class TranscriptionView(ctk.CTkFrame):
     """
@@ -38,16 +36,14 @@ class TranscriptionView(ctk.CTkFrame):
         )
         self.text.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 
-    def update_from_file(self, file_path):
-        """Reads a text file and inserts its content into the textbox."""
+    def update_text(self, content):
+        """Populates the textbox with the given text content."""
         self.text.configure(state="normal")
         self.text.delete('1.0', "end")
         try:
-            if os.path.exists(file_path):
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    self.text.insert("end", f.read())
+            self.text.insert("end", content)
         except Exception as e:
-            print(f"Error reading file {file_path}: {e}")
+            print(f"Error updating transcription view: {e}")
         self.text.configure(state="disabled")
 
     def get_text(self):

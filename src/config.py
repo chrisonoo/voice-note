@@ -16,27 +16,13 @@ APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Używamy stałych folderów, aby stan aplikacji był zachowywany po jej zamknięciu.
 # Foldery będą tworzone dynamicznie gdy będą potrzebne
 TMP_DIR = os.path.join(APP_DIR, 'tmp')
-OUTPUT_DIR = os.path.join(TMP_DIR, 'output_wav')
+OUTPUT_DIR = TMP_DIR # Pliki .wav będą zapisywane bezpośrednio w folderze tymczasowym
 
-
-# --- NAZWY PLIKÓW STANU ---
-# Nazwy plików przechowujących listy na różnych etapach procesu.
-# Definiowane jako stałe, aby były spójne w całej aplikacji.
-SELECTED_FILENAME = '1_selected.txt'
-LOADED_FILENAME = '2_loaded.txt'
-PROCESSING_FILENAME = '3_processing.txt'
-PROCESSED_FILENAME = '4_processed.txt'
-TRANSCRIPTIONS_FILENAME = '5_transcriptions.txt'
-
-# --- ŚCIEŻKI DO PLIKÓW STANU ---
-# Pliki przechowujące listy plików na różnych etapach procesu.
-# Umieszczamy je w folderze `tmp`, aby były trwałe, ale ignorowane przez Git.
-SELECTED_LIST = os.path.join(TMP_DIR, SELECTED_FILENAME)
-LOADED_LIST = os.path.join(TMP_DIR, LOADED_FILENAME)
-PROCESSING_LIST = os.path.join(TMP_DIR, PROCESSING_FILENAME)
-PROCESSED_LIST = os.path.join(TMP_DIR, PROCESSED_FILENAME)
-TRANSCRIPTIONS = os.path.join(TMP_DIR, TRANSCRIPTIONS_FILENAME)
- 
+# --- BAZA DANYCH ---
+# Używamy bazy danych SQLite do przechowywania stanu aplikacji.
+# Plik bazy danych jest tworzony w folderze tymczasowym i usuwany przy każdym uruchomieniu.
+DATABASE_FILENAME = f"{APP_NAME.lower().replace(' ', '_')}.db"
+DATABASE_FILE = os.path.join(TMP_DIR, DATABASE_FILENAME)
 
 
 # --- PARAMETRY TRANSKRYPCJI WHISPER ---
