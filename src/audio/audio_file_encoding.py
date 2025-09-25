@@ -7,7 +7,7 @@ from src import config  # Importujemy nasz centralny plik konfiguracyjny
 
 def encode_audio_files():
     """
-    Czyta listę plików audio z pliku stanu (`config.AUDIO_LIST_TO_ENCODE_FILE`),
+    Czyta listę plików audio z pliku stanu (`config.SELECTED_LIST`),
     a następnie konwertuje każdy z nich do formatu WAV za pomocą FFMPEG,
     używając parametrów zdefiniowanych w `config.FFMPEG_PARAMS`.
     Nowe pliki są zapisywane w katalogu wyjściowym (`config.OUTPUT_DIR`),
@@ -17,7 +17,7 @@ def encode_audio_files():
 
     # Otwieramy plik z listą ścieżek do przetworzenia.
     # 'r' oznacza tryb odczytu (read).
-    with open(config.AUDIO_LIST_TO_ENCODE_FILE, 'r', encoding='utf-8') as f:
+    with open(config.SELECTED_LIST, 'r', encoding='utf-8') as f:
         # Przechodzimy przez każdą linię w pliku.
         for line in f:
             # `line.strip()` usuwa białe znaki (w tym znak nowej linii `\n`) z początku i końca linii.

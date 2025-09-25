@@ -27,7 +27,7 @@ def main_cli(args):
     os.makedirs(output_dir, exist_ok=True)
 
     # W trybie CLI używamy tych samych nazw plików co GUI
-    config.AUDIO_LIST_TO_ENCODE_FILE = os.path.join(rec_dir, config.SELECTED_FILENAME)
+    config.SELECTED_LIST = os.path.join(rec_dir, config.SELECTED_FILENAME)
     config.AUDIO_LIST_TO_TRANSCRIBE_FILE = os.path.join(rec_dir, config.LOADED_FILENAME)
     config.PROCESSING_LIST_FILE = os.path.join(rec_dir, config.PROCESSING_FILENAME)
     config.PROCESSED_LIST_FILE = os.path.join(rec_dir, config.PROCESSED_FILENAME)

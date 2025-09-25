@@ -11,7 +11,7 @@ def get_audio_file_list_cli(input_directory):
     """
     print("Krok 1 (CLI): Wyszukiwanie plików audio do przetworzenia...")
 
-    with open(config.AUDIO_LIST_TO_ENCODE_FILE, 'w', encoding='utf-8') as f:
+    with open(config.SELECTED_LIST, 'w', encoding='utf-8') as f:
         for root, _, files in os.walk(input_directory):
             for file in files:
                 extension = os.path.splitext(file)[1].lower()
@@ -19,4 +19,4 @@ def get_audio_file_list_cli(input_directory):
                     full_path = os.path.abspath(os.path.join(root, file))
                     f.write(full_path + '\n')
 
-    print(f"Znaleziono i zapisano listę plików w: {config.AUDIO_LIST_TO_ENCODE_FILE}")
+    print(f"Znaleziono i zapisano listę plików w: {config.SELECTED_LIST}")

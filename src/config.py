@@ -39,10 +39,6 @@ PROCESSING_LIST = os.path.join(TMP_DIR, PROCESSING_FILENAME)
 PROCESSED_LIST = os.path.join(TMP_DIR, PROCESSED_FILENAME)
 TRANSCRIPTIONS = os.path.join(TMP_DIR, TRANSCRIPTIONS_FILENAME)
  
-# Audio files selected for encoding
-# Use dedicated 1_selected.txt as the single source of truth
-AUDIO_LIST_TO_ENCODE_FILE = SELECTED_LIST
-TO_ENCODE_LIST = AUDIO_LIST_TO_ENCODE_FILE
 
 
 # --- PARAMETRY TRANSKRYPCJI WHISPER ---

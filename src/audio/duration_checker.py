@@ -38,7 +38,7 @@ def get_file_duration(file_path):
 
 def validate_file_durations():
     """
-    Waliduje czas trwania plików z listy `AUDIO_LIST_TO_ENCODE_FILE`.
+    Waliduje czas trwania plików z listy `SELECTED_LIST`.
     Ta funkcja jest głównie używana w trybie CLI.
 
     Returns:
@@ -46,7 +46,7 @@ def validate_file_durations():
     """
     long_files = []
     try:
-        with open(config.AUDIO_LIST_TO_ENCODE_FILE, 'r', encoding='utf-8') as f:
+        with open(config.SELECTED_LIST, 'r', encoding='utf-8') as f:
             files_to_check = [line.strip() for line in f.readlines()]
 
         for file_path in files_to_check:
