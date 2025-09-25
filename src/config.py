@@ -30,9 +30,9 @@ PROCESSING_LIST = os.path.join(TMP_DIR, '3_processing.txt')
 PROCESSED_LIST = os.path.join(TMP_DIR, '4_processed.txt')
 TRANSCRIPTIONS = os.path.join(TMP_DIR, '5_transcriptions.txt')
  
-# Lista plików wybranych do enkodowania (podzbiór z SELECTED_LIST)
-# Aliasujemy nazwę dla zgodności z różnymi częściami kodu (GUI/CLI)
-AUDIO_LIST_TO_ENCODE_FILE = os.path.join(TMP_DIR, '1_to_encode.txt')
+# Audio files selected for encoding
+# Use dedicated 1_selected.txt as the single source of truth
+AUDIO_LIST_TO_ENCODE_FILE = SELECTED_LIST
 TO_ENCODE_LIST = AUDIO_LIST_TO_ENCODE_FILE
 
 
@@ -42,7 +42,7 @@ WHISPER_API_TEMPERATURE = 0
 WHISPER_API_PROMPT = ""
 
 
-# --- USTAWIENIA ENKODOWANIA AUDIO ---
+# --- AUDIO ENCODING SETTINGS ---
 AUDIO_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.mp4', '.wma']
 FFMPEG_PARAMS = '-ac 1 -ar 44100'
 

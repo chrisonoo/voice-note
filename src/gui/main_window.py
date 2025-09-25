@@ -184,7 +184,7 @@ class App(tk.Tk):
         with open(config.SELECTED_LIST, 'w', encoding='utf-8') as f:
             for p in paths: f.write(p + '\n')
 
-        for f_path in [config.TO_ENCODE_LIST, config.LOADED_LIST, config.PROCESSING_LIST, config.PROCESSED_LIST, config.TRANSCRIPTIONS]:
+        for f_path in [config.LOADED_LIST, config.PROCESSING_LIST, config.PROCESSED_LIST, config.TRANSCRIPTIONS]:
             if os.path.exists(f_path): os.remove(f_path)
 
         self._update_ui_from_file_state()
@@ -199,7 +199,7 @@ class App(tk.Tk):
             self._update_ui_from_file_state()
             return
 
-        with open(config.TO_ENCODE_LIST, 'w', encoding='utf-8') as f:
+        with open(config.SELECTED_LIST, 'w', encoding='utf-8') as f:
             for file_path in files_to_load:
                 f.write(file_path + '\n')
 
@@ -212,9 +212,7 @@ class App(tk.Tk):
             with open(config.LOADED_LIST, 'w', encoding='utf-8') as f:
                 for path in wav_files: f.write(path + '\n')
 
-            # Po załadowaniu, czyścimy listę wybranych plików, aby uniknąć ponownego ładowania
-            if os.path.exists(config.TO_ENCODE_LIST):
-                os.remove(config.TO_ENCODE_LIST)
+            # Po załadowaniu, nie czyścimy już listy wybranych (SELECTED_LIST) – to źródło prawdy
 
             self.after(0, self._update_ui_from_file_state)
         except Exception as e:
