@@ -17,15 +17,24 @@ def main_cli(args):
     """
     print("--- Rozpoczynam proces transkrypcji w trybie CLI ---")
 
-    # Konfiguracja ścieżek dla trybu CLI
-    # Używamy tej samej architektury co GUI (folder tmp/)
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    input_dir = os.path.join(base_dir, 'input')
+    # Walidacja argumentu --input-dir
+    if not args.input_dir:
+        print("BŁĄD: Brak ścieżki do folderu źródłowego.")
+        print("Użyj: python main.py --input-dir /ścieżka/do/folderu/z/plikami")
+        sys.exit(1)
     
-    # Tworzymy folder input jeśli nie istnieje
-    os.makedirs(input_dir, exist_ok=True)
+    input_dir = os.path.abspath(args.input_dir)
     
-    # Nie nadpisujemy ścieżek z config.py - używamy tych samych co GUI
+    # Sprawdzenie czy podana ścieżka istnieje
+    if not os.path.exists(input_dir):
+        print(f"BŁĄD: Podana ścieżka nie istnieje: {input_dir}")
+        sys.exit(1)
+    
+    if not os.path.isdir(input_dir):
+        print(f"BŁĄD: Podana ścieżka nie jest folderem: {input_dir}")
+        sys.exit(1)
+    
+    print(f"Używam folderu źródłowego: {input_dir}")
 
     # Użycie dedykowanej funkcji do wyszukania plików dla CLI
     from src.audio import get_audio_file_list_cli
@@ -78,6 +87,11 @@ if __name__ == "__main__":
         "--gui",
         action="store_true",
         help="Uruchom aplikację w trybie graficznego interfejsu użytkownika (GUI)."
+    )
+    parser.add_argument(
+        "--input-dir",
+        type=str,
+        help="Ścieżka do folderu zawierającego pliki audio do transkrypcji (tylko tryb CLI)."
     )
     args = parser.parse_args()
 
