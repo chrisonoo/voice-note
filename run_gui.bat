@@ -1,21 +1,26 @@
 @echo off
-REM Ten skrypt aktywuje wirtualne środowisko i uruchamia aplikację Voice Note w trybie GUI.
+REM Ten skrypt uruchamia aplikację Voice Note w trybie GUI,
+REM używając bezpośrednio interpretera Python z wirtualnego środowiska.
 
 REM Ustawienie ścieżki do katalogu, w którym znajduje się ten skrypt
-set SCRIPT_DIR=%~dp0
+set "SCRIPT_DIR=%~dp0"
 
-REM Ścieżka do skryptu aktywującego .venv
-set VENV_ACTIVATE=%SCRIPT_DIR%.venv\Scripts\activate.bat
+REM Pełna ścieżka do interpretera Python w środowisku .venv
+set "PYTHON_EXE=%SCRIPT_DIR%.venv\Scripts\python.exe"
 
-REM Sprawdzenie, czy .venv istnieje
-if not exist "%VENV_ACTIVATE%" (
-    echo Wirtualne srodowisko (.venv) nie zostalo znalezione.
+REM Pełna ścieżka do głównego pliku aplikacji
+set "MAIN_PY=%SCRIPT_DIR%main.py"
+
+REM Sprawdzenie, czy interpreter Python istnieje
+if not exist "%PYTHON_EXE%" (
+    echo Interpreter Python nie zostal znaleziony w: %PYTHON_EXE%
+    echo.
+    echo Upewnij sie, ze wirtualne srodowisko .venv zostalo utworzone.
     echo Uruchom 'python -m venv .venv' i 'pip install -r requirements.txt'
     pause
     exit /b
 )
 
-REM Aktywacja środowiska i uruchomienie aplikacji
-call "%VENV_ACTIVATE%"
+REM Uruchomienie aplikacji za pomocą pełnej ścieżki do interpretera
 echo Uruchamianie Voice Note...
-python "%SCRIPT_DIR%main.py" --gui
+"%PYTHON_EXE%" "%MAIN_PY%" --gui
