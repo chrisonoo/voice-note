@@ -98,9 +98,9 @@ class InterfaceBuilder:
         self.app.files_counter_label = ctk.CTkLabel(
             self.app,
             text="",
-            anchor="w"
+            anchor="center"
         )
-        self.app.files_counter_label.grid(row=2, column=0, sticky="w", padx=(10, 5), pady=(5, 10))
+        self.app.files_counter_label.grid(row=2, column=0, sticky="ew", padx=(10, 5), pady=(5, 10))
 
         # --- Column 1: Loaded Files Counter ---
         self.app.loaded_counter_label = ctk.CTkLabel(

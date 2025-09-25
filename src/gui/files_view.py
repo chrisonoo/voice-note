@@ -8,8 +8,8 @@ class FilesView(ctk.CTkFrame):
     Replaces the standard ttk.Treeview with a CTkScrollableFrame
     containing checkboxes and labels for a modern appearance.
     """
-    def __init__(self, parent, title="Wczytane", **kwargs):
-        super().__init__(parent, **kwargs)
+    def __init__(self, parent, title="Wybrane", **kwargs):
+        super().__init__(parent, width=300, **kwargs)
 
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
@@ -18,18 +18,17 @@ class FilesView(ctk.CTkFrame):
         self.label.grid(row=0, column=0, sticky="ew", pady=(0, 5))
 
         # --- Scrollable Frame for File List ---
-        self.scrollable_frame = ctk.CTkScrollableFrame(self)
-        self.scrollable_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
-        self.scrollable_frame.grid_columnconfigure(1, weight=1) # Allow filename to expand
+        self.scrollable_frame = ctk.CTkScrollableFrame(self, width=284)
+        self.scrollable_frame.grid(row=1, column=0, sticky="nsew", padx=8, pady=8)
 
         # --- Header ---
-        header_checkbox = ctk.CTkLabel(self.scrollable_frame, text="", width=40)
+        header_checkbox = ctk.CTkLabel(self.scrollable_frame, text="", width=35)
         header_checkbox.grid(row=0, column=0, padx=(5,0), pady=2)
 
-        header_filename = ctk.CTkLabel(self.scrollable_frame, text="Nazwa", anchor="w")
-        header_filename.grid(row=0, column=1, sticky="ew", padx=5, pady=2)
+        header_filename = ctk.CTkLabel(self.scrollable_frame, text="Nazwa", width=150, anchor="w")
+        header_filename.grid(row=0, column=1, padx=5, pady=2)
 
-        header_duration = ctk.CTkLabel(self.scrollable_frame, text="Czas", width=75, anchor="center")
+        header_duration = ctk.CTkLabel(self.scrollable_frame, text="Czas", width=50, anchor="center")
         header_duration.grid(row=0, column=2, padx=5, pady=2)
 
         # --- Data Storage ---
@@ -50,17 +49,17 @@ class FilesView(ctk.CTkFrame):
             is_long = duration_sec > config.MAX_FILE_DURATION_SECONDS
 
             # --- Checkbox ---
-            checkbox = ctk.CTkCheckBox(self.scrollable_frame, text="")
+            checkbox = ctk.CTkCheckBox(self.scrollable_frame, text="", width=35)
             checkbox.grid(row=i, column=0, padx=(5,0), pady=2)
             if not is_long:
                 checkbox.select()
 
             # --- Filename Label ---
-            filename_label = ctk.CTkLabel(self.scrollable_frame, text=filename, anchor="w")
-            filename_label.grid(row=i, column=1, sticky="ew", padx=5, pady=2)
+            filename_label = ctk.CTkLabel(self.scrollable_frame, text=filename, width=150, anchor="w")
+            filename_label.grid(row=i, column=1, padx=5, pady=2)
 
             # --- Duration Label ---
-            duration_label = ctk.CTkLabel(self.scrollable_frame, text=duration_str, anchor="center")
+            duration_label = ctk.CTkLabel(self.scrollable_frame, text=duration_str, width=50, anchor="center")
             duration_label.grid(row=i, column=2, padx=5, pady=2)
 
             if is_long:
