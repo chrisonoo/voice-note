@@ -104,7 +104,10 @@ class App(tk.Tk):
         reset_frame.grid(row=2, column=0, columnspan=5, sticky="ew", padx=10, pady=(5, 10))
         reset_frame.grid_columnconfigure(0, weight=1)
         style = ttk.Style(self)
-        style.configure("Red.TButton", foreground="white", background="red")
+        style.configure("Red.TButton", foreground="white", background="red", borderwidth=0, relief="flat")
+        style.map("Red.TButton",
+            background=[('active', '#C00000'), ('pressed', '!disabled', '#C00000')]
+        )
         self.reset_button = ttk.Button(reset_frame, text="Resetuj", command=self.reset_app_state, style="Red.TButton")
         self.reset_button.grid(row=0, column=1, sticky="e", ipady=5)
 
@@ -199,23 +202,35 @@ class App(tk.Tk):
             self._update_ui_from_file_state()
             return
 
-        with open(config.SELECTED_LIST, 'w', encoding='utf-8') as f:
+        # Save only checked files to a separate list for processing, 
+        # but keep the original SELECTED_LIST intact
+        files_to_process_list = os.path.join(config.TMP_DIR, 'files_to_process.txt')
+        with open(files_to_process_list, 'w', encoding='utf-8') as f:
             for file_path in files_to_load:
                 f.write(file_path + '\n')
 
-        threading.Thread(target=self._load_files_worker, daemon=True).start()
+        threading.Thread(target=self._load_files_worker, args=(files_to_process_list,), daemon=True).start()
 
-    def _load_files_worker(self):
+    def _load_files_worker(self, files_to_process_list):
         try:
+            # Temporarily use the files_to_process list for encoding
+            original_selected = config.SELECTED_LIST
+            config.SELECTED_LIST = files_to_process_list
+            
             encode_audio_files()
             wav_files = sorted([os.path.join(config.OUTPUT_DIR, f) for f in os.listdir(config.OUTPUT_DIR) if f.endswith('.wav')])
             with open(config.LOADED_LIST, 'w', encoding='utf-8') as f:
                 for path in wav_files: f.write(path + '\n')
 
+            # Restore original selected list
+            config.SELECTED_LIST = original_selected
+
             # Po załadowaniu, nie czyścimy już listy wybranych (SELECTED_LIST) – to źródło prawdy
 
             self.after(0, self._update_ui_from_file_state)
         except Exception as e:
+            # Restore original selected list in case of error
+            config.SELECTED_LIST = original_selected
             self.after(0, lambda: messagebox.showerror("Błąd konwersji", f"Wystąpił błąd: {e}"))
             self.after(0, self.reset_app_state)
 
