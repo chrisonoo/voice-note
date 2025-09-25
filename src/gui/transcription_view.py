@@ -34,7 +34,7 @@ class TranscriptionView(ttk.Frame):
         text_frame.grid_columnconfigure(0, weight=1)
 
         # Pole tekstowe
-        self.text = tk.Text(text_frame, wrap="word", state="disabled")
+        self.text = tk.Text(text_frame, wrap="word", state="disabled", width=60)
         self.text.grid(row=0, column=0, sticky="nsew")
 
         # --- Pasek przewijania ---
