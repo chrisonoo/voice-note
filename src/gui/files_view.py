@@ -11,7 +11,7 @@ class FilesView(ttk.Frame):
     """
     Komponent GUI wyświetlający listę plików wybranych przez użytkownika.
     """
-    def __init__(self, parent, **kwargs):
+    def __init__(self, parent, title="Wczytane", **kwargs):
         super().__init__(parent, **kwargs)
 
         # Definicja znaków Unicode dla checkboxów
@@ -23,7 +23,7 @@ class FilesView(ttk.Frame):
         self.grid_columnconfigure(0, weight=1)
 
         # Etykieta
-        self.label = ttk.Label(self, text="Wczytane", anchor="center")
+        self.label = ttk.Label(self, text=title, anchor="center")
         self.label.grid(row=0, column=0, sticky="ew", pady=(0, 5))
 
         # --- Ramka dla Treeview i paska przewijania ---
