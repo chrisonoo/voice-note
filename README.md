@@ -27,8 +27,8 @@ Aplikacja tworzy również pliki pomocnicze w folderze `rec`, które pozwalają 
     ```
 
 2.  **Utwórz i aktywuj wirtualne środowisko:**
-    *   Dla macOS/Linux: `python3 -m venv venv && source venv/bin/activate`
-    *   Dla Windows: `python -m venv venv && .\\venv\\Scripts\\activate`
+    *   Dla macOS/Linux: `python3 -m venv .venv && source .venv/bin/activate`
+    *   Dla Windows: `python -m venv .venv && .\\.venv\\Scripts\\activate`
 
 3.  **Zainstaluj zależności:**
     ```bash
@@ -58,13 +58,13 @@ Tryb graficzny zapewnia interaktywną obsługę i wizualizację postępu.
 
 #### Ułatwione uruchamianie w Windows (opcjonalne)
 
-Aby uruchomić aplikację jednym kliknięciem (bez potrzeby ręcznego aktywowania środowiska wirtualnego), możesz użyć dołączonego skryptu `run_gui.bat`.
+Aby uruchomić aplikację jednym kliknięciem (bez potrzeby ręcznego aktywowania środowiska wirtualnego i bez widocznego okna terminala), możesz użyć dołączonych skryptów.
 
-1.  **Utwórz skrót:** Kliknij prawym przyciskiem myszy na plik `run_gui.bat` i wybierz `Utwórz skrót`.
+1.  **Utwórz skrót:** Kliknij prawym przyciskiem myszy na plik **`run_silent.vbs`** (nie `run_gui.bat`) i wybierz `Utwórz skrót`.
 2.  **(Opcjonalnie) Zmień ikonę:** Kliknij prawym przyciskiem na nowo utworzony skrót, wybierz `Właściwości` -> `Zmień ikonę...` i wybierz dowolną ikonę.
 3.  **Przenieś skrót** na pulpit lub w inne dogodne miejsce.
 
-Od teraz, dwukrotne kliknięcie skrótu automatycznie aktywuje środowisko wirtualne i uruchomi aplikację.
+Od teraz, dwukrotne kliknięcie skrótu uruchomi aplikację w jej wirtualnym środowisku, a okno terminala nie będzie widoczne.
 
 ### Tryb wiersza poleceń (CLI)
 

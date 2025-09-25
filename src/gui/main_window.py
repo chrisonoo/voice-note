@@ -53,7 +53,7 @@ class App(tk.Tk):
         self.control_panel = ControlPanel(
             self,
             reset_command=self.reset_app_state,
-            select_command=self.select_source_folder,
+            select_command=self.select_source_files,
             load_command=self.load_files_to_view
         )
         self.control_panel.grid(row=0, column=0, columnspan=4, sticky="ew", padx=10, pady=(10, 0))
@@ -83,64 +83,51 @@ class App(tk.Tk):
 
     # --- Metody związane z Panelem Sterowania ---
 
-    def select_source_folder(self):
-        """Otwiera okno dialogowe, zlicza pliki i przygotowuje do wczytania."""
-        folder_path = filedialog.askdirectory(title="Wybierz folder z plikami audio")
-        if not folder_path:
+    def select_source_files(self):
+        """Otwiera okno dialogowe do wyboru wielu plików i przygotowuje do wczytania."""
+        # Budowanie listy typów plików dla okna dialogowego
+        file_types = [("Pliki audio", " ".join(config.AUDIO_EXTENSIONS)), ("Wszystkie pliki", "*.*")]
+
+        # Otwieranie okna dialogowego, które pozwala wybrać wiele plików
+        selected_paths = filedialog.askopenfilenames(title="Wybierz pliki audio", filetypes=file_types)
+        if not selected_paths:
             return
 
-        try:
-            # Zlicz pliki pasujące do rozszerzeń, ale ich nie wczytuj
-            self.source_file_paths = [
-                os.path.join(folder_path, f)
-                for f in os.listdir(folder_path)
-                if os.path.isfile(os.path.join(folder_path, f)) and \
-                   os.path.splitext(f)[1].lower() in config.AUDIO_EXTENSIONS
-            ]
-
-            if not self.source_file_paths:
-                messagebox.showwarning("Brak plików", "Wybrany folder nie zawiera żadnych obsługiwanych plików audio.")
-                self.control_panel.set_info_label("Nie znaleziono plików.")
-                self.control_panel.set_button_state("load", "disabled")
-                return
-
-            # Zaktualizuj etykietę i aktywuj przycisk "Wczytaj Pliki"
-            self.control_panel.set_info_label(f"Znaleziono {len(self.source_file_paths)} plików. Kliknij 'Wczytaj'.")
-            self.control_panel.set_button_state("load", "normal")
-            # Wyczyść listę "Wczytane", jeśli były na niej jakieś pliki z poprzedniej sesji
-            self.files_view.clear_view()
-
-        except Exception as e:
-            messagebox.showerror("Błąd odczytu folderu", f"Wystąpił błąd: {e}")
-            self.control_panel.set_button_state("load", "disabled")
+        self.source_file_paths = selected_paths
+        self.control_panel.set_info_label(f"Wybrano {len(self.source_file_paths)} plików. Kliknij 'Wczytaj'.")
+        self.control_panel.set_button_state("load", "normal")
+        # Zablokuj przycisk wyboru plików, aby wymusić reset przed zmianą
+        self.control_panel.set_button_state("select", "disabled")
+        self.files_view.clear_view()
 
     def load_files_to_view(self):
         """
-        Kopiuje wybrane pliki do folderu tymczasowego, standaryzuje ich nazwy,
-        pobiera metadane i wyświetla je na liście "Wczytane".
+        Kopiuje wybrane pliki, konwertuje je do WAV, pobiera metadane
+        i wyświetla na liście "Wczytane".
         """
-        self.control_panel.set_button_state("select", "disabled")
+        # Zablokuj przycisk wczytywania na stałe po użyciu
         self.control_panel.set_button_state("load", "disabled")
-        self.control_panel.set_info_label("Wczytywanie plików...")
+        self.control_panel.set_info_label("Wczytywanie i konwersja...")
+        self.update_idletasks() # Wymuszenie odświeżenia etykiety
 
-        files_with_durations = []
+        files_to_process = []
         try:
-            for source_path in self.source_file_paths:
-                filename = os.path.basename(source_path)
-                standardized_name = self._standardize_filename(filename)
-                dest_path = os.path.join(config.SESSION_TEMP_DIR, standardized_name)
+            # Utwórz plik listy, który będzie używany przez `encode_audio_files`
+            create_audio_file_list(self.source_file_paths)
 
-                # Kopiowanie pliku do folderu tymczasowego
-                shutil.copy(source_path, dest_path)
+            # `encode_audio_files` konwertuje pliki z listy i zapisuje je w `OUTPUT_DIR`
+            encode_audio_files()
 
-                # Pobieranie czasu trwania ze skopiowanego pliku
-                duration = get_file_duration(dest_path)
-                files_with_durations.append((dest_path, duration))
+            # Teraz, gdy pliki są skonwertowane, zbierz informacje o nowo utworzonych plikach .wav
+            wav_files = [os.path.join(config.OUTPUT_DIR, f) for f in os.listdir(config.OUTPUT_DIR) if f.endswith('.wav')]
 
-            # Wypełnienie listy "Wczytane" danymi z plików w folderze tymczasowym
+            files_with_durations = []
+            for wav_path in wav_files:
+                duration = get_file_duration(wav_path)
+                files_with_durations.append((wav_path, duration))
+
             self.files_view.populate_files(files_with_durations)
             self.control_panel.set_info_label("Pliki gotowe do przetworzenia.")
-            self.update_status_lists()
 
         except Exception as e:
             messagebox.showerror("Błąd podczas wczytywania plików", f"Wystąpił błąd: {e}")
@@ -159,28 +146,28 @@ class App(tk.Tk):
             messagebox.showwarning("Brak plików", "Nie wybrano żadnych plików do transkrypcji.")
             return
 
+        # Krok 1: Wypełnij listę "Do przetworzenia" i odśwież widok
+        with open(config.PROCESSING_LIST_FILE, 'w', encoding='utf-8') as f:
+            for path in approved_files:
+                f.write(path + '\n')
+        self.processing_view.update_from_file(config.PROCESSING_LIST_FILE)
+
+        # Krok 2: Zablokuj przyciski i uruchom wątek
         self.action_panel.set_button_state("start", "disabled")
         self.control_panel.set_button_state("reset", "disabled")
 
         processing_thread = threading.Thread(
             target=self._transcription_thread_worker,
-            args=(approved_files,),
             daemon=True
         )
         processing_thread.start()
         self.monitor_processing(processing_thread)
 
-    def _transcription_thread_worker(self, files_to_process):
+    def _transcription_thread_worker(self):
         try:
-            create_audio_file_list(files_to_process)
-            encode_audio_files()
-
+            # Pliki do przetworzenia są już w pliku `PROCESSING_LIST_FILE`.
+            # `TranscriptionProcessor` odczyta tę listę.
             processor = TranscriptionProcessor()
-            # Ten krok jest kluczowy: tworzymy listę plików .wav do transkrypcji
-            # i kopiujemy ją do pliku `processing_list`, który jest monitorowany przez GUI.
-            processor._prepare_transcription_list()
-
-            # Teraz uruchamiamy właściwą pętlę transkrypcji
             processor.process_transcriptions()
         except Exception as e:
             self.after(0, lambda: messagebox.showerror("Błąd krytyczny", f"Wystąpił błąd w procesie transkrypcji: {e}"))
@@ -221,6 +208,10 @@ class App(tk.Tk):
         self.processed_view.update_from_file(config.PROCESSED_LIST_FILE)
 
     def reset_app_state(self):
+        # Pytamy użytkownika o potwierdzenie przed wykonaniem resetu
+        if not messagebox.askokcancel("Potwierdzenie", "Czy na pewno chcesz zresetować aplikację? Spowoduje to usunięcie wszystkich wczytanych plików i postępów."):
+            return
+
         print("Resetowanie stanu aplikacji...")
         self.source_file_paths = []
 

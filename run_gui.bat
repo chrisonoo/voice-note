@@ -4,13 +4,13 @@ REM Ten skrypt aktywuje wirtualne środowisko i uruchamia aplikację Voice Note 
 REM Ustawienie ścieżki do katalogu, w którym znajduje się ten skrypt
 set SCRIPT_DIR=%~dp0
 
-REM Ścieżka do skryptu aktywującego venv
+REM Ścieżka do skryptu aktywującego .venv
 set VENV_ACTIVATE=%SCRIPT_DIR%.venv\Scripts\activate.bat
 
-REM Sprawdzenie, czy venv istnieje
+REM Sprawdzenie, czy .venv istnieje
 if not exist "%VENV_ACTIVATE%" (
-    echo Wirtualne srodowisko nie zostalo znalezione.
-    echo Uruchom 'python -m venv venv' i 'pip install -r requirements.txt'
+    echo Wirtualne srodowisko (.venv) nie zostalo znalezione.
+    echo Uruchom 'python -m venv .venv' i 'pip install -r requirements.txt'
     pause
     exit /b
 )

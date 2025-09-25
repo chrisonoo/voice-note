@@ -30,11 +30,11 @@ class ControlPanel(ttk.Frame):
         self.reset_button = ttk.Button(self, text="Resetuj", command=reset_command)
         self.reset_button.grid(row=0, column=0, padx=5, sticky="ew")
 
-        self.select_button = ttk.Button(self, text="Wybierz Foldery", command=select_command)
+        self.select_button = ttk.Button(self, text="Wybierz Pliki", command=select_command)
         self.select_button.grid(row=0, column=1, padx=5, sticky="ew")
 
         # Etykieta na informację o wybranym folderze lub liczbie plików
-        self.info_label = ttk.Label(self, text="Wybierz folder z plikami audio")
+        self.info_label = ttk.Label(self, text="Wybierz pliki audio do przetworzenia")
         self.info_label.grid(row=0, column=2, padx=5)
 
         self.load_button = ttk.Button(self, text="Wczytaj Pliki", command=load_command, state="disabled")
