@@ -10,6 +10,7 @@ class FilesView(ctk.CTkFrame):
     """
     def __init__(self, parent, title="Wybrane", **kwargs):
         super().__init__(parent, width=300, **kwargs)
+        self.grid_propagate(False)
 
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
