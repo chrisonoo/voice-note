@@ -6,7 +6,8 @@
 # Dzięki plikom __init__.py w każdym module, możemy to zrobić w bardzo czytelny sposób.
 import argparse
 import sys
-from src.audio import get_audio_file_list, encode_audio_files, validate_file_durations
+import os
+from src.audio import create_audio_file_list, encode_audio_files, validate_file_durations
 from src.transcribe import TranscriptionProcessor
 from src import config
 
@@ -14,13 +15,32 @@ def main_cli(args):
     """
     Główna funkcja orkiestrująca całym procesem transkrypcji w trybie CLI.
     """
-    # Wyświetlamy komunikat na starcie, aby użytkownik wiedział, że proces się rozpoczął.
-    print("--- Rozpoczynam proces transkrypcji ---")
+    print("--- Rozpoczynam proces transkrypcji w trybie CLI ---")
+
+    # W trybie CLI symulujemy starą logikę - szukamy plików w folderze `rec/input`
+    cli_input_dir = os.path.join(os.path.dirname(__file__), 'rec', 'input')
+    if not os.path.exists(cli_input_dir):
+        os.makedirs(cli_input_dir)
+        print(f"Utworzono folder wejściowy: {cli_input_dir}")
+        print("Proszę umieścić pliki audio w tym folderze i uruchomić aplikację ponownie.")
+        sys.exit(0)
 
     # === KROK 1: Wyszukiwanie plików audio ===
-    # Wywołujemy funkcję, która przeszukuje folder `rec/input` i tworzy listę
-    # plików do przetworzenia. Lista ta jest zapisywana w pliku tekstowym.
-    get_audio_file_list(config.INPUT_DIR)
+    print(f"Wyszukiwanie plików w folderze: {cli_input_dir}")
+    audio_files = []
+    for root, _, files in os.walk(cli_input_dir):
+        for file in files:
+            extension = os.path.splitext(file)[1].lower()
+            if config.AUDIO_EXTENSIONS is None or extension in config.AUDIO_EXTENSIONS:
+                full_path = os.path.abspath(os.path.join(root, file))
+                audio_files.append(full_path)
+
+    if not audio_files:
+        print("Nie znaleziono plików audio do przetworzenia.")
+        sys.exit(0)
+
+    # Tworzymy listę plików w folderze tymczasowym
+    create_audio_file_list(audio_files)
 
     # === KROK 1.5: Walidacja długości plików ===
     if not args.allow_long:
@@ -74,7 +94,7 @@ if __name__ == "__main__":
 
     if args.gui:
         # Importujemy i uruchamiamy GUI
-        from gui import main as main_gui
+        from src.gui.main_window import main as main_gui
         main_gui()
     else:
         # Uruchamiamy tryb wiersza poleceń

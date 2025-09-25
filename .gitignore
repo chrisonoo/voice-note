@@ -1,36 +1,14 @@
-# Środowiska wirtualne
+# Ignoruj foldery ze środowiskami wirtualnymi
 venv/
 .venv/
-env/
-ENV/
 
-# Pliki tymczasowe Pythona
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Pliki z sekretami i konfiguracją lokalną
+# Ignoruj pliki konfiguracyjne ze zmiennymi środowiskowymi
 .env
-.env.*
-!.env.example
 
-# Pliki systemowe
-.DS_Store
+# Ignoruj folder `rec`, który był używany w poprzednich wersjach
+rec/
 
-# Pliki generowane przez edytory i IDE
+# Ignoruj foldery generowane przez system lub edytor
+__pycache__/
 .idea/
 .vscode/
-*.swp
-
-# Pliki projektu
-# Ignoruj zawartość folderów wejściowych i wyjściowych,
-# ale zachowaj same foldery dzięki plikom .gitkeep.
-rec/input/*
-!rec/input/.gitkeep
-
-rec/output/*
-!rec/output/.gitkeep
-
-# Ignoruj pliki stanu generowane w folderze rec
-rec/*.txt
