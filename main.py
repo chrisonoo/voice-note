@@ -26,12 +26,12 @@ def main_cli(args):
     os.makedirs(input_dir, exist_ok=True)
     os.makedirs(output_dir, exist_ok=True)
 
-    # W trybie CLI używamy tego samego pliku co GUI: 1_selected.txt
-    config.AUDIO_LIST_TO_ENCODE_FILE = os.path.join(rec_dir, '1_selected.txt')
-    config.AUDIO_LIST_TO_TRANSCRIBE_FILE = os.path.join(rec_dir, '2_audio_list_to_transcribe.txt')
-    config.PROCESSING_LIST_FILE = os.path.join(rec_dir, '3_processing_list.txt')
-    config.PROCESSED_LIST_FILE = os.path.join(rec_dir, '4_processed_list.txt')
-    config.TRANSCRIPTIONS_FILE = os.path.join(rec_dir, '5_transcriptions.txt')
+    # W trybie CLI używamy tych samych nazw plików co GUI
+    config.AUDIO_LIST_TO_ENCODE_FILE = os.path.join(rec_dir, config.SELECTED_FILENAME)
+    config.AUDIO_LIST_TO_TRANSCRIBE_FILE = os.path.join(rec_dir, config.LOADED_FILENAME)
+    config.PROCESSING_LIST_FILE = os.path.join(rec_dir, config.PROCESSING_FILENAME)
+    config.PROCESSED_LIST_FILE = os.path.join(rec_dir, config.PROCESSED_FILENAME)
+    config.TRANSCRIPTIONS_FILE = os.path.join(rec_dir, config.TRANSCRIPTIONS_FILENAME)
     config.OUTPUT_DIR = output_dir
 
     # Użycie dedykowanej funkcji do wyszukania plików dla CLI

@@ -21,14 +21,23 @@ OUTPUT_DIR = os.path.join(TMP_DIR, 'output_wav')
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
+# --- NAZWY PLIKÓW STANU ---
+# Nazwy plików przechowujących listy na różnych etapach procesu.
+# Definiowane jako stałe, aby były spójne w całej aplikacji.
+SELECTED_FILENAME = '1_selected.txt'
+LOADED_FILENAME = '2_audio_list_to_transcribe.txt'
+PROCESSING_FILENAME = '3_processing_list.txt'
+PROCESSED_FILENAME = '4_processed_list.txt'
+TRANSCRIPTIONS_FILENAME = '5_transcriptions.txt'
+
 # --- ŚCIEŻKI DO PLIKÓW STANU ---
 # Pliki przechowujące listy plików na różnych etapach procesu.
 # Umieszczamy je w folderze `tmp`, aby były trwałe, ale ignorowane przez Git.
-SELECTED_LIST = os.path.join(TMP_DIR, '1_selected.txt')
-LOADED_LIST = os.path.join(TMP_DIR, '2_loaded.txt')
-PROCESSING_LIST = os.path.join(TMP_DIR, '3_processing.txt')
-PROCESSED_LIST = os.path.join(TMP_DIR, '4_processed.txt')
-TRANSCRIPTIONS = os.path.join(TMP_DIR, '5_transcriptions.txt')
+SELECTED_LIST = os.path.join(TMP_DIR, SELECTED_FILENAME)
+LOADED_LIST = os.path.join(TMP_DIR, LOADED_FILENAME)
+PROCESSING_LIST = os.path.join(TMP_DIR, PROCESSING_FILENAME)
+PROCESSED_LIST = os.path.join(TMP_DIR, PROCESSED_FILENAME)
+TRANSCRIPTIONS = os.path.join(TMP_DIR, TRANSCRIPTIONS_FILENAME)
  
 # Audio files selected for encoding
 # Use dedicated 1_selected.txt as the single source of truth
