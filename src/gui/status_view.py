@@ -43,12 +43,7 @@ class StatusView(ttk.Frame):
         self.listbox.configure(yscrollcommand=scrollbar.set)
         scrollbar.grid(row=0, column=1, sticky="ns")
 
-        # --- Panel z licznikami ---
-        counter_frame = ttk.Frame(self)
-        counter_frame.grid(row=2, column=0, sticky="ew", pady=(5, 0))
-
-        self.total_label = ttk.Label(counter_frame, text="Liczba plików: 0")
-        self.total_label.pack(side="left", padx=5)
+        # Counter elements will be moved to main window level - removing from here
 
     def update_from_file(self, file_path):
         """
@@ -65,9 +60,13 @@ class StatusView(ttk.Frame):
         except Exception as e:
             print(f"Błąd odczytu pliku {file_path}: {e}")
 
-        self.total_label.config(text=f"Liczba plików: {count}")
+        # Counter label moved to main window - accessing through parent
+        if hasattr(self.master, 'update_status_counter'):
+            self.master.update_status_counter(self, count)
 
     def clear_view(self):
         """Czyści listę i resetuje licznik."""
         self.listbox.delete(0, tk.END)
-        self.total_label.config(text="Liczba plików: 0")
+        # Counter label moved to main window - accessing through parent
+        if hasattr(self.master, 'update_status_counter'):
+            self.master.update_status_counter(self, 0)

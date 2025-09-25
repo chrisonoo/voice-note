@@ -53,16 +53,7 @@ class FilesView(ttk.Frame):
         self.tree.configure(yscrollcommand=scrollbar.set)
         scrollbar.grid(row=0, column=1, sticky="ns")
 
-        # --- Panel z licznikami ---
-        counter_frame = ttk.Frame(self)
-        counter_frame.grid(row=2, column=0, sticky="ew", pady=(5, 0))
-
-        self.total_files_label = ttk.Label(counter_frame, text="Wszystkich: 0")
-        self.total_files_label.pack(side="left", padx=5)
-        self.approved_files_label = ttk.Label(counter_frame, text="Zatwierdzonych: 0")
-        self.approved_files_label.pack(side="left", padx=5)
-        self.long_files_label = ttk.Label(counter_frame, text="Za długich: 0")
-        self.long_files_label.pack(side="left", padx=5)
+        # Counter elements will be moved to main window level - removing from here
 
         # --- Logika checkboxów tekstowych ---
         self.tree.bind("<Button-1>", self._toggle_checkbox)
@@ -112,9 +103,9 @@ class FilesView(ttk.Frame):
         approved = len(self.get_checked_files())
         long_files = len(self.tree.tag_has("long_file"))
 
-        self.total_files_label.config(text=f"Wszystkich: {total}")
-        self.approved_files_label.config(text=f"Zatwierdzonych: {approved}")
-        self.long_files_label.config(text=f"Za długich: {long_files}")
+        # Counter labels moved to main window - accessing through parent
+        if hasattr(self.master, 'update_files_counter'):
+            self.master.update_files_counter(total, approved, long_files)
 
     def get_checked_files(self):
         """Zwraca listę pełnych ścieżek do plików, które są zaznaczone."""
