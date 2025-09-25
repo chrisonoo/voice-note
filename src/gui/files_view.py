@@ -14,6 +14,10 @@ class FilesView(ttk.Frame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, **kwargs)
 
+        # Definicja znaków Unicode dla checkboxów
+        self.CHECK_ON = "☑"
+        self.CHECK_OFF = "☐"
+
         # Konfiguracja siatki wewnątrz komponentu
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
@@ -32,7 +36,6 @@ class FilesView(ttk.Frame):
         self.tree = ttk.Treeview(
             tree_frame,
             columns=("checked", "filename", "duration"),
-            displaycolumns=("checked", "filename", "duration"),
             show="headings"
         )
         self.tree.grid(row=0, column=0, sticky="nsew")
@@ -61,39 +64,25 @@ class FilesView(ttk.Frame):
         self.long_files_label = ttk.Label(counter_frame, text="Za długich: 0")
         self.long_files_label.pack(side="left", padx=5)
 
-        # --- Logika emulowanych checkboxów ---
-        self._create_checkbox_images()
+        # --- Logika checkboxów tekstowych ---
         self.tree.bind("<Button-1>", self._toggle_checkbox)
         self.tree.tag_configure("long_file", foreground="red")
 
         # Słownik do przechowywania pełnych ścieżek dla każdego wiersza
         self.file_paths = {}
 
-    def _create_checkbox_images(self):
-        """Tworzy proste obrazki do emulacji checkboxów."""
-        self.checkbox_on = tk.PhotoImage(width=16, height=16)
-        self.checkbox_off = tk.PhotoImage(width=16, height=16)
-
-        self.checkbox_on.put(("black",), to=(2, 2, 13, 13))
-        self.checkbox_on.put(("white",), to=(4, 4, 11, 11))
-        self.checkbox_on.put(("#009688",), to=(5, 5, 10, 10)) # Kolor zaznaczenia
-
-        self.checkbox_off.put(("black",), to=(2, 2, 13, 13))
-        self.checkbox_off.put(("white",), to=(3, 3, 12, 12))
-
     def _toggle_checkbox(self, event):
         """Obsługuje kliknięcie w celu przełączenia stanu checkboxa."""
         row_id = self.tree.identify_row(event.y)
         column_id = self.tree.identify_column(event.x)
 
+        # Reaguj tylko na kliknięcie w pierwszej kolumnie ("checked")
         if not row_id or column_id != "#1":
             return
 
-        item = self.tree.item(row_id)
-        current_image = item["image"][0] # Nazwa obrazka jest w krotce
-
-        new_image = self.checkbox_on if current_image == str(self.checkbox_off) else self.checkbox_off
-        self.tree.item(row_id, image=new_image)
+        current_value = self.tree.set(row_id, "checked")
+        new_value = self.CHECK_ON if current_value == self.CHECK_OFF else self.CHECK_OFF
+        self.tree.set(row_id, "checked", new_value)
         self.update_counters()
 
     def populate_files(self, files_data):
@@ -109,10 +98,10 @@ class FilesView(ttk.Frame):
             duration_str = f"{int(duration_sec // 60):02d}:{int(duration_sec % 60):02d}"
 
             is_long = duration_sec > config.MAX_FILE_DURATION_SECONDS
-            image = self.checkbox_off if is_long else self.checkbox_on
+            check_status = self.CHECK_OFF if is_long else self.CHECK_ON
             tags = ("long_file",) if is_long else ()
 
-            row_id = self.tree.insert("", "end", values=("", filename, duration_str), image=image, tags=tags)
+            row_id = self.tree.insert("", "end", values=(check_status, filename, duration_str), tags=tags)
             self.file_paths[row_id] = file_path
 
         self.update_counters()
@@ -131,7 +120,7 @@ class FilesView(ttk.Frame):
         """Zwraca listę pełnych ścieżek do plików, które są zaznaczone."""
         checked_files = []
         for row_id in self.tree.get_children():
-            if self.tree.item(row_id, "image")[0] == str(self.checkbox_on):
+            if self.tree.set(row_id, "checked") == self.CHECK_ON:
                 checked_files.append(self.file_paths[row_id])
         return checked_files
 

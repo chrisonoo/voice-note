@@ -14,33 +14,34 @@ from src import config
 def main_cli(args):
     """
     Główna funkcja orkiestrująca całym procesem transkrypcji w trybie CLI.
+    Ta funkcja jest teraz w pełni niezależna od logiki GUI i folderów tymczasowych.
     """
     print("--- Rozpoczynam proces transkrypcji w trybie CLI ---")
 
-    # W trybie CLI symulujemy starą logikę - szukamy plików w folderze `rec/input`
-    cli_input_dir = os.path.join(os.path.dirname(__file__), 'rec', 'input')
-    if not os.path.exists(cli_input_dir):
-        os.makedirs(cli_input_dir)
-        print(f"Utworzono folder wejściowy: {cli_input_dir}")
-        print("Proszę umieścić pliki audio w tym folderze i uruchomić aplikację ponownie.")
-        sys.exit(0)
+    # Przywracamy starą logikę opartą o stały folder `rec/`
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    rec_dir = os.path.join(base_dir, 'rec')
+    input_dir = os.path.join(rec_dir, 'input')
+    output_dir = os.path.join(rec_dir, 'output')
+
+    # Utwórz foldery, jeśli nie istnieją
+    os.makedirs(input_dir, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
 
     # === KROK 1: Wyszukiwanie plików audio ===
-    print(f"Wyszukiwanie plików w folderze: {cli_input_dir}")
-    audio_files = []
-    for root, _, files in os.walk(cli_input_dir):
-        for file in files:
-            extension = os.path.splitext(file)[1].lower()
-            if config.AUDIO_EXTENSIONS is None or extension in config.AUDIO_EXTENSIONS:
-                full_path = os.path.abspath(os.path.join(root, file))
-                audio_files.append(full_path)
+    print(f"Wyszukiwanie plików w folderze: {input_dir}")
+    # Dynamiczne nadpisanie konfiguracji dla trybu CLI
+    config.AUDIO_LIST_TO_ENCODE_FILE = os.path.join(rec_dir, '1_audio_list_to_encode.txt')
+    config.AUDIO_LIST_TO_TRANSCRIBE_FILE = os.path.join(rec_dir, '2_audio_list_to_transcribe.txt')
+    config.PROCESSING_LIST_FILE = os.path.join(rec_dir, '3_processing_list.txt')
+    config.PROCESSED_LIST_FILE = os.path.join(rec_dir, '4_processed_list.txt')
+    config.TRANSCRIPTIONS_FILE = os.path.join(rec_dir, '5_transcriptions.txt')
+    config.OUTPUT_DIR = output_dir
 
-    if not audio_files:
-        print("Nie znaleziono plików audio do przetworzenia.")
-        sys.exit(0)
-
-    # Tworzymy listę plików w folderze tymczasowym
-    create_audio_file_list(audio_files)
+    # Używamy oryginalnej funkcji `get_audio_file_list` z `argparse`
+    # Musimy ją zaimportować lokalnie, aby uniknąć konfliktu nazw
+    from src.audio.audio_file_list_cli import get_audio_file_list_cli
+    get_audio_file_list_cli(input_dir)
 
     # === KROK 1.5: Walidacja długości plików ===
     if not args.allow_long:
