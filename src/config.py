@@ -14,23 +14,21 @@ APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # --- KATALOGI ROBOCZE ---
 # Używamy stałych folderów, aby stan aplikacji był zachowywany po jej zamknięciu.
-REC_DIR = os.path.join(APP_DIR, 'rec')
 TMP_DIR = os.path.join(APP_DIR, 'tmp')
 OUTPUT_DIR = os.path.join(TMP_DIR, 'output_wav')
 
 # Tworzymy wszystkie potrzebne foldery przy starcie, jeśli nie istnieją.
-os.makedirs(REC_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
 # --- ŚCIEŻKI DO PLIKÓW STANU ---
 # Pliki przechowujące listy plików na różnych etapach procesu.
-# Umieszczamy je w folderze `rec`, aby były trwałe.
-AUDIO_LIST_TO_ENCODE_FILE = os.path.join(REC_DIR, '1_audio_list_to_encode.txt')
-AUDIO_LIST_TO_TRANSCRIBE_FILE = os.path.join(REC_DIR, '2_audio_list_to_transcribe.txt')
-PROCESSING_LIST_FILE = os.path.join(REC_DIR, '3_processing_list.txt')
-PROCESSED_LIST_FILE = os.path.join(REC_DIR, '4_processed_list.txt')
-TRANSCRIPTIONS_FILE = os.path.join(REC_DIR, '5_transcriptions.txt')
+# Umieszczamy je w folderze `tmp`, aby były trwałe, ale ignorowane przez Git.
+AUDIO_LIST_TO_ENCODE_FILE = os.path.join(TMP_DIR, '1_audio_list_to_encode.txt')
+AUDIO_LIST_TO_TRANSCRIBE_FILE = os.path.join(TMP_DIR, '2_audio_list_to_transcribe.txt')
+PROCESSING_LIST_FILE = os.path.join(TMP_DIR, '3_processing_list.txt')
+PROCESSED_LIST_FILE = os.path.join(TMP_DIR, '4_processed_list.txt')
+TRANSCRIPTIONS_FILE = os.path.join(TMP_DIR, '5_transcriptions.txt')
 
 
 # --- PARAMETRY TRANSKRYPCJI WHISPER ---
