@@ -43,7 +43,7 @@ class App(ctk.CTk):
 
         # --- UI Grid Layout Configuration ---
         # Column 0: File Selection Panel (wider for file list with details)
-        self.grid_columnconfigure(0, weight=4)
+        self.grid_columnconfigure(0, weight=0)
         # Columns 1-3: Status Panels (fixed width for consistency)  
         self.grid_columnconfigure(1, weight=0)  # Conversion Status
         self.grid_columnconfigure(2, weight=0)  # Transcription Queue
