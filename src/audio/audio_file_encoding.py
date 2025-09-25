@@ -28,6 +28,8 @@ def encode_audio_files():
             # Standaryzujemy nazwę: małe litery, spacje na podkreślenia, usuwamy oryginalne rozszerzenie.
             standardized_name, _ = os.path.splitext(base_name.lower().replace(' ', '_'))
             output_filename = f"{standardized_name}.wav"
+            # Ensure output directory exists before writing
+            os.makedirs(config.OUTPUT_DIR, exist_ok=True)
             new_path = os.path.join(config.OUTPUT_DIR, output_filename)
 
             print(f"  Konwertowanie: {os.path.basename(original_path)} -> {os.path.basename(new_path)}")

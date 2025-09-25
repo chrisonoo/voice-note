@@ -184,6 +184,8 @@ class App(tk.Tk):
         paths = filedialog.askopenfilenames(title="Wybierz pliki audio", filetypes=[("Pliki audio", " ".join(config.AUDIO_EXTENSIONS))])
         if not paths: return
 
+        # Ensure tmp directory exists before writing
+        os.makedirs(os.path.dirname(config.SELECTED_LIST), exist_ok=True)
         with open(config.SELECTED_LIST, 'w', encoding='utf-8') as f:
             for p in paths: f.write(p + '\n')
 
@@ -219,6 +221,8 @@ class App(tk.Tk):
             
             encode_audio_files()
             wav_files = sorted([os.path.join(config.OUTPUT_DIR, f) for f in os.listdir(config.OUTPUT_DIR) if f.endswith('.wav')])
+            # Ensure tmp directory exists before writing
+            os.makedirs(os.path.dirname(config.LOADED_LIST), exist_ok=True)
             with open(config.LOADED_LIST, 'w', encoding='utf-8') as f:
                 for path in wav_files: f.write(path + '\n')
 
@@ -240,6 +244,8 @@ class App(tk.Tk):
         if not files:
             messagebox.showwarning("Brak plików", "Brak plików do przetworzenia.")
             return
+        # Ensure tmp directory exists before writing
+        os.makedirs(os.path.dirname(config.PROCESSING_LIST), exist_ok=True)
         with open(config.PROCESSING_LIST, 'w', encoding='utf-8') as f:
             for file in files: f.write(file + '\n')
 
@@ -307,15 +313,10 @@ class App(tk.Tk):
             if os.path.exists(config.TMP_DIR):
                 shutil.rmtree(config.TMP_DIR)
 
-            # Utwórz ponownie wymagane foldery
-            os.makedirs(config.OUTPUT_DIR, exist_ok=True)
-
             self._update_ui_from_file_state()
             messagebox.showinfo("Reset", "Aplikacja została zresetowana.")
         except Exception as e:
             messagebox.showerror("Błąd resetowania", f"Nie udało się zresetować aplikacji: {e}")
-            # Spróbuj odtworzyć podstawową strukturę, aby aplikacja mogła kontynuować
-            os.makedirs(config.OUTPUT_DIR, exist_ok=True)
             self._update_ui_from_file_state()
 
     def on_closing(self):

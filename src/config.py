@@ -14,11 +14,9 @@ APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # --- KATALOGI ROBOCZE ---
 # Używamy stałych folderów, aby stan aplikacji był zachowywany po jej zamknięciu.
+# Foldery będą tworzone dynamicznie gdy będą potrzebne
 TMP_DIR = os.path.join(APP_DIR, 'tmp')
 OUTPUT_DIR = os.path.join(TMP_DIR, 'output_wav')
-
-# Tworzymy wszystkie potrzebne foldery przy starcie, jeśli nie istnieją.
-os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
 # --- NAZWY PLIKÓW STANU ---

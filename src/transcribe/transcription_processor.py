@@ -43,13 +43,17 @@ class TranscriptionProcessor:
             transcription = whisper.transcribe()
 
             if transcription:
+                # Ensure tmp directory exists before writing
+                os.makedirs(os.path.dirname(config.TRANSCRIPTIONS), exist_ok=True)
                 with open(config.TRANSCRIPTIONS, 'a', encoding='utf8') as f:
                     f.write(f"{transcription.text}\n\n")
                 print(f"    Sukces: Transkrypcja zapisana.")
 
+                os.makedirs(os.path.dirname(config.PROCESSED_LIST), exist_ok=True)
                 with open(config.PROCESSED_LIST, 'a', encoding='utf8') as f:
                     f.write(audio_file + '\n')
 
+                os.makedirs(os.path.dirname(config.PROCESSING_LIST), exist_ok=True)
                 with open(config.PROCESSING_LIST, 'w', encoding='utf8') as f:
                     for file_path in files_to_process:
                         f.write(file_path + '\n')

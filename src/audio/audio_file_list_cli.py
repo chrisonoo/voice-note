@@ -11,6 +11,8 @@ def get_audio_file_list_cli(input_directory):
     """
     print("Krok 1 (CLI): Wyszukiwanie plików audio do przetworzenia...")
 
+    # Ensure tmp directory exists before writing
+    os.makedirs(os.path.dirname(config.SELECTED_LIST), exist_ok=True)
     with open(config.SELECTED_LIST, 'w', encoding='utf-8') as f:
         for root, _, files in os.walk(input_directory):
             for file in files:
