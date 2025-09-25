@@ -30,24 +30,18 @@ class StatusView(ttk.Frame):
 
         # --- Ramka dla Listbox i paska przewijania ---
         list_frame = ttk.Frame(self)
-        list_frame.grid(row=1, column=0, sticky="nsew")
+        list_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
         list_frame.grid_rowconfigure(0, weight=1)
         list_frame.grid_columnconfigure(0, weight=1)
 
-        # --- Ramka z paddingiem dla Listbox ---
-        list_padding_frame = ttk.Frame(list_frame)
-        list_padding_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-        list_padding_frame.grid_rowconfigure(0, weight=1)
-        list_padding_frame.grid_columnconfigure(0, weight=1)
-
         # Lista
-        self.listbox = tk.Listbox(list_padding_frame, width=30, relief="sunken", borderwidth=1)
+        self.listbox = tk.Listbox(list_frame, width=30, relief="sunken", borderwidth=1)
         self.listbox.grid(row=0, column=0, sticky="nsew")
 
         # --- Pasek przewijania ---
         scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=self.listbox.yview)
         self.listbox.configure(yscrollcommand=scrollbar.set)
-        scrollbar.grid(row=0, column=1, sticky="ns", pady=5)
+        scrollbar.grid(row=0, column=1, sticky="ns")
 
         # --- Panel z licznikami ---
         counter_frame = ttk.Frame(self)

@@ -28,19 +28,13 @@ class FilesView(ttk.Frame):
 
         # --- Ramka dla Treeview i paska przewijania ---
         tree_frame = ttk.Frame(self)
-        tree_frame.grid(row=1, column=0, sticky="nsew")
+        tree_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
         tree_frame.grid_rowconfigure(0, weight=1)
         tree_frame.grid_columnconfigure(0, weight=1)
 
-        # --- Ramka z paddingiem dla Treeview ---
-        tree_padding_frame = ttk.Frame(tree_frame)
-        tree_padding_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-        tree_padding_frame.grid_rowconfigure(0, weight=1)
-        tree_padding_frame.grid_columnconfigure(0, weight=1)
-
         # --- Widżet Treeview do wyświetlania plików ---
         self.tree = ttk.Treeview(
-            tree_padding_frame,
+            tree_frame,
             columns=("checked", "filename", "duration"),
             show="headings"
         )
@@ -57,7 +51,7 @@ class FilesView(ttk.Frame):
         # --- Pasek przewijania ---
         scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscrollcommand=scrollbar.set)
-        scrollbar.grid(row=0, column=1, sticky="ns", pady=5)
+        scrollbar.grid(row=0, column=1, sticky="ns")
 
         # --- Panel z licznikami ---
         counter_frame = ttk.Frame(self)
