@@ -27,8 +27,8 @@ Aplikacja tworzy również pliki pomocnicze w folderze `rec`, które pozwalają 
     ```
 
 2.  **Utwórz i aktywuj wirtualne środowisko:**
-    *   Dla macOS/Linux: `python3 -m venv .venv && source venv/bin/activate`
-    *   Dla Windows: `python -m venv .venv && source .venv/Scripts/activate`
+    *   Dla macOS/Linux: `python3 -m venv venv && source venv/bin/activate`
+    *   Dla Windows: `python -m venv venv && .\\venv\\Scripts\\activate`
 
 3.  **Zainstaluj zależności:**
     ```bash

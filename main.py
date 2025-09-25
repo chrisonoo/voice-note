@@ -4,7 +4,9 @@
 
 # Importujemy potrzebne funkcje z naszych modułów.
 # Dzięki plikom __init__.py w każdym module, możemy to zrobić w bardzo czytelny sposób.
-from src.audio import get_audio_file_list, encode_audio_files
+import argparse
+import sys
+from src.audio import get_audio_file_list, encode_audio_files, validate_file_durations
 from src.transcribe import TranscriptionProcessor
 
 
@@ -13,6 +15,15 @@ def main():
     Główna funkcja orkiestrująca całym procesem transkrypcji.
     Wykonuje po kolei wszystkie kroki potrzebne do przetworzenia plików audio.
     """
+    # === KROK 0: Parsowanie argumentów linii poleceń ===
+    parser = argparse.ArgumentParser(description="Transkrypcja plików audio z użyciem API OpenAI Whisper.")
+    parser.add_argument(
+        "-l", "--allow-long",
+        action="store_true",
+        help="Zezwól na przetwarzanie plików dłuższych niż 5 minut."
+    )
+    args = parser.parse_args()
+
     # Wyświetlamy komunikat na starcie, aby użytkownik wiedział, że proces się rozpoczął.
     print("--- Rozpoczynam proces transkrypcji ---")
 
@@ -20,6 +31,20 @@ def main():
     # Wywołujemy funkcję, która przeszukuje folder `rec/input` i tworzy listę
     # plików do przetworzenia. Lista ta jest zapisywana w pliku tekstowym.
     get_audio_file_list()
+
+    # === KROK 1.5: Walidacja długości plików ===
+    if not args.allow_long:
+        print("\n--- Walidacja długości plików (limit: 5 minut) ---")
+        long_files = validate_file_durations()
+        if long_files:
+            print("BŁĄD: Znaleziono pliki przekraczające 5 minut:")
+            for f in long_files:
+                print(f"  - {f}")
+            print("\nProces przerwany. Użyj flagi -l lub --allow-long, aby zignorować to ograniczenie.")
+            sys.exit(1) # Zakończ program
+        else:
+            print("Wszystkie pliki mieszczą się w limicie 5 minut.")
+
 
     # === KROK 2: Konwersja plików audio ===
     # Wywołujemy funkcję, która czyta listę plików z poprzedniego kroku
