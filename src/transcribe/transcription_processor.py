@@ -22,14 +22,14 @@ class TranscriptionProcessor:
 
     def process_transcriptions(self):
         """
-        Główna metoda klasy. Przetwarza pliki z listy `PROCESSING_LIST_FILE`,
+        Główna metoda klasy. Przetwarza pliki z listy `PROCESSING_LIST`,
         wykonuje transkrypcję i zarządza plikami stanu.
         Przerywa pracę, jeśli `pause_requested_event` jest ustawiony.
         """
         print("\nKrok 3: Rozpoczynanie lub wznawianie transkrypcji plików...")
 
         try:
-            with open(config.PROCESSING_LIST_FILE, 'r', encoding='utf8') as f:
+            with open(config.PROCESSING_LIST, 'r', encoding='utf8') as f:
                 files_to_process = [line.strip() for line in f.readlines() if line.strip()]
         except FileNotFoundError:
             print("BŁĄD: Plik z listą do przetworzenia nie istnieje.")
@@ -43,14 +43,14 @@ class TranscriptionProcessor:
             transcription = whisper.transcribe()
 
             if transcription:
-                with open(config.TRANSCRIPTIONS_FILE, 'a', encoding='utf8') as f:
+                with open(config.TRANSCRIPTIONS, 'a', encoding='utf8') as f:
                     f.write(f"{transcription.text}\n\n")
                 print(f"    Sukces: Transkrypcja zapisana.")
 
-                with open(config.PROCESSED_LIST_FILE, 'a', encoding='utf8') as f:
+                with open(config.PROCESSED_LIST, 'a', encoding='utf8') as f:
                     f.write(audio_file + '\n')
 
-                with open(config.PROCESSING_LIST_FILE, 'w', encoding='utf8') as f:
+                with open(config.PROCESSING_LIST, 'w', encoding='utf8') as f:
                     for file_path in files_to_process:
                         f.write(file_path + '\n')
             else:

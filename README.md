@@ -5,12 +5,12 @@ Ta aplikacja służy do automatycznej transkrypcji plików audio przy użyciu AP
 ## Jak to działa?
 
 Aplikacja wykonuje następujące kroki:
-1.  Wyszukuje pliki audio (np. `.mp3`, `.wav`, `.m4a`) w folderze `rec/input`.
-2.  Konwertuje znalezione pliki do standardowego formatu `.wav` za pomocą `ffmpeg` i zapisuje je w `rec/output`.
+1.  Wyszukuje pliki audio (np. `.mp3`, `.wav`, `.m4a`) w folderze `input`.
+2.  Konwertuje znalezione pliki do standardowego formatu `.wav` za pomocą `ffmpeg` i zapisuje je w `tmp/output_wav`.
 3.  Wysyła przekonwertowane pliki do API OpenAI Whisper w celu transkrypcji.
-4.  Zapisuje wszystkie uzyskane transkrypcje w jednym, zbiorczym pliku `rec/5_transcriptions.txt`.
+4.  Zapisuje wszystkie uzyskane transkrypcje w jednym, zbiorczym pliku `tmp/5_transcriptions.txt`.
 
-Aplikacja tworzy również pliki pomocnicze w folderze `rec`, które pozwalają śledzić postęp i wznowić pracę w przypadku błędu.
+Aplikacja tworzy również pliki pomocnicze w folderze `tmp`, które pozwalają śledzić postęp i wznowić pracę w przypadku błędu.
 
 ## Wymagania
 
@@ -70,14 +70,14 @@ Od teraz, dwukrotne kliknięcie skrótu uruchomi aplikację w jej wirtualnym śr
 
 Tryb CLI działa tak jak pierwotna wersja aplikacji.
 
-1.  **Umieść swoje pliki audio** w folderze `rec/input`. Możesz tworzyć wewnątrz podfoldery – aplikacja przeszuka je wszystkie.
+1.  **Umieść swoje pliki audio** w folderze `input`. Możesz tworzyć wewnątrz podfoldery – aplikacja przeszuka je wszystkie.
 
 2.  **Uruchom aplikację** za pomocą komendy:
     ```bash
     python main.py
     ```
 
-3.  **Gotowe!** Po zakończeniu procesu, wszystkie transkrypcje znajdziesz w pliku `rec/5_transcriptions.txt`.
+3.  **Gotowe!** Po zakończeniu procesu, wszystkie transkrypcje znajdziesz w pliku `tmp/5_transcriptions.txt`.
 
 ## Zarządzanie Zależnościami
 
@@ -108,4 +108,5 @@ Aby upewnić się, że korzystasz z najnowszych wersji bibliotek, możesz okreso
 *   `src/audio/`: Moduł odpowiedzialny za operacje na plikach audio (wyszukiwanie, konwersja).
 *   `src/whisper/`: Moduł będący "opakowaniem" (wrapperem) dla API OpenAI Whisper.
 *   `src/transcribe/`: Moduł zarządzający całym procesem transkrypcji.
-*   `rec/`: Folder na wszystkie pliki robocze (wejściowe, przekonwertowane, wyjściowe i pliki stanu).
+*   `tmp/`: Folder na wszystkie pliki robocze (przekonwertowane, wyjściowe i pliki stanu).
+*   `input/`: Folder na pliki audio wejściowe (tylko tryb CLI).

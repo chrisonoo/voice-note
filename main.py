@@ -18,21 +18,14 @@ def main_cli(args):
     print("--- Rozpoczynam proces transkrypcji w trybie CLI ---")
 
     # Konfiguracja ścieżek dla trybu CLI
+    # Używamy tej samej architektury co GUI (folder tmp/)
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    rec_dir = os.path.join(base_dir, 'rec')
-    input_dir = os.path.join(rec_dir, 'input')
-    output_dir = os.path.join(rec_dir, 'output')
-
+    input_dir = os.path.join(base_dir, 'input')
+    
+    # Tworzymy folder input jeśli nie istnieje
     os.makedirs(input_dir, exist_ok=True)
-    os.makedirs(output_dir, exist_ok=True)
-
-    # W trybie CLI używamy tych samych nazw plików co GUI
-    config.SELECTED_LIST = os.path.join(rec_dir, config.SELECTED_FILENAME)
-    config.AUDIO_LIST_TO_TRANSCRIBE_FILE = os.path.join(rec_dir, config.LOADED_FILENAME)
-    config.PROCESSING_LIST_FILE = os.path.join(rec_dir, config.PROCESSING_FILENAME)
-    config.PROCESSED_LIST_FILE = os.path.join(rec_dir, config.PROCESSED_FILENAME)
-    config.TRANSCRIPTIONS_FILE = os.path.join(rec_dir, config.TRANSCRIPTIONS_FILENAME)
-    config.OUTPUT_DIR = output_dir
+    
+    # Nie nadpisujemy ścieżek z config.py - używamy tych samych co GUI
 
     # Użycie dedykowanej funkcji do wyszukania plików dla CLI
     from src.audio import get_audio_file_list_cli
