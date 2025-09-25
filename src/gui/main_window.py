@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from tkinter import messagebox
 import threading
+import pygame
 from src import config
 
 # Import UI components and managers
@@ -9,6 +10,7 @@ from .button_state_controller import ButtonStateController
 from .file_handler import FileHandler
 from .transcription_controller import TranscriptionController
 from .panel_manager import PanelManager
+from .audio_player import AudioPlayer
 
 class App(ctk.CTk):
     """
@@ -22,6 +24,7 @@ class App(ctk.CTk):
     - FileHandler: Handles file selection, loading and reset operations
     - TranscriptionController: Controls transcription process flow
     - PanelManager: Manages data refresh and view updates
+    - AudioPlayer: Manages audio playback
     """
     def __init__(self):
         super().__init__()
@@ -55,9 +58,13 @@ class App(ctk.CTk):
         # Row 2: Reset button area (fixed height)
         self.grid_rowconfigure(2, weight=0)
 
+        # --- Initialize Core Logic Components ---
+        # Singleton instance of the audio player
+        self.audio_player = AudioPlayer()
+
         # --- Initialize Application Components ---
         # Creates and positions all UI elements (buttons, panels, etc.)
-        self.interface_builder = InterfaceBuilder(self)
+        self.interface_builder = InterfaceBuilder(self, self.audio_player)
         # Manages button enable/disable states based on application flow
         self.button_state_controller = ButtonStateController(self)
         # Handles file operations (select, load, convert, reset)
@@ -76,6 +83,9 @@ class App(ctk.CTk):
         self.panel_manager.refresh_all_views()
         # Update counters after interface is fully initialized
         self.update_all_counters()
+
+        # --- Start background tasks ---
+        self._check_audio_events()
     
     def update_files_counter(self, total, approved, long_files):
         """Update file selection counters in the bottom row."""
@@ -94,7 +104,7 @@ class App(ctk.CTk):
         if hasattr(self, 'file_selection_panel'):
             total_files = len(self.file_selection_panel.file_widgets)
             approved_files = len(self.file_selection_panel.get_checked_files())
-            long_files = sum(1 for _, _, duration in self.file_selection_panel.file_widgets 
+            long_files = sum(1 for _, _, duration, _ in self.file_selection_panel.file_widgets
                            if duration > config.MAX_FILE_DURATION_SECONDS)
             self.update_files_counter(total_files, approved_files, long_files)
         
@@ -183,12 +193,32 @@ class App(ctk.CTk):
         self.clipboard_append(text)
         messagebox.showinfo("Skopiowano", "Transkrypcja została skopiowana do schowka.")
 
+    def _check_audio_events(self):
+        """
+        Checks for custom pygame events, like the end of a song.
+        Updates the UI accordingly. Runs periodically.
+        """
+        for event in pygame.event.get():
+            if event.type == self.audio_player.SONG_END_EVENT:
+                self.audio_player.stop()
+                # Update the buttons in the file selection panel
+                if hasattr(self, 'file_selection_panel'):
+                    self.file_selection_panel.update_play_buttons()
+
+        # Schedule the next check
+        self.after(100, self._check_audio_events)
+
     # --- Application Lifecycle ---
     def on_closing(self):
         """
         Handle application window closing event.
         Prevents accidental closure during active transcription processing.
+        Stops audio playback and quits pygame.
         """
+        # Stop audio playback
+        self.audio_player.stop()
+        pygame.quit()
+
         if self.processing_thread and self.processing_thread.is_alive():
             if messagebox.askokcancel("Przetwarzanie w toku", "Proces jest aktywny. Czy na pewno chcesz wyjść?"):
                 self.destroy()

@@ -18,8 +18,9 @@ class InterfaceBuilder:
     - Transcription Output Panel (column 4)
     """
     
-    def __init__(self, app):
+    def __init__(self, app, audio_player):
         self.app = app
+        self.audio_player = audio_player
     
     def create_widgets(self):
         """Create and place all UI components in the window."""
@@ -82,7 +83,7 @@ class InterfaceBuilder:
     def _create_views(self):
         """Create data panel components with descriptive names."""
         # --- Column 0: File Selection Panel (with checkboxes, duration info) ---
-        self.app.file_selection_panel = FilesView(self.app, "Wybrane")
+        self.app.file_selection_panel = FilesView(self.app, self.audio_player, "Wybrane")
         self.app.file_selection_panel.grid(row=1, column=0, sticky="nsew", padx=(10, 5), pady=5)
 
         # --- Column 1: Conversion Status Panel (modified StatusView with tk.Text) ---
