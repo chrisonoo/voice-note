@@ -25,6 +25,7 @@ class InterfaceBuilder:
         """Create and place all UI components in the window."""
         self._create_buttons()
         self._create_views()
+        self._create_counter_labels()
         self._create_reset_button()
     
     def _create_buttons(self):
@@ -91,6 +92,40 @@ class InterfaceBuilder:
         self.app.transcription_output_panel = TranscriptionView(self.app, text="Transkrypcja")
         self.app.transcription_output_panel.grid(row=1, column=4, sticky="nsew", padx=(5, 10), pady=5)
     
+    def _create_counter_labels(self):
+        """Create counter labels for dynamic summaries."""
+        # --- Column 0: File Selection Counters ---
+        self.app.files_counter_label = ctk.CTkLabel(
+            self.app,
+            text="",
+            anchor="w"
+        )
+        self.app.files_counter_label.grid(row=2, column=0, sticky="w", padx=(10, 5), pady=(5, 10))
+
+        # --- Column 1: Loaded Files Counter ---
+        self.app.loaded_counter_label = ctk.CTkLabel(
+            self.app,
+            text="",
+            anchor="center"
+        )
+        self.app.loaded_counter_label.grid(row=2, column=1, sticky="ew", padx=(10, 5), pady=(5, 10))
+
+        # --- Column 2: Processing Counter ---
+        self.app.processing_counter_label = ctk.CTkLabel(
+            self.app,
+            text="",
+            anchor="center"
+        )
+        self.app.processing_counter_label.grid(row=2, column=2, sticky="ew", padx=5, pady=(5, 10))
+
+        # --- Column 3: Processed Counter ---
+        self.app.processed_counter_label = ctk.CTkLabel(
+            self.app,
+            text="",
+            anchor="center"
+        )
+        self.app.processed_counter_label.grid(row=2, column=3, sticky="ew", padx=5, pady=(5, 10))
+
     def _create_reset_button(self):
         """Create a themed reset button using CustomTkinter."""
         # --- Row 2: Reset Button ---

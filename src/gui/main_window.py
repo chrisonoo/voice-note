@@ -74,16 +74,67 @@ class App(ctk.CTk):
         # Initialize UI state based on existing tmp files (if any)
         self.button_state_controller.update_ui_state()
         self.panel_manager.refresh_all_views()
+        # Update counters after interface is fully initialized
+        self.update_all_counters()
     
     def update_files_counter(self, total, approved, long_files):
         """Update file selection counters in the bottom row."""
-        # Only for FilesView in column 0
-        pass  # No longer showing counters
+        if hasattr(self, 'files_counter_label'):
+            if total == 0:
+                self.files_counter_label.configure(text="")
+            else:
+                counter_text = f"Razem: {total}  |  Zaznaczone: {approved}"
+                if long_files > 0:
+                    counter_text += f"  |  Długie: {long_files}"
+                self.files_counter_label.configure(text=counter_text)
+    
+    def update_all_counters(self):
+        """Update all dynamic counters based on current data."""
+        # Update selected files counter
+        if hasattr(self, 'file_selection_panel'):
+            total_files = len(self.file_selection_panel.file_widgets)
+            approved_files = len(self.file_selection_panel.get_checked_files())
+            long_files = sum(1 for _, _, duration in self.file_selection_panel.file_widgets 
+                           if duration > config.MAX_FILE_DURATION_SECONDS)
+            self.update_files_counter(total_files, approved_files, long_files)
+        
+        # Update loaded files counter
+        if hasattr(self, 'loaded_counter_label'):
+            loaded_count = len(self._get_list_content(config.LOADED_LIST))
+            if loaded_count == 0:
+                self.loaded_counter_label.configure(text="")
+            else:
+                self.loaded_counter_label.configure(text=f"Przygotowane: {loaded_count}")
+        
+        # Update processing counter
+        if hasattr(self, 'processing_counter_label'):
+            processing_count = len(self._get_list_content(config.PROCESSING_LIST))
+            if processing_count == 0:
+                self.processing_counter_label.configure(text="")
+            else:
+                self.processing_counter_label.configure(text=f"Kolejka: {processing_count}")
+        
+        # Update processed counter
+        if hasattr(self, 'processed_counter_label'):
+            processed_count = len(self._get_list_content(config.PROCESSED_LIST))
+            if processed_count == 0:
+                self.processed_counter_label.configure(text="")
+            else:
+                self.processed_counter_label.configure(text=f"Gotowe: {processed_count}")
+    
+    def _get_list_content(self, file_path):
+        """Read file content and return list of lines."""
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return [line.strip() for line in f.readlines() if line.strip()]
+        except FileNotFoundError:
+            return []
 
     # --- UI Panel Management Delegation ---
     def refresh_all_views(self):
         """Refresh all data panels - delegates to panel manager."""
         self.panel_manager.refresh_all_views()
+        self.update_all_counters()
 
     # --- Transcription Process Control Delegation ---
     def pause_transcription(self):
