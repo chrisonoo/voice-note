@@ -1,65 +1,61 @@
-# Ten plik zawiera komponent dla pola "Transkrypcja".
-# Składa się z etykiety, pola tekstowego i paska przewijania.
+# This file contains the component for the "Transcription" field.
+# It consists of a label, a textbox, and a scrollbar.
 
 import tkinter as tk
-from tkinter import ttk
+import customtkinter as ctk
 import os
 
-class TranscriptionView(ttk.Frame):
+class TranscriptionView(ctk.CTkFrame):
     """
-    Komponent GUI wyświetlający wynikową transkrypcję.
+    GUI component for displaying the final transcription.
     """
     def __init__(self, parent, text, **kwargs):
         """
-        Inicjalizuje ramkę.
+        Initializes the frame.
 
         Args:
-            parent: Rodzic widgetu (główne okno aplikacji).
-            text (str): Etykieta do wyświetlenia nad polem tekstowym.
+            parent: The parent widget (main application window).
+            text (str): The label to display above the textbox.
         """
         super().__init__(parent, **kwargs)
 
-        # Konfiguracja siatki wewnątrz komponentu
+        # Grid configuration within the component
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        # Etykieta
-        self.label = ttk.Label(self, text=text, anchor="center")
+        # Label
+        self.label = ctk.CTkLabel(self, text=text, anchor="center")
         self.label.grid(row=0, column=0, sticky="ew", pady=(0, 5))
 
-        # --- Ramka dla pola tekstowego i paska przewijania ---
-        text_frame = ttk.Frame(self)
-        text_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
-        text_frame.grid_rowconfigure(0, weight=1)
-        text_frame.grid_columnconfigure(0, weight=1)
-
-        # Pole tekstowe
-        self.text = tk.Text(text_frame, wrap="word", state="disabled", width=40, padx=8, pady=8, relief="sunken", borderwidth=1)
-        self.text.grid(row=0, column=0, sticky="nsew")
-
-        # --- Pasek przewijania ---
-        scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=self.text.yview)
-        self.text.configure(yscrollcommand=scrollbar.set)
-        scrollbar.grid(row=0, column=1, sticky="ns")
+        # Textbox for displaying transcription
+        self.text = ctk.CTkTextbox(
+            self,
+            wrap="word",
+            state="disabled",
+            width=40,
+            padx=8,
+            pady=8
+        )
+        self.text.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 
     def update_from_file(self, file_path):
-        """Odczytuje plik tekstowy i wstawia jego zawartość do pola tekstowego."""
-        self.text.config(state="normal")
-        self.text.delete('1.0', tk.END)
+        """Reads a text file and inserts its content into the textbox."""
+        self.text.configure(state="normal")
+        self.text.delete('1.0', "end")
         try:
             if os.path.exists(file_path):
                 with open(file_path, 'r', encoding='utf-8') as f:
-                    self.text.insert(tk.END, f.read())
+                    self.text.insert("end", f.read())
         except Exception as e:
-            print(f"Błąd odczytu pliku {file_path}: {e}")
-        self.text.config(state="disabled")
+            print(f"Error reading file {file_path}: {e}")
+        self.text.configure(state="disabled")
 
     def get_text(self):
-        """Zwraca całą zawartość pola tekstowego."""
-        return self.text.get("1.0", tk.END)
+        """Returns the entire content of the textbox."""
+        return self.text.get("1.0", "end")
 
     def clear_view(self):
-        """Czyści pole tekstowe."""
-        self.text.config(state="normal")
-        self.text.delete('1.0', tk.END)
-        self.text.config(state="disabled")
+        """Clears the textbox."""
+        self.text.configure(state="normal")
+        self.text.delete('1.0', "end")
+        self.text.configure(state="disabled")

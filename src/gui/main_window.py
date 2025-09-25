@@ -1,4 +1,4 @@
-import tkinter as tk
+import customtkinter as ctk
 from tkinter import messagebox
 import threading
 from src import config
@@ -10,10 +10,10 @@ from .file_handler import FileHandler
 from .transcription_controller import TranscriptionController
 from .panel_manager import PanelManager
 
-class App(tk.Tk):
+class App(ctk.CTk):
     """
-    Main application class extending tk.Tk.
-    Responsible for window initialization, component assembly and 
+    Main application class extending ctk.CTk.
+    Responsible for window initialization, component assembly and
     managing the core application state.
     
     Architecture:
@@ -25,6 +25,10 @@ class App(tk.Tk):
     """
     def __init__(self):
         super().__init__()
+
+        # --- CustomTkinter Theme and Appearance ---
+        ctk.set_appearance_mode("System")  # Options: "System", "Dark", "Light"
+        ctk.set_default_color_theme("blue") # Options: "blue", "green", "dark-blue"
 
         # --- Core Application State ---
         # Thread handling background transcription processing

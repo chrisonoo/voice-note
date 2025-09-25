@@ -1,6 +1,6 @@
 # This module builds the UI components
 
-from tkinter import ttk
+import customtkinter as ctk
 
 from .files_view import FilesView
 from .status_view import StatusView
@@ -28,43 +28,43 @@ class InterfaceBuilder:
         self._create_reset_button()
     
     def _create_buttons(self):
-        """Create action buttons with descriptive names for better code understanding."""
+        """Create action buttons using CustomTkinter widgets."""
         # --- Column 0: File Selection Button ---
-        self.app.file_selector_button = ttk.Button(
-            self.app, 
-            text="Wybierz pliki", 
+        self.app.file_selector_button = ctk.CTkButton(
+            self.app,
+            text="Wybierz pliki",
             command=self.app.file_handler.select_source_files
         )
         self.app.file_selector_button.grid(row=0, column=0, sticky="ew", padx=(10, 5), pady=(10, 0))
 
         # --- Column 1: File Conversion Button ---
-        self.app.convert_files_button = ttk.Button(
-            self.app, 
-            text="Wczytaj Pliki", 
+        self.app.convert_files_button = ctk.CTkButton(
+            self.app,
+            text="Wczytaj Pliki",
             command=self.app.file_handler.load_selected_files
         )
         self.app.convert_files_button.grid(row=0, column=1, sticky="ew", padx=(10, 5), pady=(10, 0))
 
         # --- Column 2: Transcription Start Button ---
-        self.app.start_transcription_button = ttk.Button(
-            self.app, 
-            text="Start", 
+        self.app.start_transcription_button = ctk.CTkButton(
+            self.app,
+            text="Start",
             command=self.app.transcription_controller.start_transcription_process
         )
         self.app.start_transcription_button.grid(row=0, column=2, sticky="ew", padx=5, pady=(10, 0))
 
         # --- Column 3: Transcription Control Button ---
-        self.app.transcription_control_button = ttk.Button(
-            self.app, 
-            text="Pauza", 
+        self.app.transcription_control_button = ctk.CTkButton(
+            self.app,
+            text="Pauza",
             command=self.app.transcription_controller.pause_transcription
         )
         self.app.transcription_control_button.grid(row=0, column=3, sticky="ew", padx=5, pady=(10, 0))
 
         # --- Column 4: Copy Transcription Button ---
-        self.app.copy_transcription_button = ttk.Button(
-            self.app, 
-            text="Kopiuj Transkrypcję", 
+        self.app.copy_transcription_button = ctk.CTkButton(
+            self.app,
+            text="Kopiuj Transkrypcję",
             command=self.app.copy_transcription_to_clipboard
         )
         self.app.copy_transcription_button.grid(row=0, column=4, sticky="ew", padx=(5, 10), pady=(10, 0))
@@ -92,17 +92,13 @@ class InterfaceBuilder:
         self.app.transcription_output_panel.grid(row=1, column=4, sticky="nsew", padx=(5, 10), pady=5)
     
     def _create_reset_button(self):
-        """Create reset button with custom styling."""
+        """Create a themed reset button using CustomTkinter."""
         # --- Row 2: Reset Button ---
-        style = ttk.Style(self.app)
-        style.configure("Red.TButton", foreground="white", background="red", borderwidth=0, relief="flat")
-        style.map("Red.TButton",
-            background=[('active', '#C00000'), ('pressed', '!disabled', '#C00000')]
+        self.app.reset_application_button = ctk.CTkButton(
+            self.app,
+            text="Resetuj",
+            command=self.app.file_handler.reset_app_state,
+            fg_color="red",
+            hover_color="#C00000"
         )
-        self.app.reset_application_button = ttk.Button(
-            self.app, 
-            text="Resetuj", 
-            command=self.app.file_handler.reset_app_state, 
-            style="Red.TButton"
-        )
-        self.app.reset_application_button.grid(row=2, column=4, sticky="e", padx=10, pady=(5, 10), ipady=5)
+        self.app.reset_application_button.grid(row=2, column=4, sticky="e", padx=10, pady=(5, 10))

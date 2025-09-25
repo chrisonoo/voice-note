@@ -46,7 +46,7 @@ class FileHandler:
 
     def load_selected_files(self):
         """Load selected files and convert them to WAV format."""
-        self.app.convert_files_button.config(state="disabled")
+        self.app.convert_files_button.configure(state="disabled")
         self.app.update_idletasks()
 
         files_to_load = self.app.file_selection_panel.get_checked_files()

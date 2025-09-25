@@ -1,123 +1,97 @@
-# Ten plik zawiera komponent dla listy "Wczytane".
-# Używa zaawansowanego widżetu ttk.Treeview do wyświetlania plików
-# w kolumnach, wraz z checkboxami, nazwą i czasem trwania.
-
-import tkinter as tk
-from tkinter import ttk
+import customtkinter as ctk
 import os
 from src import config
 
-class FilesView(ttk.Frame):
+class FilesView(ctk.CTkFrame):
     """
-    Komponent GUI wyświetlający listę plików wybranych przez użytkownika.
+    GUI component that displays a list of user-selected files.
+    Replaces the standard ttk.Treeview with a CTkScrollableFrame
+    containing checkboxes and labels for a modern appearance.
     """
     def __init__(self, parent, title="Wczytane", **kwargs):
         super().__init__(parent, **kwargs)
 
-        # Definicja znaków Unicode dla checkboxów
-        self.CHECK_ON = "☑"
-        self.CHECK_OFF = "☐"
-
-        # Konfiguracja siatki wewnątrz komponentu
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        # Etykieta
-        self.label = ttk.Label(self, text=title, anchor="center")
+        self.label = ctk.CTkLabel(self, text=title, anchor="center")
         self.label.grid(row=0, column=0, sticky="ew", pady=(0, 5))
 
-        # --- Ramka dla Treeview i paska przewijania ---
-        tree_frame = ttk.Frame(self)
-        tree_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
-        tree_frame.grid_rowconfigure(0, weight=1)
-        tree_frame.grid_columnconfigure(0, weight=1)
+        # --- Scrollable Frame for File List ---
+        self.scrollable_frame = ctk.CTkScrollableFrame(self)
+        self.scrollable_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+        self.scrollable_frame.grid_columnconfigure(1, weight=1) # Allow filename to expand
 
-        # --- Widżet Treeview do wyświetlania plików ---
-        self.tree = ttk.Treeview(
-            tree_frame,
-            columns=("checked", "filename", "duration"),
-            show="headings"
-        )
-        self.tree.grid(row=0, column=0, sticky="nsew")
+        # --- Header ---
+        header_checkbox = ctk.CTkLabel(self.scrollable_frame, text="", width=40)
+        header_checkbox.grid(row=0, column=0, padx=(5,0), pady=2)
 
-        # --- Konfiguracja Kolumn ---
-        self.tree.heading("checked", text="")
-        self.tree.column("checked", width=40, stretch=tk.NO, anchor="center")
-        self.tree.heading("filename", text="Nazwa")
-        self.tree.column("filename", width=188, stretch=tk.YES)
-        self.tree.heading("duration", text="Czas")
-        self.tree.column("duration", width=75, stretch=tk.NO, anchor="center")
+        header_filename = ctk.CTkLabel(self.scrollable_frame, text="Nazwa", anchor="w")
+        header_filename.grid(row=0, column=1, sticky="ew", padx=5, pady=2)
 
-        # --- Pasek przewijania ---
-        scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scrollbar.set)
-        scrollbar.grid(row=0, column=1, sticky="ns")
+        header_duration = ctk.CTkLabel(self.scrollable_frame, text="Czas", width=75, anchor="center")
+        header_duration.grid(row=0, column=2, padx=5, pady=2)
 
-        # Counter elements will be moved to main window level - removing from here
-
-        # --- Logika checkboxów tekstowych ---
-        self.tree.bind("<Button-1>", self._toggle_checkbox)
-        self.tree.tag_configure("long_file", foreground="red")
-
-        # Słownik do przechowywania pełnych ścieżek dla każdego wiersza
-        self.file_paths = {}
-
-    def _toggle_checkbox(self, event):
-        """Obsługuje kliknięcie w celu przełączenia stanu checkboxa."""
-        row_id = self.tree.identify_row(event.y)
-        column_id = self.tree.identify_column(event.x)
-
-        # Reaguj tylko na kliknięcie w pierwszej kolumnie ("checked")
-        if not row_id or column_id != "#1":
-            return
-
-        current_value = self.tree.set(row_id, "checked")
-        new_value = self.CHECK_ON if current_value == self.CHECK_OFF else self.CHECK_OFF
-        self.tree.set(row_id, "checked", new_value)
-        self.update_counters()
+        # --- Data Storage ---
+        self.file_widgets = [] # List to store refs to (checkbox, file_path, duration_sec)
 
     def populate_files(self, files_data):
         """
-        Wypełnia Treeview listą plików i ich danymi.
+        Populates the scrollable frame with a list of files and their data.
 
         Args:
-            files_data (list): Lista krotek (ścieżka_pliku, czas_trwania_w_sek).
+            files_data (list): A list of tuples, where each tuple contains
+                               (file_path, duration_in_seconds).
         """
         self.clear_view()
-        for file_path, duration_sec in files_data:
+        for i, (file_path, duration_sec) in enumerate(files_data, start=1):
             filename = os.path.basename(file_path)
             duration_str = f"{int(duration_sec // 60):02d}:{int(duration_sec % 60):02d}"
-
             is_long = duration_sec > config.MAX_FILE_DURATION_SECONDS
-            check_status = self.CHECK_OFF if is_long else self.CHECK_ON
-            tags = ("long_file",) if is_long else ()
 
-            row_id = self.tree.insert("", "end", values=(check_status, filename, duration_str), tags=tags)
-            self.file_paths[row_id] = file_path
+            # --- Checkbox ---
+            checkbox = ctk.CTkCheckBox(self.scrollable_frame, text="")
+            checkbox.grid(row=i, column=0, padx=(5,0), pady=2)
+            if not is_long:
+                checkbox.select()
 
-        self.update_counters()
+            # --- Filename Label ---
+            filename_label = ctk.CTkLabel(self.scrollable_frame, text=filename, anchor="w")
+            filename_label.grid(row=i, column=1, sticky="ew", padx=5, pady=2)
 
-    def update_counters(self):
-        """Aktualizuje etykiety z licznikami plików."""
-        total = len(self.tree.get_children())
-        approved = len(self.get_checked_files())
-        long_files = len(self.tree.tag_has("long_file"))
+            # --- Duration Label ---
+            duration_label = ctk.CTkLabel(self.scrollable_frame, text=duration_str, anchor="center")
+            duration_label.grid(row=i, column=2, padx=5, pady=2)
 
-        # Counter labels moved to main window - accessing through parent
-        if hasattr(self.master, 'update_files_counter'):
-            self.master.update_files_counter(total, approved, long_files)
+            if is_long:
+                # Apply a visual cue for long files
+                filename_label.configure(text_color="red")
+                duration_label.configure(text_color="red")
+
+            self.file_widgets.append((checkbox, file_path, duration_sec))
 
     def get_checked_files(self):
-        """Zwraca listę pełnych ścieżek do plików, które są zaznaczone."""
+        """
+        Returns a list of full paths to the files that are currently checked.
+        """
         checked_files = []
-        for row_id in self.tree.get_children():
-            if self.tree.set(row_id, "checked") == self.CHECK_ON:
-                checked_files.append(self.file_paths[row_id])
+        for checkbox, file_path, _ in self.file_widgets:
+            if checkbox.get() == 1: # 1 means checked
+                checked_files.append(file_path)
         return checked_files
 
     def clear_view(self):
-        """Czyści widok Treeview i resetuje liczniki."""
-        for i in self.tree.get_children():
-            self.tree.delete(i)
-        self.file_paths.clear()
-        self.update_counters()
+        """
+        Clears the view by destroying all file entry widgets and resetting the data list.
+        """
+        for widget_tuple in self.file_widgets:
+            # Each tuple contains (checkbox, file_path, duration_sec)
+            # but we only need to destroy the GUI elements (checkbox, labels)
+            # The file_path and duration are just data.
+            # Let's destroy all widgets in the scrollable_frame except the headers
+            for widget in self.scrollable_frame.winfo_children():
+                # Don't destroy the headers
+                if widget.grid_info()["row"] > 0:
+                    widget.destroy()
+
+        self.file_widgets.clear()
