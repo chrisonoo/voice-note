@@ -30,9 +30,6 @@ PROCESSING_LIST = os.path.join(TMP_DIR, '3_processing.txt')
 PROCESSED_LIST = os.path.join(TMP_DIR, '4_processed.txt')
 TRANSCRIPTIONS = os.path.join(TMP_DIR, '5_transcriptions.txt')
 
-# Plik pośredni, który nie jest bezpośrednio widoczny w GUI
-TO_ENCODE_LIST = os.path.join(TMP_DIR, '1a_to_encode.txt')
-
 
 # --- PARAMETRY TRANSKRYPCJI WHISPER ---
 WHISPER_API_RESPONSE_FORMAT = "json"
