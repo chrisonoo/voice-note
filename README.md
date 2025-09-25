@@ -44,9 +44,28 @@ Aplikacja tworzy również pliki pomocnicze w folderze `rec`, które pozwalają 
 
 ## Jak używać?
 
+Aplikację można uruchomić w dwóch trybach: graficznym (GUI) lub tradycyjnym wierszu poleceń (CLI).
+
+### Tryb graficzny (GUI) - zalecany
+
+Tryb graficzny zapewnia interaktywną obsługę, wizualizację postępu i jest łatwiejszy w użyciu.
+
+1.  **Uruchom aplikację** z flagą `--gui`:
+    ```bash
+    python main.py --gui
+    ```
+2.  **Wybierz folder** z plikami audio za pomocą przycisku "Wybierz Foldery".
+3.  **Wczytaj pliki** do aplikacji przyciskiem "Wczytaj Pliki".
+4.  **Rozpocznij transkrypcję** przyciskiem "Start".
+5.  **Monitoruj postęp** na listach i w podglądzie. Po zakończeniu transkrypcje pojawią się w polu "Podgląd" oraz zostaną zapisane w pliku `rec/5_transcriptions.txt`.
+
+### Tryb wiersza poleceń (CLI)
+
+Tryb CLI działa tak jak pierwotna wersja aplikacji.
+
 1.  **Umieść swoje pliki audio** w folderze `rec/input`. Możesz tworzyć wewnątrz podfoldery – aplikacja przeszuka je wszystkie.
 
-2.  **Uruchom aplikację** za pomocą jednej komendy:
+2.  **Uruchom aplikację** za pomocą komendy:
     ```bash
     python main.py
     ```
