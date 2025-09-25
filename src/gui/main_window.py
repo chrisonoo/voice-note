@@ -85,7 +85,7 @@ class App(ctk.CTk):
         self.update_all_counters()
 
         # --- Start background tasks ---
-        self._check_audio_events()
+        self._check_playback_status()
     
     def update_files_counter(self, total, approved, long_files):
         """Update file selection counters in the bottom row."""
@@ -193,20 +193,21 @@ class App(ctk.CTk):
         self.clipboard_append(text)
         messagebox.showinfo("Skopiowano", "Transkrypcja została skopiowana do schowka.")
 
-    def _check_audio_events(self):
+    def _check_playback_status(self):
         """
-        Checks for custom pygame events, like the end of a song.
-        Updates the UI accordingly. Runs periodically.
+        Checks if the currently playing song has finished.
+        If so, it stops the player and updates the UI.
+        Runs periodically without using the pygame event system.
         """
-        for event in pygame.event.get():
-            if event.type == self.audio_player.SONG_END_EVENT:
-                self.audio_player.stop()
-                # Update the buttons in the file selection panel
-                if hasattr(self, 'file_selection_panel'):
-                    self.file_selection_panel.update_play_buttons()
+        # Check only if a song was playing and is no longer busy
+        if self.audio_player.is_playing and not pygame.mixer.music.get_busy():
+            self.audio_player.stop()
+            # Update the buttons in the file selection panel
+            if hasattr(self, 'file_selection_panel'):
+                self.file_selection_panel.update_play_buttons()
 
         # Schedule the next check
-        self.after(100, self._check_audio_events)
+        self.after(100, self._check_playback_status)
 
     # --- Application Lifecycle ---
     def on_closing(self):

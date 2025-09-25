@@ -27,11 +27,6 @@ class AudioPlayer:
             self.is_paused = False
             self.initialized = True
 
-            # Tworzymy niestandardowe zdarzenie, które będzie wysyłane,
-            # gdy utwór dobiegnie końca.
-            self.SONG_END_EVENT = pygame.USEREVENT + 1
-            pygame.mixer.music.set_endevent(self.SONG_END_EVENT)
-
     def toggle_play_pause(self, file_path):
         """
         Przełącza stan odtwarzania dla danego pliku.
