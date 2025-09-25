@@ -3,6 +3,7 @@
 from tkinter import ttk
 
 from .files_view import FilesView
+from .status_view import StatusView
 from .transcription_view import TranscriptionView
 
 
@@ -74,16 +75,16 @@ class InterfaceBuilder:
         self.app.file_selection_panel = FilesView(self.app, "Wybrane")
         self.app.file_selection_panel.grid(row=1, column=0, sticky="nsew", padx=(10, 5), pady=5)
 
-        # --- Column 1: Conversion Status Panel (unified with TranscriptionView) ---
-        self.app.conversion_status_panel = TranscriptionView(self.app, text="Wczytane")
+        # --- Column 1: Conversion Status Panel (modified StatusView with tk.Text) ---
+        self.app.conversion_status_panel = StatusView(self.app, text="Wczytane")
         self.app.conversion_status_panel.grid(row=1, column=1, sticky="nsew", padx=(10, 5), pady=5)
 
-        # --- Column 2: Transcription Queue Panel (unified with TranscriptionView) ---
-        self.app.transcription_queue_panel = TranscriptionView(self.app, text="Do przetworzenia")
+        # --- Column 2: Transcription Queue Panel (modified StatusView with tk.Text) ---
+        self.app.transcription_queue_panel = StatusView(self.app, text="Do przetworzenia")
         self.app.transcription_queue_panel.grid(row=1, column=2, sticky="nsew", padx=5, pady=5)
 
-        # --- Column 3: Completed Files Panel (unified with TranscriptionView) ---
-        self.app.completed_files_panel = TranscriptionView(self.app, text="Przetworzone")
+        # --- Column 3: Completed Files Panel (modified StatusView with tk.Text) ---
+        self.app.completed_files_panel = StatusView(self.app, text="Przetworzone")
         self.app.completed_files_panel.grid(row=1, column=3, sticky="nsew", padx=5, pady=5)
 
         # --- Column 4: Transcription Output Panel (final text results) ---
