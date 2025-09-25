@@ -41,7 +41,7 @@ class App(ctk.CTk):
 
         # --- Main Window Configuration ---
         self.title(config.APP_NAME)
-        self.minsize(1024, 600)  # Minimum window size for proper UI layout
+        self.minsize(1110, 600)  # Minimum window size for proper UI layout
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         # --- UI Grid Layout Configuration ---

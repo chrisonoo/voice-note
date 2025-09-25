@@ -11,7 +11,7 @@ class FilesView(ctk.CTkFrame):
     Includes playback controls for audio files.
     """
     def __init__(self, parent, audio_player: AudioPlayer, title="Wybrane", **kwargs):
-        super().__init__(parent, width=300, **kwargs)
+        super().__init__(parent, width=380, **kwargs)
         self.grid_propagate(False)
 
         self.audio_player = audio_player
@@ -23,7 +23,7 @@ class FilesView(ctk.CTkFrame):
         self.label.grid(row=0, column=0, sticky="ew", pady=(0, 5))
 
         # --- Scrollable Frame for File List ---
-        self.scrollable_frame = ctk.CTkScrollableFrame(self, width=284)
+        self.scrollable_frame = ctk.CTkScrollableFrame(self, width=364)
         self.scrollable_frame.grid(row=1, column=0, sticky="nsew", padx=8, pady=8)
 
         # --- Header ---
