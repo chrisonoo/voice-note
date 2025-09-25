@@ -116,7 +116,25 @@ class App(tk.Tk):
             return []
 
     def _refresh_all_views(self):
-        self.selected_files_view.populate_files([(path, get_file_duration(path)) for path in self._get_list_content(config.SELECTED_LIST)])
+        # --- Selected Files (Wybrane) ---
+        files_data = []
+        error_files = []
+        for path in self._get_list_content(config.SELECTED_LIST):
+            try:
+                duration = get_file_duration(path)
+                files_data.append((path, duration))
+            except Exception as e:
+                error_files.append(os.path.basename(path))
+                print(f"Could not get duration for file {path}: {e}")
+
+        self.selected_files_view.populate_files(files_data)
+        if error_files:
+            messagebox.showwarning(
+                "Błąd odczytu plików",
+                "Nie udało się odczytać metadanych dla następujących plików (zostały pominięte):\n\n" + "\n".join(error_files)
+            )
+
+        # --- Pozostałe widoki ---
         self.loaded_files_view.update_from_file(config.LOADED_LIST)
         self.processing_view.update_from_file(config.PROCESSING_LIST)
         self.processed_view.update_from_file(config.PROCESSED_LIST)
@@ -257,24 +275,29 @@ class App(tk.Tk):
         if self.processing_thread and self.processing_thread.is_alive():
             messagebox.showerror("Błąd", "Nie można zresetować aplikacji podczas przetwarzania.")
             return
-        if not messagebox.askokcancel("Potwierdzenie", "Czy na pewno chcesz zresetować aplikację?"):
+        if not messagebox.askokcancel("Potwierdzenie", "Czy na pewno chcesz zresetować aplikację? Cały stan zostanie usunięty."):
             return
 
-        for f in [config.SELECTED_LIST, config.TO_ENCODE_LIST, config.LOADED_LIST, config.PROCESSING_LIST, config.PROCESSED_LIST, config.TRANSCRIPTIONS]:
-            if os.path.exists(f): os.remove(f)
+        # Zatrzymaj monitorowanie, jeśli jest aktywne
+        # (chociaż przycisk resetu jest wyłączony podczas przetwarzania, to jest to dodatkowe zabezpieczenie)
+        if self.processing_thread:
+            self.on_processing_finished()
 
-        self.cleanup_temp_directory()
-        os.makedirs(config.OUTPUT_DIR, exist_ok=True)
-
-        self._update_ui_from_file_state()
-        messagebox.showinfo("Reset", "Aplikacja została zresetowana.")
-
-    def cleanup_temp_directory(self):
         try:
+            # Usuń cały folder tymczasowy, jeśli istnieje
             if os.path.exists(config.TMP_DIR):
                 shutil.rmtree(config.TMP_DIR)
-        except OSError as e:
-            print(f"Błąd podczas czyszczenia folderu tymczasowego: {e.strerror}")
+
+            # Utwórz ponownie wymagane foldery
+            os.makedirs(config.OUTPUT_DIR, exist_ok=True)
+
+            self._update_ui_from_file_state()
+            messagebox.showinfo("Reset", "Aplikacja została zresetowana.")
+        except Exception as e:
+            messagebox.showerror("Błąd resetowania", f"Nie udało się zresetować aplikacji: {e}")
+            # Spróbuj odtworzyć podstawową strukturę, aby aplikacja mogła kontynuować
+            os.makedirs(config.OUTPUT_DIR, exist_ok=True)
+            self._update_ui_from_file_state()
 
     def on_closing(self):
         if self.processing_thread and self.processing_thread.is_alive():
