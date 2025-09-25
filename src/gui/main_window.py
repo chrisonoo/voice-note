@@ -1,7 +1,3 @@
-# Ten plik jest głównym punktem wejścia dla interfejsu graficznego.
-# Jego zadaniem jest stworzenie głównego okna aplikacji i złożenie w nim
-# wszystkich mniejszych komponentów (paneli, list, etc.).
-
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import shutil
@@ -18,7 +14,7 @@ from .action_panel import ActionPanel
 
 # Importowanie logiki biznesowej
 from src.audio import get_file_duration, encode_audio_files
-from src.transcribe import TranscriptionProcessor
+from src.transcribe.transcription_processor import TranscriptionProcessor
 
 class App(tk.Tk):
     """
@@ -30,8 +26,8 @@ class App(tk.Tk):
         super().__init__()
 
         # --- Zmienne Stanu Aplikacji ---
-        # W tej architekturze nie przechowujemy stanu w zmiennych,
-        # a jedynie w plikach.
+        self.processing_thread = None
+        self.pause_request_event = threading.Event()
 
         # --- Konfiguracja Głównego Okna ---
         self.title(config.APP_NAME)
@@ -46,11 +42,10 @@ class App(tk.Tk):
         self.grid_rowconfigure(1, weight=1)
 
         self.create_widgets()
-        self._refresh_all_views() # Odśwież widok na starcie
+        self._update_ui_from_file_state()
 
     def create_widgets(self):
         """Tworzy i umieszcza w oknie wszystkie komponenty interfejsu."""
-
         self.control_panel = ControlPanel(
             self,
             reset_command=self.reset_app_state,
@@ -75,99 +70,132 @@ class App(tk.Tk):
             self,
             process_command=self.prepare_for_processing,
             start_command=self.start_transcription_process,
+            pause_resume_command=self.pause_transcription,
             copy_command=self.copy_transcription_to_clipboard
         )
-        self.action_panel.grid(row=2, column=0, columnspan=4, sticky="ew", padx=10, pady=(5, 10))
+        self.action_panel.grid(row=2, column=0, columnspan=5, sticky="ew", padx=10, pady=(5, 10))
 
-    # --- Logika przepływu pracy ---
+    def _get_list_content(self, file_path):
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return [line.strip() for line in f.readlines() if line.strip()]
+        except FileNotFoundError:
+            return []
+
+    def _refresh_all_views(self):
+        self.files_view.populate_files([(path, get_file_duration(path)) for path in self._get_list_content(config.AUDIO_LIST_TO_TRANSCRIBE_FILE)])
+        self.processing_view.update_from_file(config.PROCESSING_LIST_FILE)
+        self.processed_view.update_from_file(config.PROCESSED_LIST_FILE)
+        self.transcription_view.update_from_file(config.TRANSCRIPTIONS_FILE)
+
+    def _update_ui_from_file_state(self):
+        self._refresh_all_views()
+        is_processing = self.processing_thread and self.processing_thread.is_alive()
+
+        to_encode_list = self._get_list_content(config.AUDIO_LIST_TO_ENCODE_FILE)
+        to_transcribe_list = self._get_list_content(config.AUDIO_LIST_TO_TRANSCRIBE_FILE)
+        processing_list = self._get_list_content(config.PROCESSING_LIST_FILE)
+        processed_list = self._get_list_content(config.PROCESSED_LIST_FILE)
+
+        self.control_panel.set_button_state("select", "disabled" if is_processing else "normal")
+        self.control_panel.set_button_state("load", "normal" if to_encode_list and not to_transcribe_list and not is_processing else "disabled")
+        self.control_panel.set_button_state("reset", "disabled" if is_processing else "normal")
+
+        self.action_panel.set_button_state("process", "normal" if to_transcribe_list and not processing_list and not is_processing else "disabled")
+
+        is_ready_to_start = processing_list and not processed_list
+        is_paused = processing_list and processed_list
+
+        self.action_panel.show_button("start", not is_paused and not is_processing)
+        self.action_panel.show_button("pause_resume", is_paused or is_processing)
+
+        if is_processing:
+            self.action_panel.set_button_state("start", "disabled")
+            self.action_panel.set_pause_resume_button_config("Pauza", self.pause_transcription)
+            self.action_panel.set_button_state("pause_resume", "normal")
+        elif is_paused:
+            self.action_panel.set_button_state("start", "disabled")
+            self.action_panel.set_pause_resume_button_config("Wznów", self.start_transcription_process)
+            self.action_panel.set_button_state("pause_resume", "normal")
+        else:
+            self.action_panel.set_button_state("start", "normal" if is_ready_to_start else "disabled")
+            self.action_panel.set_pause_resume_button_config("Pauza", self.pause_transcription)
+            self.action_panel.set_button_state("pause_resume", "disabled")
+
+        is_finished = not processing_list and processed_list
+        self.action_panel.set_button_state("copy", "normal" if is_finished else "disabled")
 
     def select_source_files(self):
-        file_types = [("Pliki audio", " ".join(config.AUDIO_EXTENSIONS)), ("Wszystkie pliki", "*.*")]
-        selected_paths = filedialog.askopenfilenames(title="Wybierz pliki audio", filetypes=file_types)
-        if not selected_paths: return
+        if self.processing_thread and self.processing_thread.is_alive(): return
+        paths = filedialog.askopenfilenames(title="Wybierz pliki audio", filetypes=[("Pliki audio", " ".join(config.AUDIO_EXTENSIONS))])
+        if not paths: return
 
-        try:
-            with open(config.AUDIO_LIST_TO_ENCODE_FILE, 'w', encoding='utf-8') as f:
-                for path in selected_paths: f.write(path + '\n')
+        with open(config.AUDIO_LIST_TO_ENCODE_FILE, 'w', encoding='utf-8') as f:
+            for p in paths: f.write(p + '\n')
 
-            self.control_panel.set_info_label(f"Wybrano {len(selected_paths)} plików. Kliknij 'Wczytaj'.")
-            self.control_panel.set_button_state("load", "normal")
-            self.control_panel.set_button_state("select", "disabled")
-        except Exception as e:
-            messagebox.showerror("Błąd zapisu", f"Nie można zapisać listy plików: {e}")
+        for f_path in [config.AUDIO_LIST_TO_TRANSCRIBE_FILE, config.PROCESSING_LIST_FILE, config.PROCESSED_LIST_FILE, config.TRANSCRIPTIONS_FILE]:
+            if os.path.exists(f_path): os.remove(f_path)
+
+        self._update_ui_from_file_state()
 
     def load_selected_files(self):
         self.control_panel.set_button_state("load", "disabled")
-        self.control_panel.set_info_label("Wczytywanie i konwersja...")
         self.update_idletasks()
+        threading.Thread(target=self._load_files_worker, daemon=True).start()
 
+    def _load_files_worker(self):
         try:
             encode_audio_files()
             wav_files = sorted([os.path.join(config.OUTPUT_DIR, f) for f in os.listdir(config.OUTPUT_DIR) if f.endswith('.wav')])
             with open(config.AUDIO_LIST_TO_TRANSCRIBE_FILE, 'w', encoding='utf-8') as f:
                 for path in wav_files: f.write(path + '\n')
-
-            self._refresh_all_views()
-            self.control_panel.set_info_label("Pliki wczytane. Wybierz i zatwierdź.")
+            self.after(0, self._update_ui_from_file_state)
         except Exception as e:
-            messagebox.showerror("Błąd podczas konwersji plików", f"Wystąpił błąd: {e}")
-            self.reset_app_state()
+            self.after(0, lambda: messagebox.showerror("Błąd konwersji", f"Wystąpił błąd: {e}"))
+            self.after(0, self.reset_app_state)
 
     def prepare_for_processing(self):
-        approved_files = self.files_view.get_checked_files()
-        if not approved_files:
-            messagebox.showwarning("Brak plików", "Nie zaznaczono żadnych plików do przetworzenia.")
+        files = self.files_view.get_checked_files()
+        if not files:
+            messagebox.showwarning("Brak plików", "Nie zaznaczono żadnych plików.")
             return
-
-        try:
-            with open(config.PROCESSING_LIST_FILE, 'w', encoding='utf-8') as f:
-                for path in approved_files: f.write(path + '\n')
-
-            self._refresh_all_views()
-            messagebox.showinfo("Sukces", f"Zatwierdzono {len(approved_files)} plików do przetworzenia.")
-        except Exception as e:
-            messagebox.showerror("Błąd", f"Nie można zapisać listy do przetworzenia: {e}")
+        with open(config.PROCESSING_LIST_FILE, 'w', encoding='utf-8') as f:
+            for file in files: f.write(file + '\n')
+        self._update_ui_from_file_state()
 
     def start_transcription_process(self):
-        try:
-            with open(config.PROCESSING_LIST_FILE, 'r', encoding='utf-8') as f:
-                if not f.read().strip():
-                    messagebox.showwarning("Brak plików", "Lista 'Do przetworzenia' jest pusta. Użyj przycisku 'Przetwórz'.")
-                    return
-        except FileNotFoundError:
-            messagebox.showwarning("Brak plików", "Lista 'Do przetworzenia' nie istnieje. Użyj przycisku 'Przetwórz'.")
-            return
+        self.pause_request_event.clear()
+        self.processing_thread = threading.Thread(target=self._transcription_thread_worker, daemon=True)
+        self.processing_thread.start()
+        self.monitor_processing()
+        self._update_ui_from_file_state()
 
-        self.action_panel.set_button_state("process", "disabled")
-        self.action_panel.set_button_state("start", "disabled")
-        self.control_panel.set_button_state("reset", "disabled")
-
-        processing_thread = threading.Thread(target=self._transcription_thread_worker, daemon=True)
-        processing_thread.start()
-        self.monitor_processing(processing_thread)
+    def pause_transcription(self):
+        self.pause_request_event.set()
+        self._update_ui_from_file_state()
 
     def _transcription_thread_worker(self):
         try:
-            processor = TranscriptionProcessor()
+            processor = TranscriptionProcessor(self.pause_request_event)
             processor.process_transcriptions()
         except Exception as e:
             self.after(0, lambda: messagebox.showerror("Błąd krytyczny", f"Wystąpił błąd: {e}"))
         finally:
             self.after(0, self.on_processing_finished)
 
-    def monitor_processing(self, thread):
-        if thread.is_alive():
-            self._refresh_all_views()
-            self.after(1000, lambda: self.monitor_processing(thread))
+    def monitor_processing(self):
+        if self.processing_thread and self.processing_thread.is_alive():
+            self._update_ui_from_file_state()
+            self.after(1000, self.monitor_processing)
         else:
-            self._refresh_all_views()
+            self.on_processing_finished()
 
     def on_processing_finished(self):
-        self._refresh_all_views()
-        messagebox.showinfo("Koniec", "Przetwarzanie zakończone!")
-        self.action_panel.set_button_state("start", "normal")
-        self.action_panel.set_button_state("process", "normal")
-        self.control_panel.set_button_state("reset", "normal")
+        self.processing_thread = None
+        self.pause_request_event.clear()
+        self._update_ui_from_file_state()
+        if not self.pause_request_event.is_set() and not self._get_list_content(config.PROCESSING_LIST_FILE):
+             messagebox.showinfo("Koniec", "Przetwarzanie zakończone!")
 
     def copy_transcription_to_clipboard(self):
         text = self.transcription_view.get_text()
@@ -178,48 +206,34 @@ class App(tk.Tk):
         self.clipboard_append(text)
         messagebox.showinfo("Skopiowano", "Transkrypcja została skopiowana do schowka.")
 
-    def _refresh_all_views(self):
-        try:
-            with open(config.AUDIO_LIST_TO_TRANSCRIBE_FILE, 'r', encoding='utf-8') as f:
-                wav_files = [line.strip() for line in f.readlines()]
-            files_data = [(path, get_file_duration(path)) for path in wav_files]
-            self.files_view.populate_files(files_data)
-        except FileNotFoundError:
-            self.files_view.clear_view()
-
-        self.processing_view.update_from_file(config.PROCESSING_LIST_FILE)
-        self.processed_view.update_from_file(config.PROCESSED_LIST_FILE)
-        self.transcription_view.update_from_file(config.TRANSCRIPTIONS_FILE)
-
     def reset_app_state(self):
+        if self.processing_thread and self.processing_thread.is_alive():
+            messagebox.showerror("Błąd", "Nie można zresetować aplikacji podczas przetwarzania.")
+            return
         if not messagebox.askokcancel("Potwierdzenie", "Czy na pewno chcesz zresetować aplikację?"):
             return
 
         for f in [config.AUDIO_LIST_TO_ENCODE_FILE, config.AUDIO_LIST_TO_TRANSCRIBE_FILE, config.PROCESSING_LIST_FILE, config.PROCESSED_LIST_FILE, config.TRANSCRIPTIONS_FILE]:
             if os.path.exists(f): os.remove(f)
 
-        self._refresh_all_views()
-
-        self.control_panel.set_button_state("select", "normal")
-        self.control_panel.set_button_state("load", "disabled")
-        self.control_panel.set_info_label("Wybierz pliki audio")
-        self.action_panel.set_button_state("start", "normal")
-        self.action_panel.set_button_state("process", "normal")
-
         self.cleanup_temp_directory()
         os.makedirs(config.OUTPUT_DIR, exist_ok=True)
+
+        self._update_ui_from_file_state()
         messagebox.showinfo("Reset", "Aplikacja została zresetowana.")
 
     def cleanup_temp_directory(self):
         try:
-            if os.path.exists(config.SESSION_TEMP_DIR):
-                shutil.rmtree(config.SESSION_TEMP_DIR)
+            if os.path.exists(config.TMP_DIR):
+                shutil.rmtree(config.TMP_DIR)
         except OSError as e:
-            print(f"Błąd: {e.strerror}")
+            print(f"Błąd podczas czyszczenia folderu tymczasowego: {e.strerror}")
 
     def on_closing(self):
-        if messagebox.askokcancel("Zamknij", "Czy na pewno chcesz zamknąć aplikację?"):
-            self.cleanup_temp_directory()
+        if self.processing_thread and self.processing_thread.is_alive():
+            if messagebox.askokcancel("Przetwarzanie w toku", "Proces jest aktywny. Czy na pewno chcesz wyjść?"):
+                self.destroy()
+        else:
             self.destroy()
 
 def main():

@@ -2,37 +2,35 @@
 # Dzięki temu, jeśli chcesz coś zmienić (np. model AI), robisz to tylko tutaj.
 
 import os
-import tempfile
 
 # --- GŁÓWNA NAZWA APLIKACJI ---
 APP_NAME = "Voice Note"
 
-# --- KATALOG TYMCZASOWY ---
-# Tworzymy unikalny folder tymczasowy dla każdej sesji aplikacji.
-# Ten folder będzie przechowywał wszystkie pliki robocze.
-# Jest to lepsze rozwiązanie niż stały folder `rec/`, ponieważ unika konfliktów
-# i ułatwia sprzątanie po zakończeniu pracy.
-SESSION_TEMP_DIR = tempfile.mkdtemp(prefix=f"{APP_NAME.lower().replace(' ', '_')}_")
+# --- GŁÓWNY KATALOG APLIKACJI ---
+# Używamy os.path.abspath, aby uzyskać pełną ścieżkę do pliku,
+# a następnie dirname, aby znaleźć katalog, w którym się znajduje.
+# Robimy to dwukrotnie, aby cofnąć się z `src` do głównego folderu projektu.
+APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# --- ŚCIEŻKI DO KATALOGÓW WEWNĄTRZ FOLDERU TYMCZASOWEGO ---
-# Definiujemy podfoldery wewnątrz naszego głównego folderu tymczasowego.
-# `os.path.join` to bezpieczny sposób łączenia ścieżek, który działa na różnych systemach.
-# W naszej nowej logice, `INPUT_DIR` nie jest już potrzebny, ponieważ pliki
-# będą kopiowane bezpośrednio do folderu tymczasowego.
-OUTPUT_DIR = os.path.join(SESSION_TEMP_DIR, 'output_wav')
+# --- KATALOGI ROBOCZE ---
+# Używamy stałych folderów, aby stan aplikacji był zachowywany po jej zamknięciu.
+REC_DIR = os.path.join(APP_DIR, 'rec')
+TMP_DIR = os.path.join(APP_DIR, 'tmp')
+OUTPUT_DIR = os.path.join(TMP_DIR, 'output_wav')
 
-# Tworzymy podfolder na przekonwertowane pliki .wav.
+# Tworzymy wszystkie potrzebne foldery przy starcie, jeśli nie istnieją.
+os.makedirs(REC_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
 # --- ŚCIEŻKI DO PLIKÓW STANU ---
-# Pliki te również znajdują się w głównym folderze tymczasowym, co zapewnia,
-# że stan aplikacji jest odizolowany dla każdej sesji.
-AUDIO_LIST_TO_ENCODE_FILE = os.path.join(SESSION_TEMP_DIR, '1_audio_list_to_encode.txt')
-AUDIO_LIST_TO_TRANSCRIBE_FILE = os.path.join(SESSION_TEMP_DIR, '2_audio_list_to_transcribe.txt')
-PROCESSING_LIST_FILE = os.path.join(SESSION_TEMP_DIR, '3_processing_list.txt')
-PROCESSED_LIST_FILE = os.path.join(SESSION_TEMP_DIR, '4_processed_list.txt')
-TRANSCRIPTIONS_FILE = os.path.join(SESSION_TEMP_DIR, '5_transcriptions.txt')
+# Pliki przechowujące listy plików na różnych etapach procesu.
+# Umieszczamy je w folderze `rec`, aby były trwałe.
+AUDIO_LIST_TO_ENCODE_FILE = os.path.join(REC_DIR, '1_audio_list_to_encode.txt')
+AUDIO_LIST_TO_TRANSCRIBE_FILE = os.path.join(REC_DIR, '2_audio_list_to_transcribe.txt')
+PROCESSING_LIST_FILE = os.path.join(REC_DIR, '3_processing_list.txt')
+PROCESSED_LIST_FILE = os.path.join(REC_DIR, '4_processed_list.txt')
+TRANSCRIPTIONS_FILE = os.path.join(REC_DIR, '5_transcriptions.txt')
 
 
 # --- PARAMETRY TRANSKRYPCJI WHISPER ---
