@@ -65,6 +65,11 @@ class App(tk.Tk):
 
         # --- Initialize User Interface ---
         self.interface_builder.create_widgets()
+        
+        # --- Load Existing Data and Update UI State ---
+        # Initialize UI state based on existing tmp files (if any)
+        self.button_state_controller.update_ui_state()
+        self.panel_manager.refresh_all_views()
     
     def update_files_counter(self, total, approved, long_files):
         """Update file selection counters in the bottom row."""
