@@ -38,7 +38,7 @@ class TranscriptionController:
                 f.write(file + '\n')
 
         # Refresh UI to show files in "Do przetworzenia"
-        self.app.ui_state_manager.update_ui_state()
+        self.app.button_state_controller.update_ui_state()
         self.app.refresh_all_views()
         self.app.update_idletasks()  # Ensure UI updates before starting the thread
 
@@ -46,17 +46,17 @@ class TranscriptionController:
         self.app.processing_thread = threading.Thread(target=self._transcription_thread_worker, daemon=True)
         self.app.processing_thread.start()
         self.app.monitor_processing()
-        self.app.ui_state_manager.update_ui_state()
+        self.app.button_state_controller.update_ui_state()
 
     def pause_transcription(self):
         """Pause the transcription process."""
         self.app.pause_request_event.set()
-        self.app.ui_state_manager.update_ui_state()
+        self.app.button_state_controller.update_ui_state()
 
     def resume_transcription(self):
         """Resume the transcription process."""
         self.app.pause_request_event.clear()
-        self.app.ui_state_manager.update_ui_state()
+        self.app.button_state_controller.update_ui_state()
 
     def _transcription_thread_worker(self):
         """Worker thread for transcription processing."""
@@ -73,5 +73,5 @@ class TranscriptionController:
         """Handle processing completion."""
         self.app.processing_thread = None
         self.app.pause_request_event.clear()
-        self.app.ui_state_manager.update_ui_state()
+        self.app.button_state_controller.update_ui_state()
         self.app.refresh_all_views()

@@ -6,9 +6,11 @@ from src import config
 from src.audio import get_file_duration
 
 
-class ViewManager:
+class PanelManager:
     """
-    Manages view updates and data refresh.
+    Manages data panel updates and view refreshing throughout the application.
+    Coordinates updates across all 5 main panels: file selection, conversion status,
+    transcription queue, completed files, and transcription output.
     """
     
     def __init__(self, app):
@@ -45,7 +47,7 @@ class ViewManager:
                 print(f"Could not get duration for file {path}: {e}")
                 files_data.append((path, 0.0))
 
-        self.app.selected_files_view.populate_files(files_data)
+        self.app.file_selection_panel.populate_files(files_data)
         if error_files:
             messagebox.showwarning(
                 "Błąd odczytu plików",
@@ -54,7 +56,7 @@ class ViewManager:
 
     def _refresh_status_views(self):
         """Refresh all status views."""
-        self.app.loaded_files_view.update_from_file(config.LOADED_LIST)
-        self.app.processing_view.update_from_file(config.PROCESSING_LIST)
-        self.app.processed_view.update_from_file(config.PROCESSED_LIST)
-        self.app.transcription_view.update_from_file(config.TRANSCRIPTIONS)
+        self.app.conversion_status_panel.update_from_file(config.LOADED_LIST)
+        self.app.transcription_queue_panel.update_from_file(config.PROCESSING_LIST)
+        self.app.completed_files_panel.update_from_file(config.PROCESSED_LIST)
+        self.app.transcription_output_panel.update_from_file(config.TRANSCRIPTIONS)

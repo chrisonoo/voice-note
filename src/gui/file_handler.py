@@ -8,9 +8,11 @@ from src import config
 from src.audio import encode_audio_files
 
 
-class FileOperations:
+class FileHandler:
     """
-    Handles file operations for the application.
+    Handles all file-related operations in the application workflow.
+    Manages: file selection, audio conversion, and application state reset.
+    Works with temporary file lists to track processing stages.
     """
     
     def __init__(self, app):
@@ -39,18 +41,18 @@ class FileOperations:
             if os.path.exists(f_path): 
                 os.remove(f_path)
 
-        self.app.ui_state_manager.update_ui_state()
+        self.app.button_state_controller.update_ui_state()
         self.app.refresh_all_views()
 
     def load_selected_files(self):
         """Load selected files and convert them to WAV format."""
-        self.app.load_button.config(state="disabled")
+        self.app.convert_files_button.config(state="disabled")
         self.app.update_idletasks()
 
-        files_to_load = self.app.selected_files_view.get_checked_files()
+        files_to_load = self.app.file_selection_panel.get_checked_files()
         if not files_to_load:
             messagebox.showwarning("Brak plików", "Nie zaznaczono żadnych plików na liście 'Wybrane'.")
-            self.app.ui_state_manager.update_ui_state()
+            self.app.button_state_controller.update_ui_state()
             return
 
         # Save only checked files to a separate list for processing, 
@@ -85,7 +87,7 @@ class FileOperations:
             # Restore original selected list
             config.SELECTED_LIST = original_selected
 
-            self.app.after(0, self.app.ui_state_manager.update_ui_state)
+            self.app.after(0, self.app.button_state_controller.update_ui_state)
             self.app.after(0, self.app.refresh_all_views)
         except Exception as e:
             # Restore original selected list in case of error
@@ -111,10 +113,10 @@ class FileOperations:
             if os.path.exists(config.TMP_DIR):
                 shutil.rmtree(config.TMP_DIR)
 
-            self.app.ui_state_manager.update_ui_state()
+            self.app.button_state_controller.update_ui_state()
             self.app.refresh_all_views()
             messagebox.showinfo("Reset", "Aplikacja została zresetowana.")
         except Exception as e:
             messagebox.showerror("Błąd resetowania", f"Nie udało się zresetować aplikacji: {e}")
-            self.app.ui_state_manager.update_ui_state()
+            self.app.button_state_controller.update_ui_state()
             self.app.refresh_all_views()
