@@ -39,17 +39,22 @@ class ButtonStateController:
         # Transcription start button is enabled if there are loaded files and we are not already processing
         self.app.start_transcription_button.configure(state="normal" if to_transcribe_list and not is_processing else "disabled")
 
-        # Transcription control button (pause/resume) logic
+        # --- Transcription Control Button (Pause/Resume) ---
         is_paused = self.app.pause_request_event.is_set()
 
-        self.app.transcription_control_button.configure(state="disabled")
-        self.app.transcription_control_button.configure(text="Pauza")
-        self.app.transcription_control_button.configure(command=self.app.pause_transcription)
+        # Default state
+        self.app.transcription_control_button.configure(state="disabled", text="Pauza", command=self.app.pause_transcription)
 
         if is_processing:
+            # When processing is active, the button is for pausing/resuming
             self.app.transcription_control_button.configure(state="normal")
             if is_paused:
                 self.app.transcription_control_button.configure(text="Wznów", command=self.app.resume_transcription)
+        elif to_transcribe_list and processed_list:
+            # When reopened after interruption, enable "Resume"
+            self.app.transcription_control_button.configure(state="normal", text="Wznów", command=self.app.resume_transcription)
+            # Also, ensure the "Start" button is disabled in this specific state
+            self.app.start_transcription_button.configure(state="disabled")
 
         # Copy transcription button is always enabled (shows info if no text)
         self.app.copy_transcription_button.configure(state="normal")

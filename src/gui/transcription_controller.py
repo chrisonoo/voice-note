@@ -54,8 +54,26 @@ class TranscriptionController:
         self.app.button_state_controller.update_ui_state()
 
     def resume_transcription(self):
-        """Resume the transcription process."""
+        """
+        Resume the transcription process.
+        Handles both un-pausing an active process and resuming from an
+        interrupted state after an application restart.
+        """
         self.app.pause_request_event.clear()
+
+        # If the thread is not running, start it (resuming from interrupted state)
+        if not self.app.processing_thread or not self.app.processing_thread.is_alive():
+            # Check if there are files to process before starting a new thread
+            files_to_process = self._get_list_content(config.PROCESSING_LIST)
+            if not files_to_process:
+                messagebox.showinfo("Informacja", "Brak plików w kolejce do wznowienia.")
+                self.app.button_state_controller.update_ui_state()
+                return
+
+            self.app.processing_thread = threading.Thread(target=self._transcription_thread_worker, daemon=True)
+            self.app.processing_thread.start()
+            self.app.monitor_processing()
+
         self.app.button_state_controller.update_ui_state()
 
     def _transcription_thread_worker(self):
