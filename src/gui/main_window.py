@@ -39,6 +39,7 @@ class App(tk.Tk):
         self.grid_columnconfigure(1, weight=1)
         self.grid_columnconfigure(2, weight=1)
         self.grid_columnconfigure(3, weight=1)
+        self.grid_columnconfigure(4, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
         self.create_widgets()
@@ -52,19 +53,22 @@ class App(tk.Tk):
             select_command=self.select_source_files,
             load_command=self.load_selected_files
         )
-        self.control_panel.grid(row=0, column=0, columnspan=4, sticky="ew", padx=10, pady=(10, 0))
+        self.control_panel.grid(row=0, column=0, columnspan=5, sticky="ew", padx=10, pady=(10, 0))
 
-        self.files_view = FilesView(self)
-        self.files_view.grid(row=1, column=0, sticky="nsew", padx=(10, 5), pady=5)
+        self.selected_files_view = FilesView(self, "Wybrane")
+        self.selected_files_view.grid(row=1, column=0, sticky="nsew", padx=(10, 5), pady=5)
+
+        self.loaded_files_view = FilesView(self, "Wczytane")
+        self.loaded_files_view.grid(row=1, column=1, sticky="nsew", padx=(10, 5), pady=5)
 
         self.processing_view = StatusView(self, text="Do przetworzenia")
-        self.processing_view.grid(row=1, column=1, sticky="nsew", padx=5, pady=5)
+        self.processing_view.grid(row=1, column=2, sticky="nsew", padx=5, pady=5)
 
         self.processed_view = StatusView(self, text="Przetworzone")
-        self.processed_view.grid(row=1, column=2, sticky="nsew", padx=5, pady=5)
+        self.processed_view.grid(row=1, column=3, sticky="nsew", padx=5, pady=5)
 
         self.transcription_view = TranscriptionView(self, text="Transkrypcja")
-        self.transcription_view.grid(row=1, column=3, sticky="nsew", padx=(5, 10), pady=5)
+        self.transcription_view.grid(row=1, column=4, sticky="nsew", padx=(5, 10), pady=5)
 
         self.action_panel = ActionPanel(
             self,
@@ -83,7 +87,8 @@ class App(tk.Tk):
             return []
 
     def _refresh_all_views(self):
-        self.files_view.populate_files([(path, get_file_duration(path)) for path in self._get_list_content(config.AUDIO_LIST_TO_TRANSCRIBE_FILE)])
+        self.selected_files_view.populate_files([(path, get_file_duration(path)) for path in self._get_list_content(config.SELECTED_AUDIO_FILES_LIST)])
+        self.loaded_files_view.populate_files([(path, get_file_duration(path)) for path in self._get_list_content(config.AUDIO_LIST_TO_TRANSCRIBE_FILE)])
         self.processing_view.update_from_file(config.PROCESSING_LIST_FILE)
         self.processed_view.update_from_file(config.PROCESSED_LIST_FILE)
         self.transcription_view.update_from_file(config.TRANSCRIPTIONS_FILE)
@@ -92,13 +97,13 @@ class App(tk.Tk):
         self._refresh_all_views()
         is_processing = self.processing_thread and self.processing_thread.is_alive()
 
-        to_encode_list = self._get_list_content(config.AUDIO_LIST_TO_ENCODE_FILE)
+        selected_list = self._get_list_content(config.SELECTED_AUDIO_FILES_LIST)
         to_transcribe_list = self._get_list_content(config.AUDIO_LIST_TO_TRANSCRIBE_FILE)
         processing_list = self._get_list_content(config.PROCESSING_LIST_FILE)
         processed_list = self._get_list_content(config.PROCESSED_LIST_FILE)
 
         self.control_panel.set_button_state("select", "disabled" if is_processing else "normal")
-        self.control_panel.set_button_state("load", "normal" if to_encode_list and not to_transcribe_list and not is_processing else "disabled")
+        self.control_panel.set_button_state("load", "normal" if selected_list and not to_transcribe_list and not is_processing else "disabled")
         self.control_panel.set_button_state("reset", "disabled" if is_processing else "normal")
 
         self.action_panel.set_button_state("process", "normal" if to_transcribe_list and not processing_list and not is_processing else "disabled")
@@ -106,34 +111,39 @@ class App(tk.Tk):
         is_ready_to_start = processing_list and not processed_list
         is_paused = processing_list and processed_list
 
-        self.action_panel.show_button("start", not is_paused and not is_processing)
-        self.action_panel.show_button("pause_resume", is_paused or is_processing)
+        # Domyślny stan przycisków (aplikacja bezczynna)
+        self.action_panel.set_button_state("start", "normal" if is_ready_to_start else "disabled")
+        self.action_panel.show_button("pause_resume", False)
+        self.action_panel.set_button_state("pause_resume", "disabled")
+        self.action_panel.set_pause_resume_button_config("Pauza", self.pause_transcription)
 
+        # Stan: Wstrzymano
+        if is_paused:
+            self.action_panel.set_button_state("start", "disabled")
+            self.action_panel.show_button("pause_resume", True)
+            self.action_panel.set_button_state("pause_resume", "normal")
+            self.action_panel.set_pause_resume_button_config("Wznów", self.start_transcription_process)
+
+        # Stan: Przetwarzanie (nadpisuje stan wstrzymania, jeśli aktywny)
         if is_processing:
             self.action_panel.set_button_state("start", "disabled")
-            self.action_panel.set_pause_resume_button_config("Pauza", self.pause_transcription)
+            self.action_panel.show_button("pause_resume", True)
             self.action_panel.set_button_state("pause_resume", "normal")
-        elif is_paused:
-            self.action_panel.set_button_state("start", "disabled")
-            self.action_panel.set_pause_resume_button_config("Wznów", self.start_transcription_process)
-            self.action_panel.set_button_state("pause_resume", "normal")
-        else:
-            self.action_panel.set_button_state("start", "normal" if is_ready_to_start else "disabled")
             self.action_panel.set_pause_resume_button_config("Pauza", self.pause_transcription)
-            self.action_panel.set_button_state("pause_resume", "disabled")
 
-        is_finished = not processing_list and processed_list
-        self.action_panel.set_button_state("copy", "normal" if is_finished else "disabled")
+        self.action_panel.set_button_state("copy", "normal")
 
     def select_source_files(self):
         if self.processing_thread and self.processing_thread.is_alive(): return
         paths = filedialog.askopenfilenames(title="Wybierz pliki audio", filetypes=[("Pliki audio", " ".join(config.AUDIO_EXTENSIONS))])
         if not paths: return
 
-        with open(config.AUDIO_LIST_TO_ENCODE_FILE, 'w', encoding='utf-8') as f:
+        self.control_panel.set_info_label(f"Wybrano plików: {len(paths)}")
+
+        with open(config.SELECTED_AUDIO_FILES_LIST, 'w', encoding='utf-8') as f:
             for p in paths: f.write(p + '\n')
 
-        for f_path in [config.AUDIO_LIST_TO_TRANSCRIBE_FILE, config.PROCESSING_LIST_FILE, config.PROCESSED_LIST_FILE, config.TRANSCRIPTIONS_FILE]:
+        for f_path in [config.AUDIO_LIST_TO_ENCODE_FILE, config.AUDIO_LIST_TO_TRANSCRIBE_FILE, config.PROCESSING_LIST_FILE, config.PROCESSED_LIST_FILE, config.TRANSCRIPTIONS_FILE]:
             if os.path.exists(f_path): os.remove(f_path)
 
         self._update_ui_from_file_state()
@@ -141,6 +151,17 @@ class App(tk.Tk):
     def load_selected_files(self):
         self.control_panel.set_button_state("load", "disabled")
         self.update_idletasks()
+
+        files_to_load = self.selected_files_view.get_checked_files()
+        if not files_to_load:
+            messagebox.showwarning("Brak plików", "Nie zaznaczono żadnych plików na liście 'Wybrane'.")
+            self._update_ui_from_file_state()
+            return
+
+        with open(config.AUDIO_LIST_TO_ENCODE_FILE, 'w', encoding='utf-8') as f:
+            for file_path in files_to_load:
+                f.write(file_path + '\n')
+
         threading.Thread(target=self._load_files_worker, daemon=True).start()
 
     def _load_files_worker(self):
@@ -149,13 +170,20 @@ class App(tk.Tk):
             wav_files = sorted([os.path.join(config.OUTPUT_DIR, f) for f in os.listdir(config.OUTPUT_DIR) if f.endswith('.wav')])
             with open(config.AUDIO_LIST_TO_TRANSCRIBE_FILE, 'w', encoding='utf-8') as f:
                 for path in wav_files: f.write(path + '\n')
+
+            # Po załadowaniu, czyścimy listę wybranych plików, aby uniknąć ponownego ładowania
+            if os.path.exists(config.SELECTED_AUDIO_FILES_LIST):
+                os.remove(config.SELECTED_AUDIO_FILES_LIST)
+            if os.path.exists(config.AUDIO_LIST_TO_ENCODE_FILE):
+                os.remove(config.AUDIO_LIST_TO_ENCODE_FILE)
+
             self.after(0, self._update_ui_from_file_state)
         except Exception as e:
             self.after(0, lambda: messagebox.showerror("Błąd konwersji", f"Wystąpił błąd: {e}"))
             self.after(0, self.reset_app_state)
 
     def prepare_for_processing(self):
-        files = self.files_view.get_checked_files()
+        files = self.loaded_files_view.get_checked_files()
         if not files:
             messagebox.showwarning("Brak plików", "Nie zaznaczono żadnych plików.")
             return
@@ -194,8 +222,6 @@ class App(tk.Tk):
         self.processing_thread = None
         self.pause_request_event.clear()
         self._update_ui_from_file_state()
-        if not self.pause_request_event.is_set() and not self._get_list_content(config.PROCESSING_LIST_FILE):
-             messagebox.showinfo("Koniec", "Przetwarzanie zakończone!")
 
     def copy_transcription_to_clipboard(self):
         text = self.transcription_view.get_text()
@@ -213,7 +239,7 @@ class App(tk.Tk):
         if not messagebox.askokcancel("Potwierdzenie", "Czy na pewno chcesz zresetować aplikację?"):
             return
 
-        for f in [config.AUDIO_LIST_TO_ENCODE_FILE, config.AUDIO_LIST_TO_TRANSCRIBE_FILE, config.PROCESSING_LIST_FILE, config.PROCESSED_LIST_FILE, config.TRANSCRIPTIONS_FILE]:
+        for f in [config.SELECTED_AUDIO_FILES_LIST, config.AUDIO_LIST_TO_ENCODE_FILE, config.AUDIO_LIST_TO_TRANSCRIBE_FILE, config.PROCESSING_LIST_FILE, config.PROCESSED_LIST_FILE, config.TRANSCRIPTIONS_FILE]:
             if os.path.exists(f): os.remove(f)
 
         self.cleanup_temp_directory()
