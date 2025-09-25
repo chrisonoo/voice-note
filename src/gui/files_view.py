@@ -41,7 +41,7 @@ class FilesView(ctk.CTkFrame):
 
         Args:
             files_data (list): A list of tuples, where each tuple contains
-                               (file_path, duration_in_seconds).
+                                (file_path, duration_in_seconds).
         """
         self.clear_view()
         for i, (file_path, duration_sec) in enumerate(files_data, start=1):

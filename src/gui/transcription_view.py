@@ -32,9 +32,9 @@ class TranscriptionView(ctk.CTkFrame):
             self,
             wrap="word",
             state="disabled",
-            width=40,
-            padx=8,
-            pady=8
+            width=60,
+            padx=5,
+            pady=5
         )
         self.text.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 
