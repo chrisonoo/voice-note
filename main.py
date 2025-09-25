@@ -8,29 +8,19 @@ import argparse
 import sys
 from src.audio import get_audio_file_list, encode_audio_files, validate_file_durations
 from src.transcribe import TranscriptionProcessor
+from src import config
 
-
-def main():
+def main_cli(args):
     """
-    Główna funkcja orkiestrująca całym procesem transkrypcji.
-    Wykonuje po kolei wszystkie kroki potrzebne do przetworzenia plików audio.
+    Główna funkcja orkiestrująca całym procesem transkrypcji w trybie CLI.
     """
-    # === KROK 0: Parsowanie argumentów linii poleceń ===
-    parser = argparse.ArgumentParser(description="Transkrypcja plików audio z użyciem API OpenAI Whisper.")
-    parser.add_argument(
-        "-l", "--allow-long",
-        action="store_true",
-        help="Zezwól na przetwarzanie plików dłuższych niż 5 minut."
-    )
-    args = parser.parse_args()
-
     # Wyświetlamy komunikat na starcie, aby użytkownik wiedział, że proces się rozpoczął.
     print("--- Rozpoczynam proces transkrypcji ---")
 
     # === KROK 1: Wyszukiwanie plików audio ===
     # Wywołujemy funkcję, która przeszukuje folder `rec/input` i tworzy listę
     # plików do przetworzenia. Lista ta jest zapisywana w pliku tekstowym.
-    get_audio_file_list()
+    get_audio_file_list(config.INPUT_DIR)
 
     # === KROK 1.5: Walidacja długości plików ===
     if not args.allow_long:
@@ -67,9 +57,25 @@ def main():
 
 # Ten warunek sprawdza, czy plik `main.py` został uruchomiony bezpośrednio
 # (np. komendą `python main.py`), a nie zaimportowany do innego pliku.
-# To standardowa, dobra praktyka w Pythonie, która zapobiega automatycznemu
-# uruchomieniu kodu, gdybyśmy chcieli w przyszłości zaimportować z tego pliku
-# jakąś funkcję do innego modułu.
+# To standardowa, dobra praktyka w Pythonie.
 if __name__ == "__main__":
-    # Jeśli warunek jest spełniony, wywołujemy naszą główną funkcję.
-    main()
+    parser = argparse.ArgumentParser(description="Transkrypcja plików audio z użyciem API OpenAI Whisper.")
+    parser.add_argument(
+        "-l", "--allow-long",
+        action="store_true",
+        help="Zezwól na przetwarzanie plików dłuższych niż 5 minut (tylko tryb CLI)."
+    )
+    parser.add_argument(
+        "--gui",
+        action="store_true",
+        help="Uruchom aplikację w trybie graficznego interfejsu użytkownika (GUI)."
+    )
+    args = parser.parse_args()
+
+    if args.gui:
+        # Importujemy i uruchamiamy GUI
+        from gui import main as main_gui
+        main_gui()
+    else:
+        # Uruchamiamy tryb wiersza poleceń
+        main_cli(args)
