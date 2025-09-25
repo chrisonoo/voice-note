@@ -1,2 +1,3 @@
 from .audio_file_list import get_audio_file_list
-from .audio_file_encoding import encode_audio_file
+from .audio_file_encoding import encode_audio_files
+from .duration_checker import validate_file_durations
