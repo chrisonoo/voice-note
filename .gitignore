@@ -117,5 +117,5 @@ dmypy.json
 cython_debug/
 
 # Application-specific
-/tmp/
+tmp/
 .env
