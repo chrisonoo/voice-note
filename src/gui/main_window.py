@@ -102,11 +102,11 @@ class App(tk.Tk):
         # --- Row 2: Reset Button ---
         reset_frame = ttk.Frame(self)
         reset_frame.grid(row=2, column=0, columnspan=5, sticky="ew", padx=10, pady=(5, 10))
-        reset_frame.grid_columnconfigure(0, weight=1) # Allow button to stretch
+        reset_frame.grid_columnconfigure(0, weight=1)
         style = ttk.Style(self)
         style.configure("Red.TButton", foreground="white", background="red")
         self.reset_button = ttk.Button(reset_frame, text="Resetuj", command=self.reset_app_state, style="Red.TButton")
-        self.reset_button.grid(row=0, column=0, sticky="ew", ipady=5)
+        self.reset_button.grid(row=0, column=1, sticky="e", ipady=5)
 
     def _get_list_content(self, file_path):
         try:

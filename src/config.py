@@ -25,9 +25,9 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 # Nazwy plików przechowujących listy na różnych etapach procesu.
 # Definiowane jako stałe, aby były spójne w całej aplikacji.
 SELECTED_FILENAME = '1_selected.txt'
-LOADED_FILENAME = '2_audio_list_to_transcribe.txt'
-PROCESSING_FILENAME = '3_processing_list.txt'
-PROCESSED_FILENAME = '4_processed_list.txt'
+LOADED_FILENAME = '2_loaded.txt'
+PROCESSING_FILENAME = '3_processing.txt'
+PROCESSED_FILENAME = '4_processed.txt'
 TRANSCRIPTIONS_FILENAME = '5_transcriptions.txt'
 
 # --- ŚCIEŻKI DO PLIKÓW STANU ---

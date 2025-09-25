@@ -33,14 +33,20 @@ class TranscriptionView(ttk.Frame):
         text_frame.grid_rowconfigure(0, weight=1)
         text_frame.grid_columnconfigure(0, weight=1)
 
+        # --- Ramka z paddingiem dla pola tekstowego ---
+        text_padding_frame = ttk.Frame(text_frame)
+        text_padding_frame.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
+        text_padding_frame.grid_rowconfigure(0, weight=1)
+        text_padding_frame.grid_columnconfigure(0, weight=1)
+
         # Pole tekstowe
-        self.text = tk.Text(text_frame, wrap="word", state="disabled", width=40, padx=5, pady=5, relief="sunken", borderwidth=1)
-        self.text.grid(row=0, column=0, sticky="nsew", padx=(5, 0), pady=5)
+        self.text = tk.Text(text_padding_frame, wrap="word", state="disabled", width=40, padx=8, pady=8, relief="sunken", borderwidth=1)
+        self.text.grid(row=0, column=0, sticky="nsew")
 
         # --- Pasek przewijania ---
         scrollbar = ttk.Scrollbar(text_frame, orient="vertical", command=self.text.yview)
         self.text.configure(yscrollcommand=scrollbar.set)
-        scrollbar.grid(row=0, column=1, sticky="ns")
+        scrollbar.grid(row=0, column=1, sticky="ns", pady=5)
 
     def update_from_file(self, file_path):
         """Odczytuje plik tekstowy i wstawia jego zawartość do pola tekstowego."""
