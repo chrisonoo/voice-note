@@ -34,10 +34,18 @@ class TranscriptionProcessor:
             os.remove(config.PROCESSED_LIST_FILE)
 
         # Odczytaj listę plików do przetworzenia
-        with open(config.PROCESSING_LIST_FILE, 'r', encoding='utf8') as f:
-            files_to_process = [line.strip() for line in f.readlines()]
+        try:
+            with open(config.PROCESSING_LIST_FILE, 'r', encoding='utf8') as f:
+                # Kopiujemy listę, aby móc ją modyfikować w pętli
+                files_to_process = [line.strip() for line in f.readlines()]
+        except FileNotFoundError:
+            print("BŁĄD: Plik z listą do przetworzenia nie istnieje.")
+            return
 
-        for audio_file in files_to_process:
+        # Tworzymy kopię, aby bezpiecznie iterować i usuwać elementy
+        processing_queue = list(files_to_process)
+
+        for audio_file in processing_queue:
             whisper = Whisper(audio_file)
             print(f"  Przetwarzanie pliku: {os.path.basename(audio_file)}")
             transcription = whisper.transcribe()
@@ -49,27 +57,17 @@ class TranscriptionProcessor:
                 print(f"    Sukces: Transkrypcja zapisana.")
 
                 # Zaktualizuj pliki stanu
-                self._update_state_files(audio_file, files_to_process)
+                # Dodaj do listy przetworzonych
+                with open(config.PROCESSED_LIST_FILE, 'a', encoding='utf8') as f:
+                    f.write(audio_file + '\n')
+
+                # Usuń z listy do przetworzenia
+                files_to_process.remove(audio_file)
+                with open(config.PROCESSING_LIST_FILE, 'w', encoding='utf8') as f:
+                    for file_path in files_to_process:
+                        f.write(file_path + '\n')
             else:
                 print(f"    Pominięto plik {audio_file} z powodu błędu transkrypcji.")
 
         print("\nZakończono proces transkrypcji.")
         print(f"Wszystkie transkrypcje zostały zapisane w: {config.TRANSCRIPTIONS_FILE}")
-
-    def _update_state_files(self, processed_file, all_files):
-        """
-        Aktualizuje pliki stanu: dodaje plik do listy przetworzonych
-        i usuwa go z listy do przetworzenia.
-        """
-        # Dodaj do listy przetworzonych
-        with open(config.PROCESSED_LIST_FILE, 'a', encoding='utf8') as f:
-            f.write(processed_file + '\n')
-
-        # Usuń z listy do przetworzenia
-        remaining_files = [f for f in all_files if f != processed_file]
-        # Nadpisz plik z nową, skróconą listą
-        with open(config.PROCESSING_LIST_FILE, 'w', encoding='utf8') as f:
-            for file_path in remaining_files:
-                f.write(file_path + '\n')
-        # Musimy zaktualizować `all_files` po usunięciu, aby kolejne iteracje działały poprawnie
-        all_files.remove(processed_file)

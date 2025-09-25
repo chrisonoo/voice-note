@@ -7,30 +7,25 @@
 import argparse
 import sys
 import os
-from src.audio import create_audio_file_list, encode_audio_files, validate_file_durations
+from src.audio import encode_audio_files, validate_file_durations
 from src.transcribe import TranscriptionProcessor
 from src import config
 
 def main_cli(args):
     """
     Główna funkcja orkiestrująca całym procesem transkrypcji w trybie CLI.
-    Ta funkcja jest teraz w pełni niezależna od logiki GUI i folderów tymczasowych.
     """
     print("--- Rozpoczynam proces transkrypcji w trybie CLI ---")
 
-    # Przywracamy starą logikę opartą o stały folder `rec/`
+    # Konfiguracja ścieżek dla trybu CLI
     base_dir = os.path.dirname(os.path.abspath(__file__))
     rec_dir = os.path.join(base_dir, 'rec')
     input_dir = os.path.join(rec_dir, 'input')
     output_dir = os.path.join(rec_dir, 'output')
 
-    # Utwórz foldery, jeśli nie istnieją
     os.makedirs(input_dir, exist_ok=True)
     os.makedirs(output_dir, exist_ok=True)
 
-    # === KROK 1: Wyszukiwanie plików audio ===
-    print(f"Wyszukiwanie plików w folderze: {input_dir}")
-    # Dynamiczne nadpisanie konfiguracji dla trybu CLI
     config.AUDIO_LIST_TO_ENCODE_FILE = os.path.join(rec_dir, '1_audio_list_to_encode.txt')
     config.AUDIO_LIST_TO_TRANSCRIBE_FILE = os.path.join(rec_dir, '2_audio_list_to_transcribe.txt')
     config.PROCESSING_LIST_FILE = os.path.join(rec_dir, '3_processing_list.txt')
@@ -38,9 +33,8 @@ def main_cli(args):
     config.TRANSCRIPTIONS_FILE = os.path.join(rec_dir, '5_transcriptions.txt')
     config.OUTPUT_DIR = output_dir
 
-    # Używamy oryginalnej funkcji `get_audio_file_list` z `argparse`
-    # Musimy ją zaimportować lokalnie, aby uniknąć konfliktu nazw
-    from src.audio.audio_file_list_cli import get_audio_file_list_cli
+    # Użycie dedykowanej funkcji do wyszukania plików dla CLI
+    from src.audio import get_audio_file_list_cli
     get_audio_file_list_cli(input_dir)
 
     # === KROK 1.5: Walidacja długości plików ===
