@@ -1,10 +1,11 @@
 # Ten moduł zawiera funkcje do sprawdzania długości (czasu trwania) plików audio.
+
+import os
 import subprocess
 import json
-import os
 from src import config
 
-def get_audio_duration(file_path):
+def get_file_duration(file_path):
     """
     Pobiera czas trwania pliku audio za pomocą ffprobe.
 
@@ -12,45 +13,47 @@ def get_audio_duration(file_path):
         file_path (str): Ścieżka do pliku audio.
 
     Returns:
-        float: Czas trwania pliku w sekundach lub None, jeśli wystąpił błąd.
+        float: Czas trwania pliku w sekundach lub 0.0, jeśli wystąpi błąd.
     """
+    # Polecenie ffprobe do uzyskania informacji o pliku w formacie JSON
     command = [
-        "ffprobe",
-        "-v", "quiet",
-        "-print_format", "json",
-        "-show_format",
-        "-show_streams",
+        'ffprobe',
+        '-v', 'quiet',
+        '-print_format', 'json',
+        '-show_format',
+        '-show_streams',
         file_path
     ]
     try:
-        result = subprocess.run(command, check=True, capture_output=True, text=True)
+        # Uruchomienie polecenia
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        # Parsowanie wyniku JSON
         data = json.loads(result.stdout)
-        # Szukamy strumienia audio i pobieramy jego czas trwania
-        for stream in data.get("streams", []):
-            if stream.get("codec_type") == "audio" and "duration" in stream:
-                return float(stream["duration"])
-        # Jeśli nie ma w strumieniach, sprawdzamy w formacie
-        if "format" in data and "duration" in data["format"]:
-            return float(data["format"]["duration"])
-        return None
-    except (subprocess.CalledProcessError, json.JSONDecodeError, KeyError, FileNotFoundError):
-        return None
+        # Zwracanie czasu trwania z informacji o formacie
+        return float(data['format']['duration'])
+    except (subprocess.CalledProcessError, KeyError, FileNotFoundError) as e:
+        # Obsługa błędów, np. gdy ffprobe nie jest zainstalowany lub plik jest uszkodzony
+        print(f"Błąd podczas sprawdzania czasu trwania pliku {os.path.basename(file_path)}: {e}")
+        return 0.0
 
-def validate_file_durations(max_duration=300):
+def validate_file_durations():
     """
-    Sprawdza, czy pliki na liście do przetworzenia nie przekraczają maksymalnej długości.
-
-    Args:
-        max_duration (int): Maksymalna dozwolona długość pliku w sekundach.
+    Waliduje czas trwania plików z listy `AUDIO_LIST_TO_ENCODE_FILE`.
+    Ta funkcja jest głównie używana w trybie CLI.
 
     Returns:
-        list: Lista ścieżek do plików, które są za długie.
+        list: Lista ścieżek do plików, które są dłuższe niż dozwolony limit.
     """
     long_files = []
-    with open(config.AUDIO_LIST_TO_ENCODE_FILE, 'r', encoding='utf-8') as f:
-        for line in f:
-            file_path = line.strip()
-            duration = get_audio_duration(file_path)
-            if duration is not None and duration > max_duration:
+    try:
+        with open(config.AUDIO_LIST_TO_ENCODE_FILE, 'r', encoding='utf-8') as f:
+            files_to_check = [line.strip() for line in f.readlines()]
+
+        for file_path in files_to_check:
+            duration = get_file_duration(file_path)
+            if duration > config.MAX_FILE_DURATION_SECONDS:
                 long_files.append(os.path.basename(file_path))
+    except FileNotFoundError:
+        print("Plik z listą audio do sprawdzenia nie istnieje.")
+
     return long_files
