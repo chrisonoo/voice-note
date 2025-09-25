@@ -48,10 +48,9 @@ class TranscriptionProcessor:
         """
         Główna metoda tej klasy. Przetwarza pliki z listy, wykonuje transkrypcję
         i zarządza plikami stanu, aby zapewnić odporność na błędy.
+        Zakłada, że pliki stanu (np. `PROCESSING_LIST_FILE`) zostały już przygotowane
+        przez interfejs użytkownika lub inny proces nadrzędny.
         """
-        # Najpierw przygotowujemy listę plików do przetworzenia.
-        self._prepare_transcription_list()
-
         print("\nKrok 4: Rozpoczynanie transkrypcji plików...")
 
         # Otwieramy plik z listą wszystkich plików .wav do przetworzenia.

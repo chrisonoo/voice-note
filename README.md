@@ -48,16 +48,23 @@ Aplikację można uruchomić w dwóch trybach: graficznym (GUI) lub tradycyjnym 
 
 ### Tryb graficzny (GUI) - zalecany
 
-Tryb graficzny zapewnia interaktywną obsługę, wizualizację postępu i jest łatwiejszy w użyciu.
+Tryb graficzny zapewnia interaktywną obsługę i wizualizację postępu.
 
 1.  **Uruchom aplikację** z flagą `--gui`:
     ```bash
     python main.py --gui
     ```
-2.  **Wybierz folder** z plikami audio za pomocą przycisku "Wybierz Foldery".
-3.  **Wczytaj pliki** do aplikacji przyciskiem "Wczytaj Pliki".
-4.  **Rozpocznij transkrypcję** przyciskiem "Start".
-5.  **Monitoruj postęp** na listach i w podglądzie. Po zakończeniu transkrypcje pojawią się w polu "Podgląd" oraz zostaną zapisane w pliku `rec/5_transcriptions.txt`.
+2.  **Postępuj zgodnie z instrukcjami** na ekranie: wybierz folder, wczytaj pliki i rozpocznij transkrypcję.
+
+#### Ułatwione uruchamianie w Windows (opcjonalne)
+
+Aby uruchomić aplikację jednym kliknięciem (bez potrzeby ręcznego aktywowania środowiska wirtualnego), możesz użyć dołączonego skryptu `run_gui.bat`.
+
+1.  **Utwórz skrót:** Kliknij prawym przyciskiem myszy na plik `run_gui.bat` i wybierz `Utwórz skrót`.
+2.  **(Opcjonalnie) Zmień ikonę:** Kliknij prawym przyciskiem na nowo utworzony skrót, wybierz `Właściwości` -> `Zmień ikonę...` i wybierz dowolną ikonę.
+3.  **Przenieś skrót** na pulpit lub w inne dogodne miejsce.
+
+Od teraz, dwukrotne kliknięcie skrótu automatycznie aktywuje środowisko wirtualne i uruchomi aplikację.
 
 ### Tryb wiersza poleceń (CLI)
 
