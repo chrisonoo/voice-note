@@ -24,12 +24,14 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 # --- ŚCIEŻKI DO PLIKÓW STANU ---
 # Pliki przechowujące listy plików na różnych etapach procesu.
 # Umieszczamy je w folderze `tmp`, aby były trwałe, ale ignorowane przez Git.
-SELECTED_AUDIO_FILES_LIST = os.path.join(TMP_DIR, '0_selected_audio_files.txt')
-AUDIO_LIST_TO_ENCODE_FILE = os.path.join(TMP_DIR, '1_audio_list_to_encode.txt')
-AUDIO_LIST_TO_TRANSCRIBE_FILE = os.path.join(TMP_DIR, '2_audio_list_to_transcribe.txt')
-PROCESSING_LIST_FILE = os.path.join(TMP_DIR, '3_processing_list.txt')
-PROCESSED_LIST_FILE = os.path.join(TMP_DIR, '4_processed_list.txt')
-TRANSCRIPTIONS_FILE = os.path.join(TMP_DIR, '5_transcriptions.txt')
+SELECTED_LIST = os.path.join(TMP_DIR, '1_selected.txt')
+LOADED_LIST = os.path.join(TMP_DIR, '2_loaded.txt')
+PROCESSING_LIST = os.path.join(TMP_DIR, '3_processing.txt')
+PROCESSED_LIST = os.path.join(TMP_DIR, '4_processed.txt')
+TRANSCRIPTIONS = os.path.join(TMP_DIR, '5_transcriptions.txt')
+
+# Plik pośredni, który nie jest bezpośrednio widoczny w GUI
+TO_ENCODE_LIST = os.path.join(TMP_DIR, '1a_to_encode.txt')
 
 
 # --- PARAMETRY TRANSKRYPCJI WHISPER ---

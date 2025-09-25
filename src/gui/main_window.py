@@ -116,20 +116,20 @@ class App(tk.Tk):
             return []
 
     def _refresh_all_views(self):
-        self.selected_files_view.populate_files([(path, get_file_duration(path)) for path in self._get_list_content(config.SELECTED_AUDIO_FILES_LIST)])
-        self.loaded_files_view.update_from_file(config.AUDIO_LIST_TO_TRANSCRIBE_FILE)
-        self.processing_view.update_from_file(config.PROCESSING_LIST_FILE)
-        self.processed_view.update_from_file(config.PROCESSED_LIST_FILE)
-        self.transcription_view.update_from_file(config.TRANSCRIPTIONS_FILE)
+        self.selected_files_view.populate_files([(path, get_file_duration(path)) for path in self._get_list_content(config.SELECTED_LIST)])
+        self.loaded_files_view.update_from_file(config.LOADED_LIST)
+        self.processing_view.update_from_file(config.PROCESSING_LIST)
+        self.processed_view.update_from_file(config.PROCESSED_LIST)
+        self.transcription_view.update_from_file(config.TRANSCRIPTIONS)
 
     def _update_ui_from_file_state(self):
         self._refresh_all_views()
         is_processing = self.processing_thread and self.processing_thread.is_alive()
 
-        selected_list = self._get_list_content(config.SELECTED_AUDIO_FILES_LIST)
-        to_transcribe_list = self._get_list_content(config.AUDIO_LIST_TO_TRANSCRIBE_FILE)
-        processing_list = self._get_list_content(config.PROCESSING_LIST_FILE)
-        processed_list = self._get_list_content(config.PROCESSED_LIST_FILE)
+        selected_list = self._get_list_content(config.SELECTED_LIST)
+        to_transcribe_list = self._get_list_content(config.LOADED_LIST)
+        processing_list = self._get_list_content(config.PROCESSING_LIST)
+        processed_list = self._get_list_content(config.PROCESSED_LIST)
 
         self.select_button.config(state="disabled" if is_processing else "normal")
         self.load_button.config(state="normal" if selected_list and not to_transcribe_list and not is_processing else "disabled")
@@ -157,10 +157,10 @@ class App(tk.Tk):
         paths = filedialog.askopenfilenames(title="Wybierz pliki audio", filetypes=[("Pliki audio", " ".join(config.AUDIO_EXTENSIONS))])
         if not paths: return
 
-        with open(config.SELECTED_AUDIO_FILES_LIST, 'w', encoding='utf-8') as f:
+        with open(config.SELECTED_LIST, 'w', encoding='utf-8') as f:
             for p in paths: f.write(p + '\n')
 
-        for f_path in [config.AUDIO_LIST_TO_ENCODE_FILE, config.AUDIO_LIST_TO_TRANSCRIBE_FILE, config.PROCESSING_LIST_FILE, config.PROCESSED_LIST_FILE, config.TRANSCRIPTIONS_FILE]:
+        for f_path in [config.TO_ENCODE_LIST, config.LOADED_LIST, config.PROCESSING_LIST, config.PROCESSED_LIST, config.TRANSCRIPTIONS]:
             if os.path.exists(f_path): os.remove(f_path)
 
         self._update_ui_from_file_state()
@@ -175,7 +175,7 @@ class App(tk.Tk):
             self._update_ui_from_file_state()
             return
 
-        with open(config.AUDIO_LIST_TO_ENCODE_FILE, 'w', encoding='utf-8') as f:
+        with open(config.TO_ENCODE_LIST, 'w', encoding='utf-8') as f:
             for file_path in files_to_load:
                 f.write(file_path + '\n')
 
@@ -185,12 +185,12 @@ class App(tk.Tk):
         try:
             encode_audio_files()
             wav_files = sorted([os.path.join(config.OUTPUT_DIR, f) for f in os.listdir(config.OUTPUT_DIR) if f.endswith('.wav')])
-            with open(config.AUDIO_LIST_TO_TRANSCRIBE_FILE, 'w', encoding='utf-8') as f:
+            with open(config.LOADED_LIST, 'w', encoding='utf-8') as f:
                 for path in wav_files: f.write(path + '\n')
 
             # Po załadowaniu, czyścimy listę wybranych plików, aby uniknąć ponownego ładowania
-            if os.path.exists(config.AUDIO_LIST_TO_ENCODE_FILE):
-                os.remove(config.AUDIO_LIST_TO_ENCODE_FILE)
+            if os.path.exists(config.TO_ENCODE_LIST):
+                os.remove(config.TO_ENCODE_LIST)
 
             self.after(0, self._update_ui_from_file_state)
         except Exception as e:
@@ -199,11 +199,11 @@ class App(tk.Tk):
 
     def start_transcription_process(self):
         # Merge "prepare_for_processing" logic into this method
-        files = self._get_list_content(config.AUDIO_LIST_TO_TRANSCRIBE_FILE)
+        files = self._get_list_content(config.LOADED_LIST)
         if not files:
             messagebox.showwarning("Brak plików", "Brak plików do przetworzenia.")
             return
-        with open(config.PROCESSING_LIST_FILE, 'w', encoding='utf-8') as f:
+        with open(config.PROCESSING_LIST, 'w', encoding='utf-8') as f:
             for file in files: f.write(file + '\n')
 
         self._update_ui_from_file_state() # Refresh UI to show files in "Do przetworzenia"
@@ -260,7 +260,7 @@ class App(tk.Tk):
         if not messagebox.askokcancel("Potwierdzenie", "Czy na pewno chcesz zresetować aplikację?"):
             return
 
-        for f in [config.SELECTED_AUDIO_FILES_LIST, config.AUDIO_LIST_TO_ENCODE_FILE, config.AUDIO_LIST_TO_TRANSCRIBE_FILE, config.PROCESSING_LIST_FILE, config.PROCESSED_LIST_FILE, config.TRANSCRIPTIONS_FILE]:
+        for f in [config.SELECTED_LIST, config.TO_ENCODE_LIST, config.LOADED_LIST, config.PROCESSING_LIST, config.PROCESSED_LIST, config.TRANSCRIPTIONS]:
             if os.path.exists(f): os.remove(f)
 
         self.cleanup_temp_directory()
