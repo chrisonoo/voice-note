@@ -31,8 +31,13 @@ class ButtonStateController:
         processing_list = self._get_list_content(config.PROCESSING_LIST)
         processed_list = self._get_list_content(config.PROCESSED_LIST)
 
-        # Enable/disable buttons based on current application state
-        self.app.file_selector_button.configure(state="disabled" if is_processing else "normal")
+        # --- File Selection Button Logic ---
+        # Disable if any files are loaded or if processing is active
+        any_files_loaded = bool(selected_list or to_transcribe_list or processing_list or processed_list)
+        self.app.file_selector_button.configure(state="disabled" if is_processing or any_files_loaded else "normal")
+
+        # --- Conversion Button Logic ---
+        # Enable only if files are selected, not yet converted, and not processing
         self.app.convert_files_button.configure(state="normal" if selected_list and not to_transcribe_list and not is_processing else "disabled")
         self.app.reset_application_button.configure(state="disabled" if is_processing else "normal")
 

@@ -119,4 +119,3 @@ cython_debug/
 # Application-specific
 tmp/
 .env
-_backlog.md
