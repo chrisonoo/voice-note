@@ -189,8 +189,6 @@ class App(tk.Tk):
                 for path in wav_files: f.write(path + '\n')
 
             # Po załadowaniu, czyścimy listę wybranych plików, aby uniknąć ponownego ładowania
-            if os.path.exists(config.SELECTED_AUDIO_FILES_LIST):
-                os.remove(config.SELECTED_AUDIO_FILES_LIST)
             if os.path.exists(config.AUDIO_LIST_TO_ENCODE_FILE):
                 os.remove(config.AUDIO_LIST_TO_ENCODE_FILE)
 
