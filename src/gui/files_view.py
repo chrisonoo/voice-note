@@ -43,10 +43,10 @@ class FilesView(ttk.Frame):
         # --- Konfiguracja Kolumn ---
         self.tree.heading("checked", text="")
         self.tree.column("checked", width=40, stretch=tk.NO, anchor="center")
-        self.tree.heading("filename", text="Nazwa pliku")
-        self.tree.column("filename", width=250, stretch=tk.YES)
-        self.tree.heading("duration", text="Czas trwania")
-        self.tree.column("duration", width=100, stretch=tk.NO, anchor="center")
+        self.tree.heading("filename", text="Nazwa")
+        self.tree.column("filename", width=188, stretch=tk.YES)
+        self.tree.heading("duration", text="Czas")
+        self.tree.column("duration", width=75, stretch=tk.NO, anchor="center")
 
         # --- Pasek przewijania ---
         scrollbar = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview)

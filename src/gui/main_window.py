@@ -35,11 +35,11 @@ class App(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         # Konfiguracja głównej siatki
-        self.grid_columnconfigure(0, weight=1)
-        self.grid_columnconfigure(1, weight=1)
-        self.grid_columnconfigure(2, weight=1)
-        self.grid_columnconfigure(3, weight=1)
-        self.grid_columnconfigure(4, weight=1)
+        self.grid_columnconfigure(0, weight=4)
+        self.grid_columnconfigure(1, weight=0)
+        self.grid_columnconfigure(2, weight=0)
+        self.grid_columnconfigure(3, weight=0)
+        self.grid_columnconfigure(4, weight=3)
         self.grid_rowconfigure(1, weight=1)
 
         self.create_widgets()
@@ -58,7 +58,7 @@ class App(tk.Tk):
         self.selected_files_view = FilesView(self, "Wybrane")
         self.selected_files_view.grid(row=1, column=0, sticky="nsew", padx=(10, 5), pady=5)
 
-        self.loaded_files_view = FilesView(self, "Wczytane")
+        self.loaded_files_view = StatusView(self, text="Wczytane")
         self.loaded_files_view.grid(row=1, column=1, sticky="nsew", padx=(10, 5), pady=5)
 
         self.processing_view = StatusView(self, text="Do przetworzenia")
@@ -88,7 +88,7 @@ class App(tk.Tk):
 
     def _refresh_all_views(self):
         self.selected_files_view.populate_files([(path, get_file_duration(path)) for path in self._get_list_content(config.SELECTED_AUDIO_FILES_LIST)])
-        self.loaded_files_view.populate_files([(path, get_file_duration(path)) for path in self._get_list_content(config.AUDIO_LIST_TO_TRANSCRIBE_FILE)])
+        self.loaded_files_view.update_from_file(config.AUDIO_LIST_TO_TRANSCRIBE_FILE)
         self.processing_view.update_from_file(config.PROCESSING_LIST_FILE)
         self.processed_view.update_from_file(config.PROCESSED_LIST_FILE)
         self.transcription_view.update_from_file(config.TRANSCRIPTIONS_FILE)
@@ -183,9 +183,9 @@ class App(tk.Tk):
             self.after(0, self.reset_app_state)
 
     def prepare_for_processing(self):
-        files = self.loaded_files_view.get_checked_files()
+        files = self._get_list_content(config.AUDIO_LIST_TO_TRANSCRIBE_FILE)
         if not files:
-            messagebox.showwarning("Brak plików", "Nie zaznaczono żadnych plików.")
+            messagebox.showwarning("Brak plików", "Brak plików do przetworzenia.")
             return
         with open(config.PROCESSING_LIST_FILE, 'w', encoding='utf-8') as f:
             for file in files: f.write(file + '\n')

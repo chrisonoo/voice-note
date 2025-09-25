@@ -35,7 +35,7 @@ class StatusView(ttk.Frame):
         list_frame.grid_columnconfigure(0, weight=1)
 
         # Lista
-        self.listbox = tk.Listbox(list_frame)
+        self.listbox = tk.Listbox(list_frame, width=30)
         self.listbox.grid(row=0, column=0, sticky="nsew")
 
         # --- Pasek przewijania ---
