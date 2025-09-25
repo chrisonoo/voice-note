@@ -36,9 +36,6 @@ class FilesView(ctk.CTkFrame):
         header_duration = ctk.CTkLabel(self.scrollable_frame, text="Czas", width=50, anchor="center")
         header_duration.grid(row=0, column=2, padx=5, pady=2)
 
-        header_play = ctk.CTkLabel(self.scrollable_frame, text="Odsłuchaj", width=50, anchor="center")
-        header_play.grid(row=0, column=3, padx=5, pady=2)
-
         # --- Data Storage ---
         # List to store refs to (checkbox, file_path, duration_sec, play_button)
         self.file_widgets = []

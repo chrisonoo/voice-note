@@ -1,11 +1,15 @@
 import pygame
 import threading
+from pydub import AudioSegment
+import io
+import os
 
 class AudioPlayer:
     """
     Zarządza odtwarzaniem plików audio przy użyciu pygame.mixer.
     Zapewnia, że w danym momencie odtwarzany jest tylko jeden plik.
     Zaimplementowany jako Singleton, aby zagwarantować jedną instancję.
+    Konwertuje pliki do formatu WAV w pamięci przed odtworzeniem.
     """
     _instance = None
     _lock = threading.Lock()
@@ -51,22 +55,39 @@ class AudioPlayer:
                 # Zatrzymujemy cokolwiek, co mogło grać wcześniej
                 pygame.mixer.music.stop()
 
-                # Ładujemy i odtwarzamy nowy plik
-                pygame.mixer.music.load(file_path)
+                # --- Konwersja w locie do WAV w pamięci ---
+                # 1. Załaduj plik dowolnego formatu za pomocą pydub
+                audio_segment = AudioSegment.from_file(file_path)
+
+                # 2. Utwórz bufor w pamięci
+                wav_io = io.BytesIO()
+
+                # 3. Wyeksportuj audio jako WAV do bufora
+                audio_segment.export(wav_io, format="wav")
+
+                # 4. Przewiń bufor na początek, aby pygame mógł go odczytać
+                wav_io.seek(0)
+
+                # 5. Załaduj dane WAV z pamięci do pygame
+                pygame.mixer.music.load(wav_io)
                 pygame.mixer.music.play()
 
                 # Aktualizujemy stan
                 self.current_file = file_path
                 self.is_playing = True
                 self.is_paused = False
-            except pygame.error as e:
+            except Exception as e:
                 print(f"Nie można odtworzyć pliku: {file_path}. Błąd: {e}")
                 self.stop()
 
     def stop(self):
         """Zatrzymuje odtwarzanie i resetuje stan."""
         pygame.mixer.music.stop()
-        pygame.mixer.music.unload() # Ważne, aby zwolnić zasób
+        try:
+            # Unload może rzucić błąd, jeśli nic nie jest załadowane
+            pygame.mixer.music.unload()
+        except pygame.error:
+            pass
         self.current_file = None
         self.is_playing = False
         self.is_paused = False
