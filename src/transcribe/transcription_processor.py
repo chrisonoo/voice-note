@@ -7,18 +7,21 @@ class TranscriptionProcessor:
     """
     Klasa zarządzająca procesem transkrypcji plików audio z obsługą pauzy.
     """
-    def __init__(self, pause_requested_event: threading.Event = None):
+    def __init__(self, pause_requested_event: threading.Event = None, resume: bool = False):
         """
         Inicjalizuje procesor transkrypcji.
 
         Args:
             pause_requested_event: Obiekt `threading.Event` do sygnalizowania żądania pauzy.
                                    Jeśli zostanie ustawiony, pętla zakończy się po bieżącym pliku.
+            resume (bool): Flaga wskazująca, czy proces jest wznawiany. Jeśli `True`,
+                           pliki stanu nie zostaną wyczyszczone na starcie.
         """
         self.response_format = config.WHISPER_API_RESPONSE_FORMAT
         self.prompt = config.WHISPER_API_PROMPT
         self.temperature = config.WHISPER_API_TEMPERATURE
         self.pause_requested_event = pause_requested_event
+        self.resume = resume
 
     def process_transcriptions(self):
         """
@@ -27,6 +30,12 @@ class TranscriptionProcessor:
         Przerywa pracę, jeśli `pause_requested_event` jest ustawiony.
         """
         print("\nKrok 3: Rozpoczynanie lub wznawianie transkrypcji plików...")
+
+        # Clear the processed and transcriptions lists only if it's a fresh start
+        if not self.resume:
+            for file_path in [config.PROCESSED_LIST, config.TRANSCRIPTIONS]:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
 
         try:
             with open(config.PROCESSING_LIST, 'r', encoding='utf8') as f:

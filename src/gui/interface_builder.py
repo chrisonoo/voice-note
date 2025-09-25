@@ -54,13 +54,22 @@ class InterfaceBuilder:
         )
         self.app.start_transcription_button.grid(row=0, column=2, sticky="ew", padx=5, pady=(10, 0))
 
-        # --- Column 3: Transcription Control Button ---
+        # --- Column 3: Transcription Control Button (for active process) ---
         self.app.transcription_control_button = ctk.CTkButton(
             self.app,
             text="Pauza",
             command=self.app.transcription_controller.pause_transcription
         )
         self.app.transcription_control_button.grid(row=0, column=3, sticky="ew", padx=5, pady=(10, 0))
+
+        # --- Column 3: Dedicated Resume Button (for interrupted state) ---
+        self.app.resume_button = ctk.CTkButton(
+            self.app,
+            text="Wznów",
+            command=lambda: self.app.transcription_controller.resume_interrupted_process()
+        )
+        # The resume_button is not placed on the grid initially.
+        # The ButtonStateController will manage its visibility.
 
         # --- Column 4: Copy Transcription Button ---
         self.app.copy_transcription_button = ctk.CTkButton(
