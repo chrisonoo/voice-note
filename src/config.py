@@ -29,6 +29,11 @@ LOADED_LIST = os.path.join(TMP_DIR, '2_loaded.txt')
 PROCESSING_LIST = os.path.join(TMP_DIR, '3_processing.txt')
 PROCESSED_LIST = os.path.join(TMP_DIR, '4_processed.txt')
 TRANSCRIPTIONS = os.path.join(TMP_DIR, '5_transcriptions.txt')
+ 
+# Lista plików wybranych do enkodowania (podzbiór z SELECTED_LIST)
+# Aliasujemy nazwę dla zgodności z różnymi częściami kodu (GUI/CLI)
+AUDIO_LIST_TO_ENCODE_FILE = os.path.join(TMP_DIR, '1_to_encode.txt')
+TO_ENCODE_LIST = AUDIO_LIST_TO_ENCODE_FILE
 
 
 # --- PARAMETRY TRANSKRYPCJI WHISPER ---

@@ -31,7 +31,7 @@ def get_file_duration(file_path):
         data = json.loads(result.stdout)
         # Zwracanie czasu trwania z informacji o formacie
         return float(data['format']['duration'])
-    except (subprocess.CalledProcessError, KeyError, FileNotFoundError) as e:
+    except Exception as e:
         # Obsługa błędów, np. gdy ffprobe nie jest zainstalowany lub plik jest uszkodzony
         print(f"Błąd podczas sprawdzania czasu trwania pliku {os.path.basename(file_path)}: {e}")
         return 0.0

@@ -119,13 +119,19 @@ class App(tk.Tk):
         # --- Selected Files (Wybrane) ---
         files_data = []
         error_files = []
-        for path in self._get_list_content(config.SELECTED_LIST):
+        selected_files = self._get_list_content(config.SELECTED_LIST)
+        print(f"DEBUG: Znaleziono {len(selected_files)} plików w {config.SELECTED_LIST}")
+
+        for path in selected_files:
+            print(f"DEBUG: Przetwarzam plik: {path}")
             try:
                 duration = get_file_duration(path)
                 files_data.append((path, duration))
+                print(f"DEBUG: Czas trwania: {duration}s")
             except Exception as e:
                 error_files.append(os.path.basename(path))
                 print(f"Could not get duration for file {path}: {e}")
+                files_data.append((path, 0.0))
 
         self.selected_files_view.populate_files(files_data)
         if error_files:
