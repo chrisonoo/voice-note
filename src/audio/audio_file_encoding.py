@@ -7,7 +7,7 @@ from src import config  # Importujemy nasz centralny plik konfiguracyjny
 
 def encode_audio_files():
     """
-    Czyta listę plików audio z pliku stanu (`config.AUDIO_LIST_TO_ENCODE_FILE`),
+    Czyta listę plików audio z pliku stanu (`config.SELECTED_LIST`),
     a następnie konwertuje każdy z nich do formatu WAV za pomocą FFMPEG,
     używając parametrów zdefiniowanych w `config.FFMPEG_PARAMS`.
     Nowe pliki są zapisywane w katalogu wyjściowym (`config.OUTPUT_DIR`),
@@ -17,27 +17,20 @@ def encode_audio_files():
 
     # Otwieramy plik z listą ścieżek do przetworzenia.
     # 'r' oznacza tryb odczytu (read).
-    with open(config.AUDIO_LIST_TO_ENCODE_FILE, 'r', encoding='utf-8') as f:
+    with open(config.SELECTED_LIST, 'r', encoding='utf-8') as f:
         # Przechodzimy przez każdą linię w pliku.
         for line in f:
             # `line.strip()` usuwa białe znaki (w tym znak nowej linii `\n`) z początku i końca linii.
             original_path = line.strip()
 
-            # `os.path.relpath` oblicza ścieżkę względną. Chcemy uzyskać fragment ścieżki
-            # od folderu `input` w głąb, np. "spotkanie_1/nagranie.mp3".
-            relative_path = os.path.relpath(original_path, start=config.INPUT_DIR)
-
-            # Tworzymy nową ścieżkę docelową, łącząc folder wyjściowy (`output`)
-            # z obliczoną ścieżką względną.
-            new_path = os.path.join(config.OUTPUT_DIR, relative_path)
-            # Zmieniamy rozszerzenie pliku na `.wav`, odcinając stare rozszerzenie.
-            new_path = os.path.splitext(new_path)[0] + '.wav'
-            # Zamieniamy spacje na podkreślenia w nazwie pliku
-            new_path = new_path.replace(' ', '_')
-
-            # `os.makedirs` tworzy wszystkie potrzebne foldery w ścieżce, jeśli nie istnieją.
-            # `exist_ok=True` zapobiega błędowi, jeśli folder już istnieje.
-            os.makedirs(os.path.dirname(new_path), exist_ok=True)
+            # Budujemy ścieżkę wyjściową.
+            base_name = os.path.basename(original_path)
+            # Standaryzujemy nazwę: małe litery, spacje na podkreślenia, usuwamy oryginalne rozszerzenie.
+            standardized_name, _ = os.path.splitext(base_name.lower().replace(' ', '_'))
+            output_filename = f"{standardized_name}.wav"
+            # Ensure output directory exists before writing
+            os.makedirs(config.OUTPUT_DIR, exist_ok=True)
+            new_path = os.path.join(config.OUTPUT_DIR, output_filename)
 
             print(f"  Konwertowanie: {os.path.basename(original_path)} -> {os.path.basename(new_path)}")
 

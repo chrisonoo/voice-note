@@ -1,59 +1,55 @@
 # Ten plik służy jako centralne miejsce do zarządzania wszystkimi ustawieniami aplikacji.
-# Dzięki temu, jeśli chcesz coś zmienić (np. ścieżkę do folderu), robisz to tylko tutaj,
-# bez potrzeby grzebania w innych plikach.
+# Dzięki temu, jeśli chcesz coś zmienić (np. model AI), robisz to tylko tutaj.
 
 import os
 
-# --- ŚCIEŻKI DO KATALOGÓW ---
+# --- GŁÓWNA NAZWA APLIKACJI ---
+APP_NAME = "Voice Note"
 
-# `os.path.abspath(__file__)` zwraca pełną, absolutną ścieżkę do tego pliku (`config.py`).
-# `os.path.dirname(...)` usuwa ostatni komponent ścieżki, dając nam ścieżkę do folderu,
-# w którym znajduje się plik. Robimy to dwa razy, aby cofnąć się z `src/` do głównego
-# katalogu projektu. To sprawia, że ścieżki są zawsze poprawne, niezależnie od tego,
-# z jakiego miejsca na komputerze uruchomisz aplikację.
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# --- GŁÓWNY KATALOG APLIKACJI ---
+# Używamy os.path.abspath, aby uzyskać pełną ścieżkę do pliku,
+# a następnie dirname, aby znaleźć katalog, w którym się znajduje.
+# Robimy to dwukrotnie, aby cofnąć się z `src` do głównego folderu projektu.
+APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# `os.path.join` to bezpieczny sposób łączenia ścieżek, który działa na różnych
-# systemach operacyjnych (Windows, macOS, Linux).
-REC_DIR = os.path.join(BASE_DIR, 'rec')
-INPUT_DIR = os.path.join(REC_DIR, 'input')
-OUTPUT_DIR = os.path.join(REC_DIR, 'output')
+# --- KATALOGI ROBOCZE ---
+# Używamy stałych folderów, aby stan aplikacji był zachowywany po jej zamknięciu.
+# Foldery będą tworzone dynamicznie gdy będą potrzebne
+TMP_DIR = os.path.join(APP_DIR, 'tmp')
+OUTPUT_DIR = os.path.join(TMP_DIR, 'output_wav')
 
+
+# --- NAZWY PLIKÓW STANU ---
+# Nazwy plików przechowujących listy na różnych etapach procesu.
+# Definiowane jako stałe, aby były spójne w całej aplikacji.
+SELECTED_FILENAME = '1_selected.txt'
+LOADED_FILENAME = '2_loaded.txt'
+PROCESSING_FILENAME = '3_processing.txt'
+PROCESSED_FILENAME = '4_processed.txt'
+TRANSCRIPTIONS_FILENAME = '5_transcriptions.txt'
 
 # --- ŚCIEŻKI DO PLIKÓW STANU ---
-# Pliki te pomagają śledzić postęp i umożliwiają wznowienie pracy w razie błędu.
-# Przechowują listy plików na różnych etapach przetwarzania.
-AUDIO_LIST_TO_ENCODE_FILE = os.path.join(REC_DIR, '1_audio_list_to_encode.txt')
-AUDIO_LIST_TO_TRANSCRIBE_FILE = os.path.join(REC_DIR, '2_audio_list_to_transcribe.txt')
-PROCESSING_LIST_FILE = os.path.join(REC_DIR, '3_processing_list.txt')
-PROCESSED_LIST_FILE = os.path.join(REC_DIR, '4_processed_list.txt')
-TRANSCRIPTIONS_FILE = os.path.join(REC_DIR, '5_transcriptions.txt')
+# Pliki przechowujące listy plików na różnych etapach procesu.
+# Umieszczamy je w folderze `tmp`, aby były trwałe, ale ignorowane przez Git.
+SELECTED_LIST = os.path.join(TMP_DIR, SELECTED_FILENAME)
+LOADED_LIST = os.path.join(TMP_DIR, LOADED_FILENAME)
+PROCESSING_LIST = os.path.join(TMP_DIR, PROCESSING_FILENAME)
+PROCESSED_LIST = os.path.join(TMP_DIR, PROCESSED_FILENAME)
+TRANSCRIPTIONS = os.path.join(TMP_DIR, TRANSCRIPTIONS_FILENAME)
+ 
 
 
 # --- PARAMETRY TRANSKRYPCJI WHISPER ---
-# Tutaj możesz dostosować, jak API OpenAI ma przetwarzać Twoje pliki.
-
-# Format odpowiedzi od API. "json" jest dobry do dalszego przetwarzania,
-# "text" dałby czysty tekst.
 WHISPER_API_RESPONSE_FORMAT = "json"
-
-# "Temperatura" kontroluje "kreatywność" lub "losowość" modelu.
-# Dla transkrypcji, gdzie chcemy jak najwierniejszego wyniku, 0 jest najlepszą wartością.
 WHISPER_API_TEMPERATURE = 0
-
-# "Prompt" to tekst, który możesz podać modelowi, aby "naprowadzić" go na
-# odpowiedni kontekst, np. jeśli w nagraniach często padają specyficzne
-# nazwy własne lub terminy techniczne.
 WHISPER_API_PROMPT = ""
 
 
-# --- USTAWIENIA ENKODOWANIA AUDIO ---
-
-# Lista rozszerzeń plików, które aplikacja będzie wyszukiwać w folderze `input`.
+# --- AUDIO ENCODING SETTINGS ---
 AUDIO_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.mp4', '.wma']
-
-# Parametry dla FFMPEG używane podczas konwersji.
-# `-ac 1` ustawia jeden kanał audio (mono).
-# `-ar 44100` ustawia częstotliwość próbkowania na 44100 Hz.
-# To standardowe, bezpieczne ustawienia dla API Whisper.
 FFMPEG_PARAMS = '-ac 1 -ar 44100'
+
+# --- USTAWIENIA GUI ---
+# Maksymalna długość pliku w sekundach, powyżej której plik zostanie oznaczony jako "długi".
+# 5 minut = 300 sekund.
+MAX_FILE_DURATION_SECONDS = 300
