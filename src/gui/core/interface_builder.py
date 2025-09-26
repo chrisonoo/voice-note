@@ -38,6 +38,16 @@ class InterfaceBuilder:
         )
         self.app.file_selector_button.grid(row=0, column=0, sticky="ew", padx=(10, 5), pady=(10, 0))
 
+        # --- Reset Button ---
+        self.app.reset_button = ctk.CTkButton(
+            self.app,
+            text="Resetuj",
+            command=self.app.reset_application,
+            fg_color="darkred",
+            hover_color="red"
+        )
+        self.app.reset_button.grid(row=2, column=4, sticky="ew", padx=(5, 10), pady=(5, 10))
+
         # --- Column 1: File Conversion Button ---
         self.app.convert_files_button = ctk.CTkButton(
             self.app,

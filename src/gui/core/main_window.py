@@ -123,6 +123,35 @@ class App(ctk.CTk):
     def start_transcription_process(self):
         self.transcription_controller.start_transcription_process()
 
+    def reset_application(self):
+        """
+        Resets the application to its initial state by clearing the database
+        and the temporary folder. Prompts the user for confirmation.
+        """
+        answer = messagebox.askyesno(
+            "Potwierdzenie resetowania",
+            "Czy na pewno chcesz zresetować aplikację?\n\n"
+            "Spowoduje to usunięcie wszystkich wczytanych plików i transkrypcji."
+        )
+        if answer:
+            try:
+                # Stop any active processes before clearing data
+                if self.audio_player:
+                    self.audio_player.stop()
+
+                # Clear the database and temporary files
+                database.clear_database_and_tmp_folder()
+
+                # Refresh all UI components to reflect the empty state
+                self.refresh_all_views()
+
+                # Clear the main transcription output panel as well
+                self.transcription_output_panel.update_text("")
+
+                messagebox.showinfo("Reset zakończony", "Aplikacja została zresetowana.")
+            except Exception as e:
+                messagebox.showerror("Błąd", f"Wystąpił błąd podczas resetowania: {e}")
+
     def on_transcription_progress(self):
         """
         Callback function invoked from the processing thread after each file is processed.
