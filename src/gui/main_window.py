@@ -137,7 +137,7 @@ class App(ctk.CTk):
             self.destroy()
 
 def main():
-    # Inicjalizacja bazy danych przed uruchomieniem GUI
-    database.initialize_database()
+    # Inicjalizacja bazy danych została przeniesiona do głównego pliku main.py,
+    # aby uniknąć podwójnego wywołania przy starcie w trybie GUI.
     app = App()
     app.mainloop()
