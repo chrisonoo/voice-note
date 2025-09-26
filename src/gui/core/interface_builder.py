@@ -27,7 +27,6 @@ class InterfaceBuilder:
         self._create_buttons()
         self._create_views()
         self._create_counter_labels()
-        self._create_reset_button()
     
     def _create_buttons(self):
         """Create action buttons using CustomTkinter widgets."""
@@ -136,14 +135,3 @@ class InterfaceBuilder:
         )
         self.app.processed_counter_label.grid(row=2, column=3, sticky="ew", padx=5, pady=(5, 10))
 
-    def _create_reset_button(self):
-        """Create a themed reset button using CustomTkinter."""
-        # --- Row 2: Reset Button ---
-        self.app.reset_application_button = ctk.CTkButton(
-            self.app,
-            text="Wyczyść dane",
-            command=self.app.file_handler.clear_database_and_reset_gui,
-            fg_color="red",
-            hover_color="#C00000"
-        )
-        self.app.reset_application_button.grid(row=2, column=4, sticky="e", padx=10, pady=(5, 10))

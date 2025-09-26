@@ -97,32 +97,28 @@ class App(ctk.CTk):
         self.transcription_controller.resume_transcription()
 
     def on_processing_finished(self):
+        """
+        Handles the completion of the transcription process.
+        This method is called from the transcription controller.
+        """
+        # Finalize state in the controller
         self.transcription_controller.on_processing_finished()
-        self._check_and_switch_to_edit_mode()
 
-    def _check_and_switch_to_edit_mode(self):
-        """
-        If all files are processed, generates a consolidated transcript file
-        and switches the transcription view to editable mode.
-        """
+        # Check if all selected files are now processed
         all_files = database.get_all_files()
-        is_ready_for_editing = all_files and all(f['is_processed'] for f in all_files if f['is_selected'])
+        is_fully_processed = all_files and all(f['is_processed'] for f in all_files if f['is_selected'])
 
-        if is_ready_for_editing:
+        if is_fully_processed:
+            # Gather all transcriptions from processed files
             processed_transcriptions = [
                 f['transcription'] for f in all_files if f['is_processed'] and f['transcription']
             ]
 
-            # Join with a blank line between transcriptions
+            # Join with a blank line between each transcription
             full_text = "\n\n".join(processed_transcriptions)
 
-            # The transcript file path is now managed by the view itself
-            transcript_file = self.transcription_output_panel.transcript_file_path
-            os.makedirs(os.path.dirname(transcript_file), exist_ok=True)
-            with open(transcript_file, "w", encoding="utf-8") as f:
-                f.write(full_text)
-
-            self.transcription_output_panel.switch_to_edit_mode(full_text)
+            # Update the view with the final, consolidated text
+            self.transcription_output_panel.update_text(full_text)
 
     def start_transcription_process(self):
         self.transcription_controller.start_transcription_process()

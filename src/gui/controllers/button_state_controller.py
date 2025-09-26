@@ -32,9 +32,6 @@ class ButtonStateController:
         # Włączony, jeśli są pliki zaznaczone do wczytania i nie trwa przetwarzanie
         self.app.convert_files_button.configure(state="normal" if has_files_to_load and not is_processing else "disabled")
 
-        # --- Przycisk resetowania ---
-        self.app.reset_application_button.configure(state="disabled" if is_processing else "normal")
-
         # --- Przycisk "Start" transkrypcji ---
         # Włączony, jeśli są pliki do przetworzenia i nie trwa przetwarzanie
         self.app.start_transcription_button.configure(state="normal" if has_files_to_process and not is_processing else "disabled")
@@ -56,7 +53,10 @@ class ButtonStateController:
             self.app.start_transcription_button.configure(state="disabled")
 
         # --- Przycisk kopiowania ---
-        # Aktywny tylko, gdy wszystkie wczytane pliki zostaną przetworzone.
-        # Oznacza to, że są jakieś przetworzone pliki i nie ma już żadnych w kolejce.
-        all_processing_finished = has_processed_files and not has_files_to_process
-        self.app.copy_transcription_button.configure(state="normal" if all_processing_finished else "disabled")
+        # Aktywny tylko, gdy wszystkie zaznaczone pliki zostaną przetworzone.
+        selected_files = [f for f in all_files if f['is_selected']]
+        is_copy_enabled = False
+        if selected_files:
+            is_copy_enabled = all(f['is_processed'] for f in selected_files)
+
+        self.app.copy_transcription_button.configure(state="normal" if is_copy_enabled else "disabled")
