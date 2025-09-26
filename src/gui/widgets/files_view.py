@@ -73,7 +73,7 @@ class FilesView(ctk.CTkFrame):
             play_button.grid(row=i, column=3, padx=5, pady=2)
             play_button.configure(command=lambda fp=file_path: self.on_play_button_click(fp))
 
-            delete_button = ctk.CTkButton(self.scrollable_frame, text="🗑️", width=30)
+            delete_button = ctk.CTkButton(self.scrollable_frame, text="X", width=30)
             delete_button.grid(row=i, column=4, padx=5, pady=2)
             delete_button.configure(command=lambda fp=file_path: self.on_delete_button_click(fp))
 
