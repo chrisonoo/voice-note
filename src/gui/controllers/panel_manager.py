@@ -51,22 +51,35 @@ class PanelManager:
 
     def _refresh_status_views(self, all_files):
         """Odświeża panele statusu i transkrypcji, używając dostarczonych danych."""
-        loaded_files = [
+        # Pliki oczekujące na wczytanie (konwersję do .wav)
+        # Wyświetlamy je na liście "Wczytane", bo z perspektywy użytkownika
+        # zostały wybrane i czekają na pierwszy krok przetwarzania.
+        files_to_load = [
+            os.path.basename(row['source_file_path']) for row in all_files
+            if row['is_selected'] and not row['is_loaded']
+        ]
+
+        # Pliki, które zostały już wczytane (skonwertowane) i czekają w kolejce na transkrypcję
+        files_in_queue = [
             os.path.basename(row['tmp_file_path']) for row in all_files
             if row['is_loaded'] and not row['is_processed']
         ]
+
+        # Pliki, których transkrypcja została zakończona
         processed_files = [
             os.path.basename(row['tmp_file_path']) for row in all_files
             if row['is_processed']
         ]
+
+        # Gotowe transkrypcje do wyświetlenia w głównym panelu
         transcriptions = [
             row['transcription']
             for row in all_files
             if row['is_processed'] and row['transcription']
         ]
 
-        self.app.conversion_status_panel.update_from_list(loaded_files)
-        self.app.transcription_queue_panel.update_from_list(loaded_files)
+        self.app.conversion_status_panel.update_from_list(files_to_load)
+        self.app.transcription_queue_panel.update_from_list(files_in_queue)
         self.app.completed_files_panel.update_from_list(processed_files)
         self.app.transcription_output_panel.update_text("\n\n".join(transcriptions))
 
