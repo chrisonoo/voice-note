@@ -60,7 +60,7 @@ class PanelManager:
             if row['is_processed']
         ]
         transcriptions = [
-            f"{os.path.basename(row['source_file_path'])}:\n{row['transcription']}"
+            row['transcription']
             for row in all_files
             if row['is_processed'] and row['transcription']
         ]
