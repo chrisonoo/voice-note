@@ -2,6 +2,7 @@ import customtkinter as ctk
 from tkinter import messagebox
 import threading
 import pygame
+import os
 from src import config, database
 
 # Import UI components and managers
@@ -85,6 +86,7 @@ class App(ctk.CTk):
             all_files = database.get_all_files()
             self.panel_manager.refresh_all_views(data=all_files)
             self.update_all_counters(all_files=all_files)
+            self.button_state_controller.update_ui_state(all_files=all_files)
         except Exception as e:
             print(f"Błąd podczas pełnego odświeżania: {e}")
 
@@ -96,24 +98,47 @@ class App(ctk.CTk):
 
     def on_processing_finished(self):
         self.transcription_controller.on_processing_finished()
+        self._check_and_switch_to_edit_mode()
+
+    def _check_and_switch_to_edit_mode(self):
+        """
+        If all files are processed, generates a consolidated transcript file
+        and switches the transcription view to editable mode.
+        """
+        all_files = database.get_all_files()
+        is_ready_for_editing = all_files and all(f['is_processed'] for f in all_files if f['is_selected'])
+
+        if is_ready_for_editing:
+            processed_transcriptions = [
+                f['transcription'] for f in all_files if f['is_processed'] and f['transcription']
+            ]
+
+            # Join with a blank line between transcriptions
+            full_text = "\n\n".join(processed_transcriptions)
+
+            # The transcript file path is now managed by the view itself
+            transcript_file = self.transcription_output_panel.transcript_file_path
+            os.makedirs(os.path.dirname(transcript_file), exist_ok=True)
+            with open(transcript_file, "w", encoding="utf-8") as f:
+                f.write(full_text)
+
+            self.transcription_output_panel.switch_to_edit_mode(full_text)
 
     def start_transcription_process(self):
         self.transcription_controller.start_transcription_process()
 
-    def monitor_processing(self):
-        if self.processing_thread and self.processing_thread.is_alive():
-            try:
-                # Pobierz dane raz i przekaż do poszczególnych funkcji
-                all_files = database.get_all_files()
-                self.panel_manager.refresh_transcription_progress_views(data=all_files)
-                self.update_all_counters(all_files=all_files)
-                self.button_state_controller.update_ui_state()
-            except Exception as e:
-                print(f"Błąd w pętli monitorowania: {e}")
-            finally:
-                self.after(1000, self.monitor_processing)
-        else:
-            self.on_processing_finished()
+    def on_transcription_progress(self):
+        """
+        Callback function invoked from the processing thread after each file is processed.
+        This method safely updates the GUI from the main thread.
+        """
+        try:
+            all_files = database.get_all_files()
+            self.panel_manager.refresh_transcription_progress_views(data=all_files)
+            self.update_all_counters(all_files=all_files)
+            self.button_state_controller.update_ui_state(all_files=all_files)
+        except Exception as e:
+            print(f"Błąd w trakcie aktualizacji postępu: {e}")
 
     def copy_transcription_to_clipboard(self):
         text = self.transcription_output_panel.get_text()

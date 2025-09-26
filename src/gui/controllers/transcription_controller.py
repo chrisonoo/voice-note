@@ -26,7 +26,6 @@ class TranscriptionController:
         self.app.pause_request_event.clear()
         self.app.processing_thread = threading.Thread(target=self._transcription_thread_worker, daemon=True)
         self.app.processing_thread.start()
-        self.app.monitor_processing()
         self.app.button_state_controller.update_ui_state()
 
     def pause_transcription(self):
@@ -54,7 +53,14 @@ class TranscriptionController:
     def _transcription_thread_worker(self):
         """Wątek roboczy do obsługi transkrypcji."""
         try:
-            processor = TranscriptionProcessor(self.app.pause_request_event)
+            # The callback is a lambda that schedules the actual GUI update method
+            # to be run on the main thread via app.after().
+            progress_callback = lambda: self.app.after(0, self.app.on_transcription_progress)
+
+            processor = TranscriptionProcessor(
+                pause_requested_event=self.app.pause_request_event,
+                on_progress_callback=progress_callback
+            )
             processor.process_transcriptions()
         except Exception as e:
             self.app.after(0, lambda: messagebox.showerror("Błąd krytyczny", f"Wystąpił błąd: {e}"))

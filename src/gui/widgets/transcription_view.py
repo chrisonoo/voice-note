@@ -1,11 +1,11 @@
-# This file contains the component for the "Transcription" field.
-# It consists of a label, a textbox, and a scrollbar.
-
 import customtkinter as ctk
+import os
+from tkinter import messagebox
+from src import config
 
 class TranscriptionView(ctk.CTkFrame):
     """
-    GUI component for displaying the final transcription.
+    GUI component for displaying and editing the final transcription.
     """
     def __init__(self, parent, text, **kwargs):
         """
@@ -17,27 +17,23 @@ class TranscriptionView(ctk.CTkFrame):
         """
         super().__init__(parent, **kwargs)
 
-        # Grid configuration within the component
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(2, weight=0)  # For the save button
 
-        # Label
         self.label = ctk.CTkLabel(self, text=text, anchor="center")
         self.label.grid(row=0, column=0, sticky="ew", pady=(0, 5))
 
-        # Textbox for displaying transcription
         self.text = ctk.CTkTextbox(
-            self,
-            wrap="word",
-            state="disabled",
-            width=400,
-            padx=8,
-            pady=8
+            self, wrap="word", state="disabled", width=400, padx=8, pady=8
         )
         self.text.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 
+        self.save_button = ctk.CTkButton(self, text="Zapisz zmiany", command=self.save_edited_text)
+        self.transcript_file_path = os.path.join(config.TMP_DIR, "transcripts.txt")
+
     def update_text(self, content):
-        """Populates the textbox with the given text content."""
+        """Populates the textbox with non-editable text."""
         self.text.configure(state="normal")
         self.text.delete('1.0', "end")
         try:
@@ -55,3 +51,22 @@ class TranscriptionView(ctk.CTkFrame):
         self.text.configure(state="normal")
         self.text.delete('1.0', "end")
         self.text.configure(state="disabled")
+
+    def switch_to_edit_mode(self, initial_content):
+        """Switches the view to an editable mode."""
+        self.text.configure(state="normal")
+        self.text.delete('1.0', "end")
+        self.text.insert("end", initial_content)
+        self.save_button.grid(row=2, column=0, sticky="e", padx=5, pady=5)
+        self.label.configure(text="Edycja transkrypcji")
+
+    def save_edited_text(self):
+        """Saves the current content of the textbox to the transcript file."""
+        try:
+            content = self.get_text()
+            os.makedirs(os.path.dirname(self.transcript_file_path), exist_ok=True)
+            with open(self.transcript_file_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            messagebox.showinfo("Zapisano", "Zmiany w transkrypcji zostały zapisane.")
+        except Exception as e:
+            messagebox.showerror("Błąd zapisu", f"Nie udało się zapisać pliku: {e}")

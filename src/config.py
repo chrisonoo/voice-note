@@ -17,7 +17,6 @@ APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Foldery będą tworzone dynamicznie gdy będą potrzebne
 TMP_DIR = os.path.join(APP_DIR, 'tmp')
 AUDIO_TMP_DIR = os.path.join(APP_DIR, 'tmp', 'audio')
-OUTPUT_DIR = AUDIO_TMP_DIR # Pliki .wav będą zapisywane bezpośrednio w folderze tymczasowym
 
 # --- BAZA DANYCH ---
 # Używamy bazy danych SQLite do przechowywania stanu aplikacji.

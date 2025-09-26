@@ -8,11 +8,15 @@ class ButtonStateController:
     def __init__(self, app):
         self.app = app
     
-    def update_ui_state(self):
-        """Aktualizuje stan interfejsu na podstawie flag w bazie danych."""
+    def update_ui_state(self, all_files=None):
+        """
+        Aktualizuje stan interfejsu na podstawie dostarczonych danych lub
+        pobiera świeże dane, jeśli nie zostały podane.
+        """
         is_processing = self.app.processing_thread and self.app.processing_thread.is_alive()
 
-        all_files = database.get_all_files()
+        if all_files is None:
+            all_files = database.get_all_files()
 
         # Oblicz stany na podstawie nowych flag
         has_files_to_load = any(f['is_selected'] and not f['is_loaded'] for f in all_files)
@@ -52,5 +56,7 @@ class ButtonStateController:
             self.app.start_transcription_button.configure(state="disabled")
 
         # --- Przycisk kopiowania ---
-        # Aktywny tylko, jeśli są jakieś gotowe transkrypcje
-        self.app.copy_transcription_button.configure(state="normal" if has_processed_files else "disabled")
+        # Aktywny tylko, gdy wszystkie wczytane pliki zostaną przetworzone.
+        # Oznacza to, że są jakieś przetworzone pliki i nie ma już żadnych w kolejce.
+        all_processing_finished = has_processed_files and not has_files_to_process
+        self.app.copy_transcription_button.configure(state="normal" if all_processing_finished else "disabled")
