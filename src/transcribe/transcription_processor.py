@@ -63,13 +63,6 @@ class TranscriptionProcessor:
             else:
                 print(f"    Pominięto plik {os.path.basename(source_path)} z powodu błędu transkrypcji.")
 
-            # Usuń tymczasowy plik .wav po przetworzeniu
-            try:
-                if os.path.exists(tmp_path):
-                    os.remove(tmp_path)
-            except OSError as e:
-                print(f"    OSTRZEŻENIE: Nie można usunąć tymczasowego pliku {tmp_path}: {e}")
-
             if self.pause_requested_event and self.pause_requested_event.is_set():
                 print("Żądanie pauzy wykryte. Zatrzymywanie przetwarzania...")
                 break
