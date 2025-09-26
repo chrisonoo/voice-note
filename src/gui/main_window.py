@@ -64,9 +64,7 @@ class App(ctk.CTk):
                 if total_files == 0:
                     self.files_counter_label.configure(text="")
                 else:
-                    counter_text = f"Razem: {total_files}  |  Zaznaczone: {selected_files}"
-                    if long_files > 0:
-                        counter_text += f"  |  Długie: {long_files}"
+                    counter_text = f"Razem: {total_files}  |  Zaznaczone: {selected_files}  |  Długie: {long_files}"
                     self.files_counter_label.configure(text=counter_text)
 
             # Liczniki dla paneli stanu

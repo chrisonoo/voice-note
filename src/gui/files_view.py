@@ -75,7 +75,6 @@ class FilesView(ctk.CTkFrame):
             if is_long:
                 filename_label.configure(text_color="red")
                 duration_label.configure(text_color="red")
-                checkbox.configure(state="disabled")
 
             self.file_widgets.append((checkbox, file_path, duration_sec, play_button))
 

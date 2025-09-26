@@ -2,6 +2,7 @@ import sqlite3
 import os
 import shutil
 from . import config
+from .audio.duration_checker import get_file_duration
 
 def get_db_connection():
     """Nawiązuje połączenie z bazą danych."""
@@ -52,12 +53,23 @@ def initialize_database():
     print(f"Baza danych została zainicjalizowana w: {config.DATABASE_FILE}")
 
 def add_file(file_path):
-    """Dodaje nowy plik do bazy danych, jeśli jeszcze nie istnieje."""
+    """
+    Dodaje nowy plik do bazy danych, jeśli jeszcze nie istnieje.
+    Automatycznie oblicza czas trwania i ustawia flagę 'is_selected'.
+    """
+    duration = get_file_duration(file_path)
+    # Długie nagrania są domyślnie odznaczone
+    is_selected = not (duration > config.MAX_FILE_DURATION_SECONDS)
+
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
         cursor.execute(
-            "INSERT INTO files (source_file_path) VALUES (?)", (file_path,)
+            """
+            INSERT INTO files (source_file_path, duration_seconds, is_selected)
+            VALUES (?, ?, ?)
+            """,
+            (file_path, duration, is_selected)
         )
         conn.commit()
     except sqlite3.IntegrityError:
