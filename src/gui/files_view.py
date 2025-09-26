@@ -88,7 +88,7 @@ class FilesView(ctk.CTkFrame):
         """
         database.set_file_selected(file_path, var.get())
         # Potentially trigger a UI refresh if counters need to be updated live
-        self.master.master.update_all_counters() # Navigate up to the App instance
+        self.master.update_all_counters() # Navigate up to the App instance
 
     def on_play_button_click(self, file_path):
         """Handles the click event for a play/pause button."""
