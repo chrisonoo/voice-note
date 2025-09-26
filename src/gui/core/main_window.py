@@ -1,11 +1,21 @@
-import customtkinter as ctk
-from tkinter import messagebox
-import threading
-import pygame
-import os
-from src import config, database
+# Ten moduł definiuje główną klasę aplikacji `App`, która dziedziczy po `ctk.CTk`.
+# Jest to centralny punkt trybu graficznego (GUI), który inicjalizuje i zarządza
+# wszystkimi elementami interfejsu, kontrolerami logiki oraz stanem aplikacji.
 
-# Import UI components and managers
+import customtkinter as ctk  # Biblioteka do tworzenia nowoczesnego interfejsu graficznego.
+from tkinter import messagebox  # Standardowy moduł Tkinter do wyświetlania okien dialogowych (np. z potwierdzeniem).
+import threading  # Moduł do pracy z wątkami, kluczowy do wykonywania długich operacji (jak transkrypcja) w tle.
+import pygame  # Biblioteka używana tutaj do odtwarzania dźwięku (próbek audio).
+from src import config, database  # Importujemy nasze własne moduły: konfigurację i bazę danych.
+
+# Importujemy wszystkie komponenty i kontrolery, które będą używane w głównym oknie.
+# Taka struktura (podobna do wzorca MVC - Model-View-Controller) porządkuje kod:
+# - `InterfaceBuilder`: Buduje i układa wszystkie widżety (przyciski, panele).
+# - `ButtonStateController`: Zarządza stanem przycisków (włączone/wyłączone).
+# - `FileHandler`: Obsługuje logikę dodawania i ładowania plików.
+# - `TranscriptionController`: Zarządza procesem transkrypcji w tle.
+# - `PanelManager`: Odświeża zawartość paneli z listami plików.
+# - `AudioPlayer`: Kontroluje odtwarzanie próbek audio.
 from .interface_builder import InterfaceBuilder
 from ..controllers.button_state_controller import ButtonStateController
 from ..controllers.file_handler import FileHandler
@@ -15,29 +25,43 @@ from ..utils.audio_player import AudioPlayer
 
 class App(ctk.CTk):
     """
-    Główna klasa aplikacji, która zarządza oknem, komponentami i stanem aplikacji.
+    Główna klasa aplikacji, która dziedziczy po `customtkinter.CTk`,
+    tworząc główne okno i zarządzając całym cyklem życia aplikacji w trybie GUI.
     """
     def __init__(self):
+        # `super().__init__()` wywołuje konstruktor klasy nadrzędnej (`ctk.CTk`), co jest niezbędne do inicjalizacji okna.
         super().__init__()
 
+        # Ustawiamy wygląd aplikacji (System - jasny/ciemny jak w systemie, "blue" - kolor akcentu).
         ctk.set_appearance_mode("System")
         ctk.set_default_color_theme("blue")
 
-        self.processing_thread = None
+        # Inicjalizujemy atrybuty związane z przetwarzaniem w tle.
+        self.processing_thread = None  # Będzie przechowywać referencję do wątku roboczego.
+        # `threading.Event` to prosty mechanizm do komunikacji między wątkami. Używamy go do sygnalizowania pauzy.
         self.pause_request_event = threading.Event()
 
+        # Ustawiamy tytuł okna, pobierając go z pliku konfiguracyjnego.
         self.title(config.APP_NAME)
+        # Ustawiamy minimalny rozmiar okna.
         self.minsize(1110, 600)
+        # `protocol` pozwala przechwycić zdarzenia systemowe okna. "WM_DELETE_WINDOW" to kliknięcie przycisku "X".
+        # Zamiast domyślnego zamknięcia, wywołujemy naszą własną metodę `on_closing`.
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
+        # Konfigurujemy siatkę (grid) głównego okna. `weight` decyduje o tym, jak kolumny/wiersze rozciągają się przy zmianie rozmiaru okna.
+        # Kolumna 4 (z panelem transkrypcji) ma `weight=3`, więc będzie się rozciągać najbardziej.
         self.grid_columnconfigure(0, weight=0)
         self.grid_columnconfigure(1, weight=0)
         self.grid_columnconfigure(2, weight=0)
         self.grid_columnconfigure(3, weight=0)
         self.grid_columnconfigure(4, weight=3)
+        # Wiersz 1 (z głównymi panelami) ma `weight=1`, więc będzie się rozciągał w pionie.
         self.grid_rowconfigure(1, weight=1)
         self.grid_rowconfigure(2, weight=0)
 
+        # Tworzymy instancje naszych klas pomocniczych (kontrolerów i menedżerów).
+        # Przekazujemy `self` (czyli instancję `App`), aby miały one dostęp do głównego okna i jego komponentów.
         self.audio_player = AudioPlayer()
         self.interface_builder = InterfaceBuilder(self, self.audio_player)
         self.button_state_controller = ButtonStateController(self)
@@ -45,33 +69,38 @@ class App(ctk.CTk):
         self.transcription_controller = TranscriptionController(self)
         self.panel_manager = PanelManager(self)
 
+        # Wywołujemy metodę, która fizycznie tworzy i umieszcza wszystkie widżety w oknie.
         self.interface_builder.create_widgets()
         
+        # Ustawiamy początkowy stan przycisków i odświeżamy widoki.
         self.button_state_controller.update_ui_state()
         self.refresh_all_views()
 
+        # Uruchamiamy cykliczne sprawdzanie statusu odtwarzania audio.
         self._check_playback_status()
     
     def update_all_counters(self, all_files=None):
         """
-        Aktualizuje liczniki. Jeśli dane nie są dostarczone, pobiera je z bazy.
-        W przeciwnym razie, używa istniejących danych, aby uniknąć dodatkowych zapytań.
+        Aktualizuje wszystkie etykiety z licznikami plików.
+        Jeśli dane nie są dostarczone (`all_files` jest None), pobiera je z bazy.
+        W przeciwnym razie, używa istniejących danych, aby uniknąć zbędnych zapytań do bazy.
         """
         try:
+            # Optymalizacja: jeśli nie dostaliśmy danych, pobieramy je raz.
             if all_files is None:
                 all_files = database.get_all_files()
 
+            # Obliczamy różne statystyki na podstawie listy plików.
             total_files = len(all_files)
             selected_files = sum(1 for row in all_files if row['is_selected'])
             long_files = sum(1 for row in all_files if row['duration_seconds'] is not None and row['duration_seconds'] > config.MAX_FILE_DURATION_SECONDS)
-
+            # Aktualizujemy tekst etykiety.
             counter_text = f"Razem: {total_files}  |  Zaznaczone: {selected_files}  |  Długie: {long_files}"
             self.files_counter_label.configure(text=counter_text)
 
             loaded_count = sum(1 for row in all_files if row['is_loaded'])
             processing_count = sum(1 for row in all_files if row['is_loaded'] and not row['is_processed'])
             processed_count = sum(1 for row in all_files if row['is_processed'])
-
             self.loaded_counter_label.configure(text=f"Wczytane: {loaded_count}")
             self.processing_counter_label.configure(text=f"Kolejka: {processing_count}")
             self.processed_counter_label.configure(text=f"Gotowe: {processed_count}")
@@ -81,10 +110,12 @@ class App(ctk.CTk):
 
     def refresh_all_views(self):
         """
-        Odświeża wszystkie panele, pobierając dane z bazy tylko raz.
+        Odświeża wszystkie główne widoki (panele z plikami), pobierając dane z bazy tylko raz
+        i przekazując je do poszczególnych metod, co jest wydajniejsze.
         """
         try:
             all_files = database.get_all_files()
+            # Przekazujemy pobrane dane do menedżera paneli, liczników i kontrolera przycisków.
             self.panel_manager.refresh_all_views(data=all_files)
             self.update_all_counters(all_files=all_files)
             self.button_state_controller.update_ui_state(all_files=all_files)
@@ -92,42 +123,43 @@ class App(ctk.CTk):
             print(f"Błąd podczas pełnego odświeżania: {e}")
 
     def pause_transcription(self):
+        """Deleguje zadanie pauzy do kontrolera transkrypcji."""
         self.transcription_controller.pause_transcription()
 
     def resume_transcription(self):
+        """Deleguje zadanie wznowienia do kontrolera transkrypcji."""
         self.transcription_controller.resume_transcription()
 
     def on_processing_finished(self):
         """
-        Handles the completion of the transcription process.
-        This method is called from the transcription controller.
+        Obsługuje zakończenie procesu transkrypcji.
+        Ta metoda jest wywoływana z kontrolera transkrypcji, gdy pętla przetwarzania się zakończy.
         """
-        # Finalize state in the controller
+        # Finalizuje stan w kontrolerze (np. zmienia stan przycisków).
         self.transcription_controller.on_processing_finished()
 
-        # Check if all selected files are now processed
+        # Sprawdzamy, czy wszystkie zaznaczone pliki zostały przetworzone.
         all_files = database.get_all_files()
         is_fully_processed = all_files and all(f['is_processed'] for f in all_files if f['is_selected'])
 
         if is_fully_processed:
-            # Gather all transcriptions from processed files
+            # Zbieramy wszystkie transkrypcje z przetworzonych plików.
             processed_transcriptions = [
                 f['transcription'] for f in all_files if f['is_processed'] and f['transcription']
             ]
-
-            # Join with a blank line between each transcription
+            # Łączymy je w jeden tekst, oddzielając podwójnym znakiem nowej linii.
             full_text = "\n\n".join(processed_transcriptions)
-
-            # Update the view with the final, consolidated text
+            # Aktualizujemy główny panel wyjściowy z połączonymi transkrypcjami.
             self.transcription_output_panel.update_text(full_text)
 
     def start_transcription_process(self):
+        """Deleguje zadanie rozpoczęcia procesu transkrypcji do kontrolera."""
         self.transcription_controller.start_transcription_process()
 
     def reset_application(self):
         """
-        Resets the application to its initial state by clearing the database
-        and the temporary folder. Prompts the user for confirmation.
+        Resetuje aplikację do stanu początkowego, czyszcząc bazę danych i folder tymczasowy.
+        Prosi użytkownika o potwierdzenie tej operacji.
         """
         answer = messagebox.askyesno(
             "Potwierdzenie resetowania",
@@ -136,17 +168,15 @@ class App(ctk.CTk):
         )
         if answer:
             try:
-                # Stop any active processes before clearing data
+                # Zatrzymujemy aktywne procesy (np. odtwarzanie audio) przed czyszczeniem.
                 if self.audio_player:
                     self.audio_player.stop()
 
-                # Clear the database and temporary files
+                # Czyścimy bazę danych i pliki tymczasowe.
                 database.clear_database_and_tmp_folder()
-
-                # Refresh all UI components to reflect the empty state
+                # Odświeżamy wszystkie widoki, aby odzwierciedliły pusty stan.
                 self.refresh_all_views()
-
-                # Clear the main transcription output panel as well
+                # Czyścimy również główny panel z transkrypcją.
                 self.transcription_output_panel.update_text("")
 
                 messagebox.showinfo("Reset zakończony", "Aplikacja została zresetowana.")
@@ -155,10 +185,11 @@ class App(ctk.CTk):
 
     def on_transcription_progress(self):
         """
-        Callback function invoked from the processing thread after each file is processed.
-        This method safely updates the GUI from the main thread.
+        Funkcja zwrotna (callback) wywoływana z wątku roboczego po przetworzeniu każdego pliku.
+        Ta metoda bezpiecznie aktualizuje GUI z głównego wątku.
         """
         try:
+            # Pobieramy świeże dane i aktualizujemy tylko te widoki, które pokazują postęp.
             all_files = database.get_all_files()
             self.panel_manager.refresh_transcription_progress_views(data=all_files)
             self.update_all_counters(all_files=all_files)
@@ -167,32 +198,45 @@ class App(ctk.CTk):
             print(f"Błąd w trakcie aktualizacji postępu: {e}")
 
     def copy_transcription_to_clipboard(self):
+        """Kopiuje zawartość panelu wyjściowego do schowka systemowego."""
         text = self.transcription_output_panel.get_text()
+        # Sprawdzamy, czy jest co kopiować (ignorujemy białe znaki).
         if not text.strip():
             messagebox.showinfo("Informacja", "Brak tekstu do skopiowania.")
             return
-        self.clipboard_clear()
-        self.clipboard_append(text)
+        self.clipboard_clear()  # Czyścimy schowek.
+        self.clipboard_append(text)  # Dodajemy tekst do schowka.
         messagebox.showinfo("Skopiowano", "Transkrypcja została skopiowana do schowka.")
 
     def _check_playback_status(self):
+        """Cyklicznie sprawdza, czy odtwarzanie audio się zakończyło, aby zaktualizować UI."""
+        # `pygame.mixer.music.get_busy()` zwraca `True`, jeśli dźwięk jest odtwarzany.
         if self.audio_player.is_playing and not pygame.mixer.music.get_busy():
-            self.audio_player.stop()
+            self.audio_player.stop()  # Aktualizujemy stan naszego odtwarzacza.
+            # `hasattr` sprawdza, czy widżet został już utworzony.
             if hasattr(self, 'file_selection_panel'):
+                # Aktualizujemy wygląd przycisków play/stop w panelu.
                 self.file_selection_panel.update_play_buttons()
+        # `self.after(ms, func)` to metoda Tkinter, która planuje wykonanie funkcji `func` po `ms` milisekundach.
+        # Wywołując samą siebie, tworzymy pętlę, która działa w tle bez blokowania GUI.
         self.after(100, self._check_playback_status)
 
     def on_closing(self):
+        """Obsługuje zdarzenie zamknięcia okna."""
         self.audio_player.stop()
-        pygame.quit()
+        pygame.quit()  # Zamykamy system pygame.
+        # Sprawdzamy, czy wątek przetwarzający wciąż działa.
         if self.processing_thread and self.processing_thread.is_alive():
+            # Jeśli tak, pytamy użytkownika, czy na pewno chce zamknąć aplikację.
             if messagebox.askokcancel("Przetwarzanie w toku", "Proces jest aktywny. Czy na pewno chcesz wyjść?"):
-                self.destroy()
+                self.destroy()  # `destroy()` zamyka okno.
         else:
+            # Jeśli nic nie jest przetwarzane, zamykamy od razu.
             self.destroy()
 
 def main():
-    # Inicjalizacja bazy danych została przeniesiona do głównego pliku main.py,
-    # aby uniknąć podwójnego wywołania przy starcie w trybie GUI.
+    """Główna funkcja uruchamiająca aplikację w trybie GUI."""
+    # Komentarz: Inicjalizacja bazy danych została przeniesiona do głównego pliku main.py,
+    # aby uniknąć podwójnego wywołania przy starcie w trybie GUI. To dobra praktyka.
     app = App()
-    app.mainloop()
+    app.mainloop()  # `mainloop()` uruchamia główną pętlę zdarzeń Tkinter, która czeka na akcje użytkownika.

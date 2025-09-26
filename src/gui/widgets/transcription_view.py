@@ -1,47 +1,63 @@
+# Ten moduł definiuje `TranscriptionView`, niestandardowy widżet (komponent GUI)
+# przeznaczony do wyświetlania finalnego tekstu transkrypcji.
+
 import customtkinter as ctk
 from src import config
 
 class TranscriptionView(ctk.CTkFrame):
     """
-    GUI component for displaying the final transcription.
+    Komponent GUI do wyświetlania ostatecznego, połączonego tekstu transkrypcji.
     """
     def __init__(self, parent, text, **kwargs):
         """
-        Initializes the frame.
+        Inicjalizuje ramkę z polem tekstowym na transkrypcję.
 
-        Args:
-            parent: The parent widget (main application window).
-            text (str): The label to display above the textbox.
+        Argumenty:
+            parent: Widżet nadrzędny (główne okno aplikacji).
+            text (str): Etykieta do wyświetlenia nad polem tekstowym.
         """
+        # Wywołujemy konstruktor klasy nadrzędnej `ctk.CTkFrame`.
         super().__init__(parent, **kwargs)
 
+        # Konfigurujemy siatkę (grid) wewnątrz tej ramki.
+        # Wiersz 1 (z polem tekstowym) i kolumna 0 będą się rozciągać,
+        # aby wypełnić dostępną przestrzeń.
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
+        # Etykieta tytułowa dla panelu.
         self.label = ctk.CTkLabel(self, text=text, anchor="center")
         self.label.grid(row=0, column=0, sticky="ew", pady=(0, 5))
 
+        # Pole tekstowe do wyświetlania wyniku transkrypcji.
         self.text = ctk.CTkTextbox(
-            self, wrap="word", state="disabled", width=400, padx=8, pady=8
+            self,
+            wrap="word",  # Włącza zawijanie wierszy.
+            state="disabled",  # Domyślnie wyłączone, aby użytkownik nie mógł edytować tekstu.
+            width=400,  # Szerokość początkowa.
+            padx=8,  # Wewnętrzne marginesy.
+            pady=8
         )
         self.text.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 
     def update_text(self, content):
-        """Populates the textbox with non-editable text."""
+        """
+        Wypełnia pole tekstowe podaną treścią.
+        Tekst jest nieedytowalny dla użytkownika.
+        """
+        # Krok 1: Tymczasowo włącz pole tekstowe, aby umożliwić modyfikację programową.
         self.text.configure(state="normal")
+        # Krok 2: Usuń całą poprzednią zawartość.
         self.text.delete('1.0', "end")
         try:
+            # Krok 3: Wstaw nową treść na końcu pola tekstowego.
             self.text.insert("end", content)
         except Exception as e:
-            print(f"Error updating transcription view: {e}")
+            print(f"Błąd podczas aktualizacji widoku transkrypcji: {e}")
+        # Krok 4: Ponownie wyłącz pole tekstowe, aby uczynić je tylko do odczytu dla użytkownika.
         self.text.configure(state="disabled")
 
     def get_text(self):
-        """Returns the entire content of the textbox."""
+        """Zwraca całą zawartość pola tekstowego jako ciąg znaków."""
+        # '1.0' oznacza pierwszy wiersz, zerowy znak. "end" oznacza koniec tekstu.
         return self.text.get("1.0", "end")
-
-    def clear_view(self):
-        """Clears the textbox."""
-        self.text.configure(state="normal")
-        self.text.delete('1.0', "end")
-        self.text.configure(state="disabled")

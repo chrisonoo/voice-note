@@ -1,3 +1,6 @@
+# Ten moduł definiuje `FilesView`, niestandardowy widżet (komponent GUI),
+# który jest odpowiedzialny za wyświetlanie listy plików audio z interaktywnymi elementami.
+
 import customtkinter as ctk
 import os
 from src import config, database
@@ -6,59 +9,75 @@ from tkinter.messagebox import askyesno
 
 class FilesView(ctk.CTkFrame):
     """
-    GUI component that displays a list of user-selected files.
-    Replaces the standard ttk.Treeview with a CTkScrollableFrame
-    containing checkboxes and labels for a modern appearance.
-    Includes playback controls for audio files.
+    Komponent GUI, który wyświetla listę wybranych przez użytkownika plików.
+    Zastępuje standardowy widok drzewa (Treeview) ramką przewijalną (CTkScrollableFrame)
+    z polami wyboru (checkbox), etykietami i przyciskami, co nadaje nowoczesny wygląd.
+    Zawiera również kontrolki do odtwarzania plików audio.
     """
     def __init__(self, parent, audio_player: AudioPlayer, title="Wybrane", **kwargs):
+        # Wywołujemy konstruktor klasy nadrzędnej `ctk.CTkFrame`.
         super().__init__(parent, width=400, **kwargs)
+        # `grid_propagate(False)` zapobiega automatycznemu dopasowywaniu się rozmiaru ramki
+        # do jej zawartości, co pozwala nam utrzymać stałą szerokość.
         self.grid_propagate(False)
 
+        # Przechowujemy referencję do odtwarzacza audio.
         self.audio_player = audio_player
 
-        self.grid_rowconfigure(1, weight=1)
-        self.grid_columnconfigure(0, weight=1)
+        # Konfigurujemy siatkę (grid) wewnątrz tej ramki.
+        self.grid_rowconfigure(1, weight=1)  # Wiersz 1 (z przewijalną listą) będzie się rozciągał.
+        self.grid_columnconfigure(0, weight=1) # Kolumna 0 będzie się rozciągać.
 
+        # Etykieta tytułowa dla panelu.
         self.label = ctk.CTkLabel(self, text=title, anchor="center")
         self.label.grid(row=0, column=0, sticky="ew", pady=(0, 5))
 
+        # Tworzymy przewijalną ramkę, w której będą umieszczane wpisy plików.
         self.scrollable_frame = ctk.CTkScrollableFrame(self, width=384)
         self.scrollable_frame.grid(row=1, column=0, sticky="nsew", padx=8, pady=8)
 
+        # Tworzymy nagłówki kolumn, aby użytkownik wiedział, co oznaczają dane kolumny.
         header_checkbox = ctk.CTkLabel(self.scrollable_frame, text="", width=35)
         header_checkbox.grid(row=0, column=0, padx=(5,0), pady=2)
-
         header_filename = ctk.CTkLabel(self.scrollable_frame, text="Nazwa", width=150, anchor="w")
         header_filename.grid(row=0, column=1, padx=5, pady=2)
-
         header_duration = ctk.CTkLabel(self.scrollable_frame, text="Czas", width=50, anchor="center")
         header_duration.grid(row=0, column=2, padx=5, pady=2)
 
+        # Lista do przechowywania referencji do widżetów dla każdego pliku.
+        # Jest to potrzebne, aby móc później np. aktualizować ikony przycisków play/pauza.
         self.file_widgets = []
 
     def populate_files(self, files_data):
         """
-        Populates the scrollable frame with a list of files from the database.
-        Args:
-            files_data (list): A list of database row objects.
+        Wypełnia przewijalną ramkę listą plików na podstawie danych z bazy.
+        Ta metoda jest wywoływana za każdym razem, gdy widok wymaga odświeżenia.
+
+        Argumenty:
+            files_data (list): Lista obiektów wierszy z bazy danych.
         """
+        # Najpierw czyścimy stary widok, aby uniknąć duplikatów.
         self.clear_view()
-        for i, file_row in enumerate(files_data, start=1):
+        # `enumerate` pozwala nam iterować po plikach, jednocześnie mając ich indeks (do umieszczenia w siatce).
+        for i, file_row in enumerate(files_data, start=1): # `start=1`, bo wiersz 0 jest na nagłówki.
+            # Wyciągamy potrzebne dane z obiektu wiersza.
             file_path = file_row['source_file_path']
             duration_sec = file_row['duration_seconds'] or 0
             is_selected = file_row['is_selected']
 
             filename = os.path.basename(file_path)
+            # Formatujemy czas trwania na czytelny format MM:SS.
             duration_str = f"{int(duration_sec // 60):02d}:{int(duration_sec % 60):02d}"
+            # Sprawdzamy, czy plik jest dłuższy niż limit z konfiguracji.
             is_long = duration_sec > config.MAX_FILE_DURATION_SECONDS
 
+            # Tworzymy widżety dla każdego pliku.
             checkbox_var = ctk.BooleanVar(value=is_selected)
             checkbox = ctk.CTkCheckBox(
-                self.scrollable_frame,
-                text="",
-                width=35,
-                variable=checkbox_var,
+                self.scrollable_frame, text="", width=35, variable=checkbox_var,
+                # `command` z `lambda` jest kluczowe. Tworzy funkcję, która "pamięta"
+                # właściwą ścieżkę (`fp`) i zmienną (`var`) dla danego wiersza.
+                # Bez `lambda` wszystkie checkboxy wywoływałyby komendę z wartościami z ostatniej iteracji pętli.
                 command=lambda fp=file_path, var=checkbox_var: self.on_checkbox_toggle(fp, var)
             )
             checkbox.grid(row=i, column=0, padx=(5,0), pady=2)
@@ -69,76 +88,74 @@ class FilesView(ctk.CTkFrame):
             duration_label = ctk.CTkLabel(self.scrollable_frame, text=duration_str, width=50, anchor="center")
             duration_label.grid(row=i, column=2, padx=5, pady=2)
 
-            play_button = ctk.CTkButton(self.scrollable_frame, text="▶", width=30)
+            play_button = ctk.CTkButton(self.scrollable_frame, text="▶", width=30, command=lambda fp=file_path: self.on_play_button_click(fp))
             play_button.grid(row=i, column=3, padx=5, pady=2)
-            play_button.configure(command=lambda fp=file_path: self.on_play_button_click(fp))
 
-            delete_button = ctk.CTkButton(self.scrollable_frame, text="X", width=30)
+            delete_button = ctk.CTkButton(self.scrollable_frame, text="X", width=30, command=lambda fp=file_path: self.on_delete_button_click(fp))
             delete_button.grid(row=i, column=4, padx=5, pady=2)
-            delete_button.configure(command=lambda fp=file_path: self.on_delete_button_click(fp))
 
+            # Jeśli plik jest za długi, kolorujemy jego etykiety na czerwono.
             if is_long:
                 filename_label.configure(text_color="red")
                 duration_label.configure(text_color="red")
 
+            # Zapisujemy referencje do stworzonych widżetów.
             self.file_widgets.append((checkbox, file_path, duration_sec, play_button, delete_button))
 
+        # Po dodaniu wszystkich plików, aktualizujemy stan przycisków play/pauza.
         self.update_play_buttons()
 
     def on_checkbox_toggle(self, file_path, var):
         """
-        Callback function for when a checkbox is toggled.
-        Updates the database with the new selection state.
+        Funkcja zwrotna (callback) wywoływana po przełączeniu checkboxa.
+        Aktualizuje stan zaznaczenia w bazie danych.
         """
         database.set_file_selected(file_path, var.get())
-        # Potentially trigger a UI refresh if counters need to be updated live
-        self.master.update_all_counters() # Navigate up to the App instance
+        # `self.master` odnosi się do rodzica tego widżetu, czyli głównego okna aplikacji `App`.
+        # Wywołujemy metodę z głównego okna, aby zaktualizować liczniki.
+        self.master.update_all_counters()
 
     def on_delete_button_click(self, file_path):
-        """Handles the click event for a delete button."""
+        """Obsługuje kliknięcie przycisku usuwania."""
         filename = os.path.basename(file_path)
-        answer = askyesno(
-            title='Potwierdzenie usunięcia',
-            message=f'Czy na pewno chcesz usunąć plik?\n\n{filename}'
-        )
+        # Wyświetlamy okno dialogowe z prośbą o potwierdzenie.
+        answer = askyesno(title='Potwierdzenie usunięcia', message=f'Czy na pewno chcesz usunąć plik?\n\n{filename}')
         if answer:
+            # Jeśli użytkownik się zgodził, usuwamy plik z bazy (i z dysku).
             database.delete_file(file_path)
-            # Refresh the view
+            # Odświeżamy wszystkie widoki, aby usunięty plik zniknął z interfejsu.
             self.master.refresh_all_views()
 
     def on_play_button_click(self, file_path):
-        """Handles the click event for a play/pause button."""
+        """Obsługuje kliknięcie przycisku play/pauza."""
+        # Delegujemy logikę do odtwarzacza audio.
         self.audio_player.toggle_play_pause(file_path)
+        # Aktualizujemy ikony na przyciskach.
         self.update_play_buttons()
 
     def update_play_buttons(self):
-        """
-        Updates the text of all play/pause buttons based on the audio player's state.
-        """
+        """Aktualizuje tekst wszystkich przycisków play/pauza na podstawie stanu odtwarzacza."""
         if not self.file_widgets:
             return
+        # Iterujemy przez zapisane referencje do widżetów.
         for _, file_path, _, button, _ in self.file_widgets:
             state = self.audio_player.get_state(file_path)
+            # Ustawiamy odpowiednią ikonę (w formie tekstu) w zależności od stanu.
             button.configure(text="⏸" if state == 'playing' else "▶")
-
-    def get_checked_files(self):
-        """
-        Returns a list of full paths to the files that are currently checked.
-        """
-        checked_files = []
-        for checkbox, file_path, _, _, _ in self.file_widgets:
-            if checkbox.get() == 1:
-                checked_files.append(file_path)
-        return checked_files
 
     def clear_view(self):
         """
-        Clears the view by destroying all file entry widgets and resetting the data list.
+        Czyści widok, niszcząc wszystkie widżety-dzieci w przewijalnej ramce
+        i resetując listę referencji do widżetów.
+        Jest to kluczowe, aby zapobiec wyciekom pamięci i duplikowaniu wpisów.
         """
         if self.audio_player:
             self.audio_player.stop()
 
+        # Iterujemy po wszystkich widżetach wewnątrz `scrollable_frame`.
         for widget in self.scrollable_frame.winfo_children():
+            # Usuwamy tylko wiersze z danymi (zaczynające się od 1), zostawiając nagłówki (wiersz 0).
             if widget.grid_info()["row"] > 0:
                 widget.destroy()
+        # Czyścimy naszą listę referencji.
         self.file_widgets.clear()

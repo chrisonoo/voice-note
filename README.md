@@ -1,16 +1,13 @@
 # Aplikacja do Transkrypcji Notatek Głosowych
 
-Ta aplikacja służy do automatycznej transkrypcji plików audio przy użyciu API OpenAI Whisper. Projekt został zoptymalizowany pod kątem prostoty użycia i modułowej, czytelnej struktury kodu.
+Ta aplikacja służy do automatycznej transkrypcji plików audio przy użyciu API OpenAI Whisper. Projekt został napisany z myślą o modułowości i czytelności kodu, oferując zarówno interfejs graficzny (GUI), jak i tradycyjny tryb wiersza poleceń (CLI).
 
-## Jak to działa?
+## Kluczowe Funkcje
 
-Aplikacja wykonuje następujące kroki:
-1.  Wyszukuje pliki audio (np. `.mp3`, `.wav`, `.m4a`) w folderze `input`.
-2.  Konwertuje znalezione pliki do standardowego formatu `.wav` za pomocą `ffmpeg` i zapisuje je w `tmp/output_wav`.
-3.  Wysyła przekonwertowane pliki do API OpenAI Whisper w celu transkrypcji.
-4.  Zapisuje wszystkie uzyskane transkrypcje w jednym, zbiorczym pliku `tmp/5_transcriptions.txt`.
-
-Aplikacja tworzy również pliki pomocnicze w folderze `tmp`, które pozwalają śledzić postęp i wznowić pracę w przypadku błędu.
+*   **Dwa tryby pracy:** Interaktywny interfejs graficzny (GUI) lub szybki tryb wiersza poleceń (CLI).
+*   **Zarządzanie stanem:** Aplikacja używa bazy danych SQLite do zapisywania stanu plików, co pozwala na wstrzymywanie i wznawianie pracy.
+*   **Konwersja w locie:** Automatycznie konwertuje różne formaty audio (np. `.mp3`, `.m4a`) do formatu `.wav` za pomocą `ffmpeg`.
+*   **Przetwarzanie w tle:** W trybie GUI wszystkie operochłonne zadania (konwersja, transkrypcja) są wykonywane w osobnych wątkach, co zapobiega "zamrażaniu" interfejsu.
 
 ## Wymagania
 
@@ -23,12 +20,26 @@ Aplikacja tworzy również pliki pomocnicze w folderze `tmp`, które pozwalają 
 1.  **Sklonuj repozytorium:**
     ```bash
     git clone <adres-repozytorium>
+    ```
+    ```bash
     cd <nazwa-repozytorium>
     ```
 
 2.  **Utwórz i aktywuj wirtualne środowisko:**
-    *   Dla macOS/Linux: `python3 -m venv .venv && source .venv/bin/activate`
-    *   Dla Windows: `python -m venv .venv && .\\.venv\\Scripts\\activate`
+    *   Dla macOS/Linux:
+        ```bash
+        python3 -m venv .venv
+        ```
+        ```bash
+        source .venv/bin/activate
+        ```
+    *   Dla Windows:
+        ```bash
+        python -m venv .venv
+        ```
+        ```bash
+        .venv\Scripts\activate
+        ```
 
 3.  **Zainstaluj zależności:**
     ```bash
@@ -44,19 +55,23 @@ Aplikacja tworzy również pliki pomocnicze w folderze `tmp`, które pozwalają 
 
 ## Jak używać?
 
-Aplikację można uruchomić w dwóch trybach: graficznym (GUI) lub tradycyjnym wierszu poleceń (CLI).
+Aplikację można uruchomić w dwóch trybach.
 
 ### Tryb graficzny (GUI) - zalecany
 
-Tryb graficzny zapewnia interaktywną obsługę i wizualizację postępu.
+Tryb graficzny zapewnia interaktywną obsługę i wizualizację całego procesu.
 
 1.  **Uruchom aplikację** z flagą `--gui`:
     ```bash
     python main.py --gui
     ```
-2.  **Postępuj zgodnie z instrukcjami** na ekranie: wybierz folder, wczytaj pliki i rozpocznij transkrypcję.
+2.  **Postępuj zgodnie z instrukcjami** na ekranie:
+    *   Kliknij "Wybierz pliki", aby dodać pliki audio.
+    *   Zaznacz pliki, które chcesz przetworzyć.
+    *   Kliknij "Wczytaj Pliki", aby przekonwertować je do formatu WAV.
+    *   Kliknij "Start", aby rozpocząć proces transkrypcji.
 
-#### Ułatwione uruchamianie w Windows (opcjonalne)
+#### Ułatwione uruchamianie w Windows
 
 Aby uruchomić aplikację jednym kliknięciem (bez potrzeby ręcznego aktywowania środowiska wirtualnego i bez widocznego okna terminala), możesz użyć dołączonych skryptów.
 
@@ -64,20 +79,22 @@ Aby uruchomić aplikację jednym kliknięciem (bez potrzeby ręcznego aktywowani
 2.  **(Opcjonalnie) Zmień ikonę:** Kliknij prawym przyciskiem na nowo utworzony skrót, wybierz `Właściwości` -> `Zmień ikonę...` i wybierz dowolną ikonę.
 3.  **Przenieś skrót** na pulpit lub w inne dogodne miejsce.
 
-Od teraz, dwukrotne kliknięcie skrótu uruchomi aplikację w jej wirtualnym środowisku, a okno terminala nie będzie widoczne.
-
 ### Tryb wiersza poleceń (CLI)
 
-Tryb CLI działa tak jak pierwotna wersja aplikacji.
+Tryb CLI służy do szybkiego przetwarzania plików z jednego folderu.
 
-1.  **Umieść swoje pliki audio** w folderze `input`. Możesz tworzyć wewnątrz podfoldery – aplikacja przeszuka je wszystkie.
-
-2.  **Uruchom aplikację** za pomocą komendy:
+1.  **Uruchom aplikację**, podając ścieżkę do folderu z plikami audio za pomocą flagi `--input-dir`:
     ```bash
-    python main.py
+    python main.py --input-dir /sciezka/do/twoich/plikow
+    ```
+    *Aplikacja rekursywnie przeszuka cały podany folder i jego podfoldery.*
+
+2.  **Opcjonalnie**, jeśli chcesz przetwarzać pliki dłuższe niż 5 minut, dodaj flagę `-l` lub `--allow-long`:
+    ```bash
+    python main.py --input-dir /sciezka/do/plikow --allow-long
     ```
 
-3.  **Gotowe!** Po zakończeniu procesu, wszystkie transkrypcje znajdziesz w pliku `tmp/5_transcriptions.txt`.
+3.  **Gotowe!** Po zakończeniu procesu, wszystkie transkrypcje zostaną zapisane w bazie danych w folderze `tmp/`.
 
 ## Zarządzanie Zależnościami
 
@@ -98,15 +115,19 @@ Aby upewnić się, że korzystasz z najnowszych wersji bibliotek, możesz okreso
     ```bash
     pip freeze > requirements.txt
     ```
-    *Uwaga: W tym projekcie używamy tylko `openai` i `python-dotenv`. Po wykonaniu `freeze` warto ręcznie usunąć z pliku inne, niepotrzebne zależności.*
-
 
 ## Struktura projektu
 
-*   `main.py`: Główny plik uruchomieniowy. Jego zadaniem jest wywołanie funkcji z poszczególnych modułów w odpowiedniej kolejności.
-*   `src/config.py`: Centralny plik konfiguracyjny, w którym zdefiniowane są wszystkie ścieżki i parametry.
-*   `src/audio/`: Moduł odpowiedzialny za operacje na plikach audio (wyszukiwanie, konwersja).
-*   `src/whisper/`: Moduł będący "opakowaniem" (wrapperem) dla API OpenAI Whisper.
-*   `src/transcribe/`: Moduł zarządzający całym procesem transkrypcji.
-*   `tmp/`: Folder na wszystkie pliki robocze (przekonwertowane, wyjściowe i pliki stanu).
-*   `input/`: Folder na pliki audio wejściowe (tylko tryb CLI).
+*   `main.py`: Główny plik uruchomieniowy, który parsuje argumenty i uruchamia odpowiedni tryb (CLI/GUI).
+*   `src/`: Główny folder z kodem źródłowym aplikacji.
+    *   `config.py`: Centralny plik konfiguracyjny (ścieżki, parametry API).
+    *   `database.py`: Moduł do zarządzania bazą danych SQLite.
+    *   `audio/`: Moduł do operacji na plikach audio (wyszukiwanie, konwersja, sprawdzanie długości).
+    *   `transcribe/`: Moduł zarządzający procesem transkrypcji.
+    *   `whisper/`: Moduł będący "opakowaniem" (wrapperem) dla API OpenAI Whisper.
+    *   `gui/`: Moduł zawierający cały kod interfejsu graficznego.
+        *   `core/`: Główne okno aplikacji i "budowniczy" interfejsu.
+        *   `controllers/`: Klasy zarządzające logiką GUI (np. stanem przycisków, obsługą plików).
+        *   `widgets/`: Niestandardowe komponenty GUI (np. panele list plików).
+        *   `utils/`: Narzędzia pomocnicze dla GUI (np. odtwarzacz audio).
+*   `tmp/`: Folder na wszystkie pliki robocze (baza danych, przekonwertowane pliki .wav).
