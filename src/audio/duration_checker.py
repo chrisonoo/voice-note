@@ -33,23 +33,27 @@ def get_file_duration(file_path):
 
 def validate_file_durations():
     """
-    Waliduje czas trwania plików pobranych z bazy danych (ze statusem 'selected').
+    Waliduje czas trwania nowo dodanych plików (tych bez zapisanego czasu trwania).
     Aktualizuje ich czas trwania w bazie danych.
-    Ta funkcja jest głównie używana w trybie CLI.
+    Używane głównie w trybie CLI.
 
     Returns:
-        list: Lista ścieżek do plików, które są dłuższe niż dozwolony limit.
+        list: Lista nazw plików, które są dłuższe niż dozwolony limit.
     """
     long_files = []
-    files_to_check = database.get_files_by_status('selected')
+    all_files = database.get_all_files()
+
+    # Sprawdzamy tylko pliki, które nie mają jeszcze obliczonego czasu trwania
+    files_to_check = [row for row in all_files if row['duration_seconds'] is None]
 
     if not files_to_check:
-        print("Brak plików do walidacji.")
+        print("Brak nowych plików do walidacji czasu trwania.")
         return long_files
 
-    for file_path in files_to_check:
+    for file_row in files_to_check:
+        file_path = file_row['source_file_path']
         duration = get_file_duration(file_path)
-        # Aktualizujemy czas trwania w bazie danych, aby nie obliczać go ponownie
+
         database.update_file_duration(file_path, duration)
 
         if duration > config.MAX_FILE_DURATION_SECONDS:

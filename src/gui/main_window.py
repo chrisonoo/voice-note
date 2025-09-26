@@ -56,41 +56,32 @@ class App(ctk.CTk):
         try:
             all_files = database.get_all_files()
 
-            # Liczniki dla panelu wyboru plików
             total_files = len(all_files)
-            approved_files = sum(1 for row in all_files if row['is_selected_in_gui'])
+            selected_files = sum(1 for row in all_files if row['is_selected'])
             long_files = sum(1 for row in all_files if row['duration_seconds'] is not None and row['duration_seconds'] > config.MAX_FILE_DURATION_SECONDS)
 
             if hasattr(self, 'files_counter_label'):
                 if total_files == 0:
                     self.files_counter_label.configure(text="")
                 else:
-                    counter_text = f"Razem: {total_files}  |  Zaznaczone: {approved_files}"
+                    counter_text = f"Razem: {total_files}  |  Zaznaczone: {selected_files}"
                     if long_files > 0:
                         counter_text += f"  |  Długie: {long_files}"
                     self.files_counter_label.configure(text=counter_text)
 
-            # Liczniki dla paneli statusu
-            status_counts = {
-                'encoded': 0,
-                'processing': 0,
-                'processed': 0
-            }
-            for row in all_files:
-                if row['status'] in status_counts:
-                    status_counts[row['status']] += 1
+            # Liczniki dla paneli stanu
+            loaded_count = sum(1 for row in all_files if row['is_loaded'] and not row['is_processed'])
+            processed_count = sum(1 for row in all_files if row['is_processed'])
 
             if hasattr(self, 'loaded_counter_label'):
-                count = status_counts['encoded']
-                self.loaded_counter_label.configure(text=f"Przygotowane: {count}" if count > 0 else "")
+                self.loaded_counter_label.configure(text=f"Wczytane: {loaded_count}" if loaded_count > 0 else "")
 
+            # "Kolejka" to teraz pliki wczytane, ale jeszcze nieprzetworzone
             if hasattr(self, 'processing_counter_label'):
-                count = status_counts['processing']
-                self.processing_counter_label.configure(text=f"Kolejka: {count}" if count > 0 else "")
+                self.processing_counter_label.configure(text=f"Kolejka: {loaded_count}" if loaded_count > 0 else "")
 
             if hasattr(self, 'processed_counter_label'):
-                count = status_counts['processed']
-                self.processed_counter_label.configure(text=f"Gotowe: {count}" if count > 0 else "")
+                self.processed_counter_label.configure(text=f"Gotowe: {processed_count}" if processed_count > 0 else "")
 
         except Exception as e:
             print(f"Błąd podczas aktualizacji liczników: {e}")

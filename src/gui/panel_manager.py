@@ -18,50 +18,51 @@ class PanelManager:
             all_files = database.get_all_files()
             self._refresh_selected_files_view(all_files)
             self._refresh_status_views(all_files)
+            self.app.update_all_counters() # Upewnij się, że liczniki są aktualne
         except Exception as e:
             print(f"Krytyczny błąd podczas odświeżania widoków: {e}")
             messagebox.showerror("Błąd Bazy Danych", f"Nie można odświeżyć widoków: {e}")
 
     def _refresh_selected_files_view(self, all_files):
         """Odświeża panel z listą plików do wyboru."""
-        files_data = []
         files_to_update_duration = []
 
         for file_row in all_files:
-            file_path = file_row['file_path']
-            duration = file_row['duration_seconds']
-
-            # Jeśli czas trwania nie został jeszcze obliczony, zrób to teraz
-            if duration is None:
+            if file_row['duration_seconds'] is None:
+                file_path = file_row['source_file_path']
                 try:
                     duration = get_file_duration(file_path)
-                    # Oznacz do aktualizacji w bazie danych
                     files_to_update_duration.append((file_path, duration))
                 except Exception as e:
                     print(f"Nie udało się pobrać czasu trwania dla {file_path}: {e}")
-                    duration = 0.0
 
-            files_data.append((file_path, duration))
-
-        # Zaktualizuj czasy trwania w bazie danych za jednym razem
         if files_to_update_duration:
             for path, dur in files_to_update_duration:
                 database.update_file_duration(path, dur)
+            # Pobierz dane ponownie po aktualizacji
+            all_files = database.get_all_files()
 
-        self.app.file_selection_panel.populate_files(files_data)
+        self.app.file_selection_panel.populate_files(all_files)
 
     def _refresh_status_views(self, all_files):
         """Odświeża wszystkie panele statusu i panel transkrypcji."""
-        # Filtruj pliki według statusu
-        encoded_files = [row['file_path'] for row in all_files if row['status'] == 'encoded']
-        processing_files = [row['file_path'] for row in all_files if row['status'] == 'processing']
-        processed_files = [row['file_path'] for row in all_files if row['status'] == 'processed']
-
-        # Zbierz wszystkie gotowe transkrypcje
-        transcriptions = [row['transcription'] for row in all_files if row['status'] == 'processed' and row['transcription']]
+        # Filtruj pliki na podstawie nowych flag
+        loaded_files = [
+            os.path.basename(row['source_file_path']) for row in all_files
+            if row['is_loaded'] and not row['is_processed']
+        ]
+        processed_files = [
+            os.path.basename(row['source_file_path']) for row in all_files
+            if row['is_processed']
+        ]
+        transcriptions = [
+            row['transcription'] for row in all_files
+            if row['is_processed'] and row['transcription']
+        ]
 
         # Zaktualizuj widoki
-        self.app.conversion_status_panel.update_from_list(encoded_files)
-        self.app.transcription_queue_panel.update_from_list(processing_files)
+        self.app.conversion_status_panel.update_from_list(loaded_files)
+        # Panel "w kolejce" teraz również pokazuje pliki wczytane, ale nieprzetworzone
+        self.app.transcription_queue_panel.update_from_list(loaded_files)
         self.app.completed_files_panel.update_from_list(processed_files)
         self.app.transcription_output_panel.update_text("\n\n".join(transcriptions))

@@ -1,70 +1,56 @@
-# This module manages UI state (enabling/disabling buttons based on application state)
-
 from src import database
 
 class ButtonStateController:
     """
     Zarządza stanem przycisków w interfejsie, opierając się na danych z bazy.
-    Zapewnia prawidłowy przepływ pracy: Wybierz -> Wczytaj -> Start -> Kopiuj/Resetuj.
     """
     
     def __init__(self, app):
         self.app = app
     
     def update_ui_state(self):
-        """Aktualizuje stan interfejsu na podstawie danych z bazy."""
+        """Aktualizuje stan interfejsu na podstawie flag w bazie danych."""
         is_processing = self.app.processing_thread and self.app.processing_thread.is_alive()
 
-        # Pobierz wszystkie pliki i pogrupuj je według statusu
         all_files = database.get_all_files()
-        status_counts = {
-            'selected': 0,
-            'encoded': 0,
-            'processing': 0,
-            'processed': 0
-        }
-        for row in all_files:
-            if row['status'] in status_counts:
-                status_counts[row['status']] += 1
 
-        has_selected = status_counts['selected'] > 0
-        has_encoded = status_counts['encoded'] > 0
-        has_processed = status_counts['processed'] > 0
+        # Oblicz stany na podstawie nowych flag
+        has_files_to_load = any(f['is_selected'] and not f['is_loaded'] for f in all_files)
+        has_files_to_process = any(f['is_loaded'] and not f['is_processed'] for f in all_files)
+        has_processed_files = any(f['is_processed'] for f in all_files)
+        any_files_exist = len(all_files) > 0
 
         # --- Przycisk wyboru plików ---
-        # Wyłącz, jeśli jakiekolwiek pliki są w systemie lub trwa przetwarzanie
-        any_files_exist = len(all_files) > 0
+        # Wyłączony, jeśli jakiekolwiek pliki istnieją lub trwa przetwarzanie
         self.app.file_selector_button.configure(state="disabled" if is_processing or any_files_exist else "normal")
 
-        # --- Przycisk konwersji ("Wczytaj Pliki") ---
-        # Włącz, jeśli są pliki do wybrania i nie trwa przetwarzanie
-        self.app.convert_files_button.configure(state="normal" if has_selected and not is_processing else "disabled")
+        # --- Przycisk "Wczytaj Pliki" (konwersja) ---
+        # Włączony, jeśli są pliki zaznaczone do wczytania i nie trwa przetwarzanie
+        self.app.convert_files_button.configure(state="normal" if has_files_to_load and not is_processing else "disabled")
 
         # --- Przycisk resetowania ---
         self.app.reset_application_button.configure(state="disabled" if is_processing else "normal")
 
-        # --- Przycisk startu transkrypcji ---
-        # Włącz, jeśli są pliki po konwersji (encoded) i nie trwa przetwarzanie
-        self.app.start_transcription_button.configure(state="normal" if has_encoded and not is_processing else "disabled")
+        # --- Przycisk "Start" transkrypcji ---
+        # Włączony, jeśli są pliki do przetworzenia i nie trwa przetwarzanie
+        self.app.start_transcription_button.configure(state="normal" if has_files_to_process and not is_processing else "disabled")
 
         # --- Przyciski kontroli transkrypcji (Pauza/Wznów) ---
         is_paused = self.app.pause_request_event.is_set()
 
-        # Domyślne stany
         self.app.transcription_control_button.grid(row=0, column=3, sticky="ew", padx=5, pady=(10, 0))
         self.app.transcription_control_button.configure(state="disabled", text="Pauza", command=self.app.pause_transcription)
-        self.app.resume_button.grid_remove() # Domyślnie ukryj
+        self.app.resume_button.grid_remove()
 
         if is_processing:
-            # Stan aktywnego przetwarzania: pokaż przycisk Pauza/Wznów
             self.app.transcription_control_button.configure(state="normal")
             if is_paused:
                 self.app.transcription_control_button.configure(text="Wznów", command=self.app.resume_transcription)
-        elif has_encoded and has_processed:
-            # Stan przerwania (są pliki do przetworzenia i już przetworzone)
+        elif has_files_to_process and has_processed_files:
             self.app.transcription_control_button.grid_remove()
             self.app.resume_button.grid(row=0, column=3, sticky="ew", padx=5, pady=(10, 0))
             self.app.start_transcription_button.configure(state="disabled")
 
-        # Przycisk kopiowania jest zawsze aktywny
-        self.app.copy_transcription_button.configure(state="normal")
+        # --- Przycisk kopiowania ---
+        # Aktywny tylko, jeśli są jakieś gotowe transkrypcje
+        self.app.copy_transcription_button.configure(state="normal" if has_processed_files else "disabled")

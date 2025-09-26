@@ -1,95 +1,68 @@
-# This module handles transcription process control
-
-import os
 import threading
 from tkinter import messagebox
-from src import config
+from src import database
 from src.transcribe.transcription_processor import TranscriptionProcessor
-
 
 class TranscriptionController:
     """
-    Controls the transcription process.
+    Zarządza procesem transkrypcji w oparciu o stan w bazie danych.
     """
     
     def __init__(self, app):
         self.app = app
     
-    def _get_list_content(self, file_path):
-        """Read file content and return list of lines."""
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                return [line.strip() for line in f.readlines() if line.strip()]
-        except FileNotFoundError:
-            return []
-    
     def start_transcription_process(self):
-        """Start the transcription process."""
-        # Merge "prepare_for_processing" logic into this method
-        files = self._get_list_content(config.LOADED_LIST)
-        if not files:
-            messagebox.showwarning("Brak plików", "Brak plików do przetworzenia.")
+        """
+        Rozpoczyna proces transkrypcji dla plików oznaczonych jako 'is_loaded'.
+        """
+        if not database.get_files_to_process():
+            messagebox.showwarning("Brak plików", "Brak plików wczytanych do przetworzenia.")
             return
-            
-        # Ensure tmp directory exists before writing
-        os.makedirs(os.path.dirname(config.PROCESSING_LIST), exist_ok=True)
-        with open(config.PROCESSING_LIST, 'w', encoding='utf-8') as f:
-            for file in files: 
-                f.write(file + '\n')
 
-        # Refresh UI to show files in "Do przetworzenia"
         self.app.button_state_controller.update_ui_state()
         self.app.refresh_all_views()
-        self.app.update_idletasks()  # Ensure UI updates before starting the thread
+        self.app.update_idletasks()
 
         self.app.pause_request_event.clear()
-        # Pass resume=False to indicate a fresh start
-        self.app.processing_thread = threading.Thread(target=self._transcription_thread_worker, args=(False,), daemon=True)
+        self.app.processing_thread = threading.Thread(target=self._transcription_thread_worker, daemon=True)
         self.app.processing_thread.start()
         self.app.monitor_processing()
         self.app.button_state_controller.update_ui_state()
 
     def pause_transcription(self):
-        """Pause the transcription process."""
+        """Wysyła żądanie pauzy do wątku przetwarzającego."""
         self.app.pause_request_event.set()
         self.app.button_state_controller.update_ui_state()
 
     def resume_transcription(self):
-        """Resume the transcription process from a paused state."""
+        """Wycofuje żądanie pauzy."""
         self.app.pause_request_event.clear()
         self.app.button_state_controller.update_ui_state()
 
     def resume_interrupted_process(self):
         """
-        Resume an interrupted transcription process after an application restart.
-        Starts a new transcription thread that works on the existing PROCESSING_LIST.
+        Wznawia przerwany proces. W nowej logice jest to tożsame
+        z normalnym uruchomieniem procesu, ponieważ stan jest w bazie danych.
         """
-        files_to_process = self._get_list_content(config.PROCESSING_LIST)
-        if not files_to_process:
+        if not database.get_files_to_process():
             messagebox.showinfo("Informacja", "Brak plików w kolejce do wznowienia.")
             self.app.button_state_controller.update_ui_state()
             return
 
-        self.app.pause_request_event.clear()
-        # Pass resume=True to indicate a resume operation
-        self.app.processing_thread = threading.Thread(target=self._transcription_thread_worker, args=(True,), daemon=True)
-        self.app.processing_thread.start()
-        self.app.monitor_processing()
-        self.app.button_state_controller.update_ui_state()
+        self.start_transcription_process()
 
-    def _transcription_thread_worker(self, resume=False):
-        """Worker thread for transcription processing."""
+    def _transcription_thread_worker(self):
+        """Wątek roboczy do obsługi transkrypcji."""
         try:
-            processor = TranscriptionProcessor(self.app.pause_request_event, resume=resume)
+            processor = TranscriptionProcessor(self.app.pause_request_event)
             processor.process_transcriptions()
         except Exception as e:
             self.app.after(0, lambda: messagebox.showerror("Błąd krytyczny", f"Wystąpił błąd: {e}"))
         finally:
             self.app.after(0, self.app.on_processing_finished)
 
-
     def on_processing_finished(self):
-        """Handle processing completion."""
+        """Obsługuje zakończenie procesu transkrypcji."""
         self.app.processing_thread = None
         self.app.pause_request_event.clear()
         self.app.button_state_controller.update_ui_state()
