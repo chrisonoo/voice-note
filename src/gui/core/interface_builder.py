@@ -2,9 +2,9 @@
 
 import customtkinter as ctk
 
-from .files_view import FilesView
-from .status_view import StatusView
-from .transcription_view import TranscriptionView
+from ..widgets.files_view import FilesView
+from ..widgets.status_view import StatusView
+from ..widgets.transcription_view import TranscriptionView
 
 
 class InterfaceBuilder:

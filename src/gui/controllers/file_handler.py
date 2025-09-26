@@ -24,7 +24,10 @@ class FileHandler:
         if not paths:
             return
 
-        for p in paths:
+        # Sortuj ścieżki alfabetycznie, aby zapewnić spójną kolejność
+        sorted_paths = sorted(list(paths))
+
+        for p in sorted_paths:
             database.add_file(p)
 
         self.app.button_state_controller.update_ui_state()

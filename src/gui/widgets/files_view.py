@@ -1,7 +1,7 @@
 import customtkinter as ctk
 import os
 from src import config, database
-from .audio_player import AudioPlayer
+from ..utils.audio_player import AudioPlayer
 
 class FilesView(ctk.CTkFrame):
     """

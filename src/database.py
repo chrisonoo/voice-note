@@ -88,6 +88,19 @@ def update_file_duration(file_path, duration):
     conn.commit()
     conn.close()
 
+def update_file_durations_bulk(files_data):
+    """Masowo aktualizuje czasy trwania dla listy plików."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    # files_data to lista krotek [(path, duration), ...]
+    update_data = [(duration, path) for path, duration in files_data]
+    cursor.executemany(
+        "UPDATE files SET duration_seconds = ? WHERE source_file_path = ?",
+        update_data
+    )
+    conn.commit()
+    conn.close()
+
 def update_file_transcription(file_path, transcription_text):
     """Zapisuje transkrypcję dla pliku i oznacza go jako przetworzony."""
     conn = get_db_connection()
@@ -114,7 +127,7 @@ def get_files_to_load():
     """Pobiera listę plików, które są zaznaczone i niezaładowane."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT source_file_path FROM files WHERE is_selected = 1 AND is_loaded = 0")
+    cursor.execute("SELECT source_file_path FROM files WHERE is_selected = 1 AND is_loaded = 0 ORDER BY source_file_path")
     files = [row['source_file_path'] for row in cursor.fetchall()]
     conn.close()
     return files
@@ -123,7 +136,7 @@ def get_files_to_process():
     """Pobiera listę plików, które są załadowane i nieprzetworzone."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT source_file_path FROM files WHERE is_loaded = 1 AND is_processed = 0")
+    cursor.execute("SELECT source_file_path FROM files WHERE is_loaded = 1 AND is_processed = 0 ORDER BY source_file_path")
     files = [row['source_file_path'] for row in cursor.fetchall()]
     conn.close()
     return files

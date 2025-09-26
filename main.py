@@ -101,7 +101,7 @@ if __name__ == "__main__":
 
     if args.gui:
         # Importujemy i uruchamiamy GUI
-        from src.gui.main_window import main as main_gui
+        from src.gui.core.main_window import main as main_gui
         main_gui()
     else:
         # Uruchamiamy tryb wiersza poleceń

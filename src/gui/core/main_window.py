@@ -6,11 +6,11 @@ from src import config, database
 
 # Import UI components and managers
 from .interface_builder import InterfaceBuilder
-from .button_state_controller import ButtonStateController
-from .file_handler import FileHandler
-from .transcription_controller import TranscriptionController
-from .panel_manager import PanelManager
-from .audio_player import AudioPlayer
+from ..controllers.button_state_controller import ButtonStateController
+from ..controllers.file_handler import FileHandler
+from ..controllers.transcription_controller import TranscriptionController
+from ..controllers.panel_manager import PanelManager
+from ..utils.audio_player import AudioPlayer
 
 class App(ctk.CTk):
     """
@@ -51,43 +51,42 @@ class App(ctk.CTk):
 
         self._check_playback_status()
     
-    def update_all_counters(self):
-        """Aktualizuje wszystkie liczniki na podstawie danych z bazy."""
+    def update_all_counters(self, all_files=None):
+        """
+        Aktualizuje liczniki. Jeśli dane nie są dostarczone, pobiera je z bazy.
+        W przeciwnym razie, używa istniejących danych, aby uniknąć dodatkowych zapytań.
+        """
         try:
-            all_files = database.get_all_files()
+            if all_files is None:
+                all_files = database.get_all_files()
 
             total_files = len(all_files)
             selected_files = sum(1 for row in all_files if row['is_selected'])
             long_files = sum(1 for row in all_files if row['duration_seconds'] is not None and row['duration_seconds'] > config.MAX_FILE_DURATION_SECONDS)
 
-            if hasattr(self, 'files_counter_label'):
-                if total_files == 0:
-                    self.files_counter_label.configure(text="")
-                else:
-                    counter_text = f"Razem: {total_files}  |  Zaznaczone: {selected_files}  |  Długie: {long_files}"
-                    self.files_counter_label.configure(text=counter_text)
+            counter_text = f"Razem: {total_files}  |  Zaznaczone: {selected_files}  |  Długie: {long_files}"
+            self.files_counter_label.configure(text=counter_text)
 
-            # Liczniki dla paneli stanu
             loaded_count = sum(1 for row in all_files if row['is_loaded'] and not row['is_processed'])
             processed_count = sum(1 for row in all_files if row['is_processed'])
 
-            if hasattr(self, 'loaded_counter_label'):
-                self.loaded_counter_label.configure(text=f"Wczytane: {loaded_count}" if loaded_count > 0 else "")
-
-            # "Kolejka" to teraz pliki wczytane, ale jeszcze nieprzetworzone
-            if hasattr(self, 'processing_counter_label'):
-                self.processing_counter_label.configure(text=f"Kolejka: {loaded_count}" if loaded_count > 0 else "")
-
-            if hasattr(self, 'processed_counter_label'):
-                self.processed_counter_label.configure(text=f"Gotowe: {processed_count}" if processed_count > 0 else "")
+            self.loaded_counter_label.configure(text=f"Wczytane: {loaded_count}")
+            self.processing_counter_label.configure(text=f"Kolejka: {loaded_count}")
+            self.processed_counter_label.configure(text=f"Gotowe: {processed_count}")
 
         except Exception as e:
             print(f"Błąd podczas aktualizacji liczników: {e}")
 
     def refresh_all_views(self):
-        """Odświeża wszystkie panele danych i aktualizuje liczniki."""
-        self.panel_manager.refresh_all_views()
-        self.update_all_counters()
+        """
+        Odświeża wszystkie panele, pobierając dane z bazy tylko raz.
+        """
+        try:
+            all_files = database.get_all_files()
+            self.panel_manager.refresh_all_views(data=all_files)
+            self.update_all_counters(all_files=all_files)
+        except Exception as e:
+            print(f"Błąd podczas pełnego odświeżania: {e}")
 
     def pause_transcription(self):
         self.transcription_controller.pause_transcription()
@@ -103,9 +102,16 @@ class App(ctk.CTk):
 
     def monitor_processing(self):
         if self.processing_thread and self.processing_thread.is_alive():
-            self.button_state_controller.update_ui_state()
-            self.refresh_all_views()
-            self.after(1000, self.monitor_processing)
+            try:
+                # Pobierz dane raz i przekaż do poszczególnych funkcji
+                all_files = database.get_all_files()
+                self.panel_manager.refresh_transcription_progress_views(data=all_files)
+                self.update_all_counters(all_files=all_files)
+                self.button_state_controller.update_ui_state()
+            except Exception as e:
+                print(f"Błąd w pętli monitorowania: {e}")
+            finally:
+                self.after(1000, self.monitor_processing)
         else:
             self.on_processing_finished()
 
