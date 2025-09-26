@@ -68,11 +68,12 @@ class App(ctk.CTk):
             counter_text = f"Razem: {total_files}  |  Zaznaczone: {selected_files}  |  Długie: {long_files}"
             self.files_counter_label.configure(text=counter_text)
 
-            loaded_count = sum(1 for row in all_files if row['is_loaded'] and not row['is_processed'])
+            loaded_count = sum(1 for row in all_files if row['is_loaded'])
+            processing_count = sum(1 for row in all_files if row['is_loaded'] and not row['is_processed'])
             processed_count = sum(1 for row in all_files if row['is_processed'])
 
             self.loaded_counter_label.configure(text=f"Wczytane: {loaded_count}")
-            self.processing_counter_label.configure(text=f"Kolejka: {loaded_count}")
+            self.processing_counter_label.configure(text=f"Kolejka: {processing_count}")
             self.processed_counter_label.configure(text=f"Gotowe: {processed_count}")
 
         except Exception as e:

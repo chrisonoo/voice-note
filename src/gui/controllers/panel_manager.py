@@ -55,8 +55,8 @@ class PanelManager:
         # Wyświetlamy je na liście "Wczytane", bo z perspektywy użytkownika
         # zostały wybrane i czekają na pierwszy krok przetwarzania.
         files_to_load = [
-            os.path.basename(row['source_file_path']) for row in all_files
-            if row['is_selected'] and not row['is_loaded']
+            os.path.basename(row['tmp_file_path']) for row in all_files
+            if row['is_loaded']
         ]
 
         # Pliki, które zostały już wczytane (skonwertowane) i czekają w kolejce na transkrypcję
