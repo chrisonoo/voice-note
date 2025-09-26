@@ -48,11 +48,11 @@ class PanelManager:
         """Odświeża wszystkie panele statusu i panel transkrypcji."""
         # Filtruj pliki na podstawie nowych flag
         loaded_files = [
-            os.path.basename(row['source_file_path']) for row in all_files
+            os.path.basename(row['tmp_file_path']) for row in all_files
             if row['is_loaded'] and not row['is_processed']
         ]
         processed_files = [
-            os.path.basename(row['source_file_path']) for row in all_files
+            os.path.basename(row['tmp_file_path']) for row in all_files
             if row['is_processed']
         ]
         transcriptions = [
