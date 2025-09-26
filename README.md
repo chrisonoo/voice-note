@@ -96,6 +96,135 @@ Tryb CLI służy do szybkiego przetwarzania plików z jednego folderu.
 
 3.  **Gotowe!** Po zakończeniu procesu, wszystkie transkrypcje zostaną zapisane w bazie danych w folderze `tmp/`.
 
+## Architektura Aplikacji
+
+Poniższe schematy ilustrują budowę i przepływ danych w aplikacji.
+
+### Schemat Bazy Danych
+
+Aplikacja używa pojedynczej tabeli `files` w bazie SQLite do śledzenia stanu każdego pliku audio w procesie.
+
+```mermaid
+erDiagram
+    files {
+        INTEGER id PK "Klucz główny"
+        TEXT source_file_path UK "Ścieżka do oryginalnego pliku"
+        TEXT tmp_file_path "Ścieżka do pliku .wav w folderze tmp"
+        BOOLEAN is_selected "Czy plik jest zaznaczony w GUI"
+        BOOLEAN is_loaded "Czy plik został przekonwertowany do .wav"
+        BOOLEAN is_processed "Czy plik ma już transkrypcję"
+        TEXT transcription "Wynik transkrypcji"
+        REAL duration_seconds "Czas trwania pliku w sekundach"
+    }
+```
+
+### Przepływ Danych (Logika Backendu)
+
+Diagram pokazuje, jak poszczególne moduły współpracują ze sobą w celu przetworzenia plików audio.
+
+```mermaid
+graph TD
+    subgraph "Wejście"
+        User_CLI["Użytkownik (CLI)"]
+        User_GUI["Użytkownik (GUI)"]
+    end
+
+    subgraph "Orkiestracja"
+        Main["main.py"]
+    end
+
+    subgraph "Moduły Rdzenia"
+        Audio["src/audio/\n(konwersja, walidacja)"]
+        Transcribe["src/transcribe/\n(proces transkrypcji)"]
+        Whisper["src/whisper/\n(wrapper API)"]
+        Database["src/database.py\n(stan aplikacji)"]
+    end
+
+    subgraph "Zależności Zewnętrzne"
+        FFmpeg["ffmpeg"]
+        OpenAI_API["OpenAI API"]
+    end
+
+    User_CLI --> Main
+    User_GUI --> Main
+
+    Main --> Audio
+    Main --> Transcribe
+
+    Audio --> Database
+    Audio --> FFmpeg
+
+    Transcribe --> Database
+    Transcribe --> Whisper
+
+    Whisper --> OpenAI_API
+
+    style Database fill:#f9f,stroke:#333,stroke-width:2px
+```
+
+### Struktura Interfejsu Graficznego (GUI)
+
+Diagram przedstawia relacje między kluczowymi klasami odpowiedzialnymi za budowę i logikę interfejsu użytkownika.
+
+```mermaid
+graph TD
+    subgraph "Główne Okno (core/main_window.py)"
+        App["App (ctk.CTk)"]
+    end
+
+    subgraph "Budowniczy UI (core/interface_builder.py)"
+        IB["InterfaceBuilder"]
+    end
+
+    subgraph "Kontrolery Logiki (controllers/)"
+        BSC["ButtonStateController"]
+        FH["FileHandler"]
+        TC["TranscriptionController"]
+        PM["PanelManager"]
+    end
+
+    subgraph "Narzędzia (utils/)"
+        AP["AudioPlayer"]
+    end
+
+    subgraph "Widżety (widgets/)"
+        FSP["FileSelectionPanel"]
+        TOP["TranscriptionOutputPanel"]
+        style FSP fill:#ccf,stroke:#333,stroke-width:2px
+        style TOP fill:#ccf,stroke:#333,stroke-width:2px
+    end
+
+    subgraph "Backend"
+        DB["database.py"]
+        Audio["audio/"]
+        Transcribe["transcribe/"]
+    end
+
+    App --> IB
+    App --> BSC
+    App --> FH
+    App --> TC
+    App -- "tworzy" --> PM
+    App -- "tworzy" --> AP
+
+    IB -- "tworzy" --> FSP
+    IB -- "tworzy" --> TOP
+
+    FH -- "używa" --> Audio
+    FH -- "używa" --> DB
+
+    TC -- "używa" --> Transcribe
+    TC -- "używa" --> DB
+
+    PM -- "aktualizuje" --> FSP
+    PM -- "aktualizuje" --> TOP
+    PM -- "używa" --> DB
+
+    BSC -- "zarządza stanem" --> IB
+
+    AP -- "odtwarza audio z" --> FSP
+```
+
 ## Zarządzanie Zależnościami
 
 Aby upewnić się, że korzystasz z najnowszych wersji bibliotek, możesz okresowo je aktualizować.
