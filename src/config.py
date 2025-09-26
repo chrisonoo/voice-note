@@ -16,13 +16,15 @@ APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Używamy stałych folderów, aby stan aplikacji był zachowywany po jej zamknięciu.
 # Foldery będą tworzone dynamicznie gdy będą potrzebne
 TMP_DIR = os.path.join(APP_DIR, 'tmp')
-OUTPUT_DIR = TMP_DIR # Pliki .wav będą zapisywane bezpośrednio w folderze tymczasowym
+AUDIO_TMP_DIR = os.path.join(APP_DIR, 'tmp', 'audio')
+OUTPUT_DIR = AUDIO_TMP_DIR # Pliki .wav będą zapisywane bezpośrednio w folderze tymczasowym
 
 # --- BAZA DANYCH ---
 # Używamy bazy danych SQLite do przechowywania stanu aplikacji.
 # Plik bazy danych jest tworzony w folderze tymczasowym i usuwany przy każdym uruchomieniu.
 DATABASE_FILENAME = f"{APP_NAME.lower().replace(' ', '_')}.db"
 DATABASE_FILE = os.path.join(TMP_DIR, DATABASE_FILENAME)
+DATABASE_LOGGING = False # Ustaw na True, aby logować operacje na bazie danych
 
 
 # --- PARAMETRY TRANSKRYPCJI WHISPER ---

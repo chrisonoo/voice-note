@@ -17,7 +17,7 @@ def encode_audio_files():
         print("Brak nowych plików do konwersji.")
         return
 
-    os.makedirs(config.TMP_DIR, exist_ok=True)
+    os.makedirs(config.AUDIO_TMP_DIR, exist_ok=True)
 
     successful_conversions = []
 
@@ -26,7 +26,7 @@ def encode_audio_files():
             base_name = os.path.basename(original_path)
             standardized_name, _ = os.path.splitext(base_name.lower().replace(' ', '_'))
             output_filename = f"{standardized_name}.wav"
-            tmp_file_path = os.path.join(config.TMP_DIR, output_filename)
+            tmp_file_path = os.path.join(config.AUDIO_TMP_DIR, output_filename)
 
             print(f"  Konwertowanie: {os.path.basename(original_path)} -> {os.path.basename(tmp_file_path)}")
 

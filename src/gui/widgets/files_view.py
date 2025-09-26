@@ -2,6 +2,7 @@ import customtkinter as ctk
 import os
 from src import config, database
 from ..utils.audio_player import AudioPlayer
+from tkinter.messagebox import askyesno
 
 class FilesView(ctk.CTkFrame):
     """
@@ -11,7 +12,7 @@ class FilesView(ctk.CTkFrame):
     Includes playback controls for audio files.
     """
     def __init__(self, parent, audio_player: AudioPlayer, title="Wybrane", **kwargs):
-        super().__init__(parent, width=350, **kwargs)
+        super().__init__(parent, width=400, **kwargs)
         self.grid_propagate(False)
 
         self.audio_player = audio_player
@@ -22,7 +23,7 @@ class FilesView(ctk.CTkFrame):
         self.label = ctk.CTkLabel(self, text=title, anchor="center")
         self.label.grid(row=0, column=0, sticky="ew", pady=(0, 5))
 
-        self.scrollable_frame = ctk.CTkScrollableFrame(self, width=334)
+        self.scrollable_frame = ctk.CTkScrollableFrame(self, width=384)
         self.scrollable_frame.grid(row=1, column=0, sticky="nsew", padx=8, pady=8)
 
         header_checkbox = ctk.CTkLabel(self.scrollable_frame, text="", width=35)
@@ -72,11 +73,15 @@ class FilesView(ctk.CTkFrame):
             play_button.grid(row=i, column=3, padx=5, pady=2)
             play_button.configure(command=lambda fp=file_path: self.on_play_button_click(fp))
 
+            delete_button = ctk.CTkButton(self.scrollable_frame, text="🗑️", width=30)
+            delete_button.grid(row=i, column=4, padx=5, pady=2)
+            delete_button.configure(command=lambda fp=file_path: self.on_delete_button_click(fp))
+
             if is_long:
                 filename_label.configure(text_color="red")
                 duration_label.configure(text_color="red")
 
-            self.file_widgets.append((checkbox, file_path, duration_sec, play_button))
+            self.file_widgets.append((checkbox, file_path, duration_sec, play_button, delete_button))
 
         self.update_play_buttons()
 
@@ -89,6 +94,18 @@ class FilesView(ctk.CTkFrame):
         # Potentially trigger a UI refresh if counters need to be updated live
         self.master.update_all_counters() # Navigate up to the App instance
 
+    def on_delete_button_click(self, file_path):
+        """Handles the click event for a delete button."""
+        filename = os.path.basename(file_path)
+        answer = askyesno(
+            title='Potwierdzenie usunięcia',
+            message=f'Czy na pewno chcesz usunąć plik?\n\n{filename}'
+        )
+        if answer:
+            database.delete_file(file_path)
+            # Refresh the view
+            self.master.refresh_all_views()
+
     def on_play_button_click(self, file_path):
         """Handles the click event for a play/pause button."""
         self.audio_player.toggle_play_pause(file_path)
@@ -100,7 +117,7 @@ class FilesView(ctk.CTkFrame):
         """
         if not self.file_widgets:
             return
-        for _, file_path, _, button in self.file_widgets:
+        for _, file_path, _, button, _ in self.file_widgets:
             state = self.audio_player.get_state(file_path)
             button.configure(text="⏸" if state == 'playing' else "▶")
 
@@ -109,7 +126,7 @@ class FilesView(ctk.CTkFrame):
         Returns a list of full paths to the files that are currently checked.
         """
         checked_files = []
-        for checkbox, file_path, _, _ in self.file_widgets:
+        for checkbox, file_path, _, _, _ in self.file_widgets:
             if checkbox.get() == 1:
                 checked_files.append(file_path)
         return checked_files

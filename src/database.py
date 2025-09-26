@@ -1,8 +1,33 @@
 import sqlite3
 import os
 import shutil
+import functools
 from . import config
 from .audio.duration_checker import get_file_duration
+
+def log_db_operation(func):
+    """A decorator to log database operations if DATABASE_LOGGING is True."""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if not config.DATABASE_LOGGING:
+            return func(*args, **kwargs)
+
+        # Log the function call
+        arg_repr = [repr(a) for a in args]
+        kwarg_repr = [f"{k}={v!r}" for k, v in kwargs.items()]
+        signature = ", ".join(arg_repr + kwarg_repr)
+        print(f"--- DB LOG: Calling {func.__name__}({signature})")
+
+        # Execute the function
+        try:
+            result = func(*args, **kwargs)
+            # Log the result
+            print(f"--- DB LOG: {func.__name__} returned: {result!r}")
+            return result
+        except Exception as e:
+            print(f"--- DB LOG: {func.__name__} raised an exception: {e!r}")
+            raise
+    return wrapper
 
 def get_db_connection():
     """Nawiązuje połączenie z bazą danych."""
@@ -12,6 +37,7 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+@log_db_operation
 def initialize_database():
     """
     Inicjalizuje bazę danych. Jeśli baza danych lub tabela 'files' nie istnieje,
@@ -52,6 +78,7 @@ def initialize_database():
     conn.close()
     print(f"Baza danych została zainicjalizowana w: {config.DATABASE_FILE}")
 
+@log_db_operation
 def add_file(file_path):
     """
     Dodaje nowy plik do bazy danych, jeśli jeszcze nie istnieje.
@@ -78,6 +105,7 @@ def add_file(file_path):
     finally:
         conn.close()
 
+@log_db_operation
 def update_file_duration(file_path, duration):
     """Aktualizuje czas trwania dla danego pliku."""
     conn = get_db_connection()
@@ -88,6 +116,7 @@ def update_file_duration(file_path, duration):
     conn.commit()
     conn.close()
 
+@log_db_operation
 def update_file_durations_bulk(files_data):
     """Masowo aktualizuje czasy trwania dla listy plików."""
     conn = get_db_connection()
@@ -101,6 +130,7 @@ def update_file_durations_bulk(files_data):
     conn.commit()
     conn.close()
 
+@log_db_operation
 def update_file_transcription(file_path, transcription_text):
     """Zapisuje transkrypcję dla pliku i oznacza go jako przetworzony."""
     conn = get_db_connection()
@@ -113,6 +143,7 @@ def update_file_transcription(file_path, transcription_text):
     conn.commit()
     conn.close()
 
+@log_db_operation
 def set_file_selected(file_path, is_selected):
     """Ustawia flagę zaznaczenia dla pojedynczego pliku."""
     conn = get_db_connection()
@@ -123,6 +154,7 @@ def set_file_selected(file_path, is_selected):
     conn.commit()
     conn.close()
 
+@log_db_operation
 def get_files_to_load():
     """Pobiera listę plików, które są zaznaczone i niezaładowane."""
     conn = get_db_connection()
@@ -132,6 +164,7 @@ def get_files_to_load():
     conn.close()
     return files
 
+@log_db_operation
 def get_files_to_process():
     """Pobiera listę plików, które są załadowane i nieprzetworzone."""
     conn = get_db_connection()
@@ -141,6 +174,7 @@ def get_files_to_process():
     conn.close()
     return files
 
+@log_db_operation
 def set_files_as_loaded(file_paths, tmp_file_paths):
     """Oznacza listę plików jako załadowane i zapisuje ich ścieżki tymczasowe."""
     conn = get_db_connection()
@@ -156,6 +190,7 @@ def set_files_as_loaded(file_paths, tmp_file_paths):
     conn.commit()
     conn.close()
 
+@log_db_operation
 def get_all_files():
     """Pobiera wszystkie pliki z bazy danych."""
     conn = get_db_connection()
@@ -163,6 +198,7 @@ def get_all_files():
     conn.close()
     return rows
 
+@log_db_operation
 def clear_database_and_tmp_folder():
     """
     Usuwa cały folder tymczasowy (w tym bazę danych i pliki .wav),
@@ -175,6 +211,7 @@ def clear_database_and_tmp_folder():
     os.makedirs(config.TMP_DIR, exist_ok=True)
     initialize_database()
 
+@log_db_operation
 def unselect_all_files():
     """Odznacza wszystkie pliki w bazie danych."""
     conn = get_db_connection()
@@ -182,3 +219,38 @@ def unselect_all_files():
     cursor.execute("UPDATE files SET is_selected = 0")
     conn.commit()
     conn.close()
+
+@log_db_operation
+def delete_file(file_path):
+    """
+    Usuwa plik z bazy danych oraz fizycznie z dysku.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+
+    # Get the temporary file path before deleting the record
+    cursor.execute("SELECT tmp_file_path FROM files WHERE source_file_path = ?", (file_path,))
+    result = cursor.fetchone()
+    tmp_file_path = result['tmp_file_path'] if result else None
+
+    # Delete from database
+    cursor.execute("DELETE FROM files WHERE source_file_path = ?", (file_path,))
+    conn.commit()
+    conn.close()
+
+    # Delete source file
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"Usunięto plik źródłowy: {file_path}")
+    except OSError as e:
+        print(f"Błąd podczas usuwania pliku źródłowego {file_path}: {e}")
+
+    # Delete temporary file
+    if tmp_file_path:
+        try:
+            if os.path.exists(tmp_file_path):
+                os.remove(tmp_file_path)
+                print(f"Usunięto plik tymczasowy: {tmp_file_path}")
+        except OSError as e:
+            print(f"Błąd podczas usuwania pliku tymczasowego {tmp_file_path}: {e}")
