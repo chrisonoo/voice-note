@@ -1,2 +1,6 @@
 openai==1.109.1
 python-dotenv==1.1.1
+customtkinter==5.2.2
+pygame==2.6.1
+pydub==0.25.1
+audioop-lts==0.2.1

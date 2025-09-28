@@ -1,46 +1,53 @@
-# Ten plik jest głównym punktem wejścia do aplikacji.
-# Jego zadaniem jest zaimportowanie potrzebnych funkcji z poszczególnych modułów
-# i wywołanie ich w odpowiedniej kolejności, aby przeprowadzić cały proces transkrypcji.
+# Ten plik jest głównym punktem wejścia do aplikacji (ang. "entry point").
+# Uruchomienie `python main.py` rozpoczyna działanie programu.
+# Jego zadaniem jest przetworzenie argumentów wiersza poleceń,
+# a następnie uruchomienie aplikacji w odpowiednim trybie:
+# graficznym (GUI) lub wiersza poleceń (CLI).
 
-# Importujemy potrzebne funkcje z naszych modułów.
-# Dzięki plikom __init__.py w każdym module, możemy to zrobić w bardzo czytelny sposób.
-import argparse
-import sys
-import os
-from src.audio import encode_audio_files, validate_file_durations
-from src.transcribe import TranscriptionProcessor
-from src import config
+# Importujemy potrzebne moduły.
+import argparse  # Standardowa biblioteka Pythona do parsowania argumentów wiersza poleceń.
+import sys  # Moduł dający dostęp do funkcji systemowych, np. `sys.exit` do zamykania programu.
+import os  # Moduł do interakcji z systemem operacyjnym, np. sprawdzania ścieżek.
+from src.audio import encode_audio_files, validate_file_durations  # Funkcje do obsługi plików audio.
+from src.transcribe import TranscriptionProcessor  # Główna klasa zarządzająca procesem transkrypcji.
+from src import database  # Moduł do obsługi bazy danych.
 
 def main_cli(args):
     """
-    Główna funkcja orkiestrująca całym procesem transkrypcji w trybie CLI.
+    Główna funkcja orkiestrująca całym procesem transkrypcji w trybie wiersza poleceń (CLI).
+    Jest wywoływana, gdy aplikacja jest uruchamiana bez flagi --gui.
+
+    Argumenty:
+        args: Obiekt zawierający sparsowane argumenty z wiersza poleceń.
     """
     print("--- Rozpoczynam proces transkrypcji w trybie CLI ---")
 
-    # Walidacja argumentu --input-dir
+    # Sprawdzamy, czy użytkownik podał wymaganą ścieżkę do folderu wejściowego.
     if not args.input_dir:
         print("BŁĄD: Brak ścieżki do folderu źródłowego.")
         print("Użyj: python main.py --input-dir /ścieżka/do/folderu/z/plikami")
-        sys.exit(1)
+        sys.exit(1)  # `sys.exit(1)` zamyka program z kodem błędu.
     
+    # Konwertujemy podaną ścieżkę na ścieżkę absolutną, aby uniknąć problemów.
     input_dir = os.path.abspath(args.input_dir)
     
-    # Sprawdzenie czy podana ścieżka istnieje
+    # Sprawdzamy, czy podana ścieżka istnieje i czy jest folderem.
     if not os.path.exists(input_dir):
         print(f"BŁĄD: Podana ścieżka nie istnieje: {input_dir}")
         sys.exit(1)
-    
     if not os.path.isdir(input_dir):
         print(f"BŁĄD: Podana ścieżka nie jest folderem: {input_dir}")
         sys.exit(1)
     
     print(f"Używam folderu źródłowego: {input_dir}")
 
-    # Użycie dedykowanej funkcji do wyszukania plików dla CLI
+    # Używamy dedykowanej funkcji do wyszukania plików audio w podanym folderze i dodania ich do bazy.
+    # Importujemy ją tutaj, wewnątrz funkcji, ponieważ jest używana tylko w trybie CLI.
     from src.audio import get_audio_file_list_cli
     get_audio_file_list_cli(input_dir)
 
     # === KROK 1.5: Walidacja długości plików ===
+    # Jeśli użytkownik nie użył flagi `--allow-long`, sprawdzamy, czy pliki nie są za długie.
     if not args.allow_long:
         print("\n--- Walidacja długości plików (limit: 5 minut) ---")
         long_files = validate_file_durations()
@@ -49,38 +56,39 @@ def main_cli(args):
             for f in long_files:
                 print(f"  - {f}")
             print("\nProces przerwany. Użyj flagi -l lub --allow-long, aby zignorować to ograniczenie.")
-            sys.exit(1) # Zakończ program
+            sys.exit(1)
         else:
             print("Wszystkie pliki mieszczą się w limicie 5 minut.")
 
 
     # === KROK 2: Konwersja plików audio ===
-    # Wywołujemy funkcję, która czyta listę plików z poprzedniego kroku
-    # i konwertuje każdy z nich do standardowego formatu .wav za pomocą FFMPEG.
-    # To zapewnia, że API Whisper otrzyma pliki w jednolitym, obsługiwanym formacie.
+    # Wywołujemy funkcję, która pobiera pliki z bazy i konwertuje je do formatu .wav.
     encode_audio_files()
 
     # === KROK 3: Transkrypcja plików ===
-    # Tworzymy instancję (obiekt) klasy TranscriptionProcessor.
-    # Ta klasa zarządza całym procesem transkrypcji.
+    # Tworzymy instancję (obiekt) klasy `TranscriptionProcessor`.
     processor = TranscriptionProcessor()
-
-    # Wywołujemy metodę, która najpierw tworzy listę przekonwertowanych plików,
-    # a następnie wysyła każdy z nich do API OpenAI Whisper i zapisuje wyniki.
+    # Wywołujemy metodę, która pobiera przekonwertowane pliki i wysyła je do API Whisper.
     processor.process_transcriptions()
 
-    # Na koniec informujemy użytkownika, że cały proces został zakończony pomyślnie.
     print("\n--- Proces transkrypcji zakończony pomyślnie! ---")
 
 
-# Ten warunek sprawdza, czy plik `main.py` został uruchomiony bezpośrednio
-# (np. komendą `python main.py`), a nie zaimportowany do innego pliku.
-# To standardowa, dobra praktyka w Pythonie.
+# Warunek `if __name__ == "__main__":` jest standardową i bardzo ważną konstrukcją w Pythonie.
+# Kod wewnątrz tego bloku wykona się tylko wtedy, gdy plik `main.py` jest uruchamiany
+# bezpośrednio (np. komendą `python main.py`). Jeśli plik byłby importowany
+# w innym module, ten kod zostałby zignorowany.
 if __name__ == "__main__":
+    # Inicjalizujemy bazę danych na samym początku, niezależnie od trybu (CLI/GUI).
+    database.initialize_database()
+
+    # Tworzymy parser argumentów. To on "uczy" nasz program, jakich flag oczekiwać.
     parser = argparse.ArgumentParser(description="Transkrypcja plików audio z użyciem API OpenAI Whisper.")
+
+    # Dodajemy argumenty (flagi), które program będzie rozpoznawał.
     parser.add_argument(
         "-l", "--allow-long",
-        action="store_true",
+        action="store_true",  # `action="store_true"` oznacza, że flaga nie przyjmuje wartości (jest przełącznikiem).
         help="Zezwól na przetwarzanie plików dłuższych niż 5 minut (tylko tryb CLI)."
     )
     parser.add_argument(
@@ -90,15 +98,19 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--input-dir",
-        type=str,
+        type=str,  # Oczekujemy wartości tekstowej (ścieżki).
         help="Ścieżka do folderu zawierającego pliki audio do transkrypcji (tylko tryb CLI)."
     )
+
+    # `parser.parse_args()` analizuje argumenty podane w wierszu poleceń i zwraca obiekt z wynikami.
     args = parser.parse_args()
 
+    # Sprawdzamy, czy użytkownik podał flagę `--gui`.
     if args.gui:
-        # Importujemy i uruchamiamy GUI
-        from src.gui.main_window import main as main_gui
+        # Jeśli tak, importujemy i uruchamiamy główną funkcję z modułu GUI.
+        # Import jest tutaj, aby nie ładować ciężkich bibliotek GUI, gdy używamy tylko trybu CLI.
+        from src.gui.core.main_window import main as main_gui
         main_gui()
     else:
-        # Uruchamiamy tryb wiersza poleceń
+        # Jeśli nie, uruchamiamy tryb wiersza poleceń, przekazując mu sparsowane argumenty.
         main_cli(args)
