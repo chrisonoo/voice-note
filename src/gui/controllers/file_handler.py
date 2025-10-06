@@ -6,6 +6,7 @@ import threading  # Moduł do pracy z wątkami, niezbędny do uruchamiania opera
 from tkinter import filedialog, messagebox  # Moduły Tkinter do okien dialogowych.
 from src import config, database  # Nasze własne moduły.
 from src.audio import encode_audio_files  # Funkcja do konwersji plików.
+from src.metadata import process_and_update_all_metadata
 
 class FileHandler:
     """
@@ -28,6 +29,9 @@ class FileHandler:
         # Zabezpieczenie: nie pozwól na dodawanie plików, gdy proces transkrypcji jest w toku.
         if self.app.processing_thread and self.app.processing_thread.is_alive():
             return
+
+        # Upewnij się, że tabela files istnieje (może być usunięta przez reset)
+        database.ensure_files_table_exists()
             
         # `filedialog.askopenfilenames` otwiera natywne okno systemowe do wyboru jednego lub wielu plików.
         paths = filedialog.askopenfilenames(
@@ -46,8 +50,12 @@ class FileHandler:
         for p in sorted_paths:
             database.add_file(p)
 
-        # Po dodaniu plików, natychmiast aktualizujemy stan przycisków i odświeżamy widoki,
+        # Po dodaniu plików, uruchamiamy centralną funkcję do przetworzenia ich metadanych.
+        process_and_update_all_metadata()
+
+        # Po dodaniu plików i przetworzeniu metadanych, unieważniamy cache i aktualizujemy stan przycisków i odświeżamy widoki,
         # aby użytkownik od razu zobaczył efekt swojej akcji.
+        self.app.invalidate_cache()
         self.app.button_state_controller.update_ui_state()
         self.app.refresh_all_views()
 

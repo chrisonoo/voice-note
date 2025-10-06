@@ -114,7 +114,10 @@ erDiagram
         BOOLEAN is_loaded "Czy plik został przekonwertowany do .wav"
         BOOLEAN is_processed "Czy plik ma już transkrypcję"
         TEXT transcription "Wynik transkrypcji"
-        REAL duration_seconds "Czas trwania pliku w sekundach"
+        INTEGER duration_ms "Czas trwania pliku w milisekundach"
+        TEXT start_datetime "Czas rozpoczęcia nagrania"
+        TEXT end_datetime "Czas zakończenia nagrania"
+        INTEGER previous_ms "Przerwa od poprzedniego nagrania w milisekundach"
     }
 ```
 

@@ -96,7 +96,7 @@ class TranscriptionController:
             processor.process_transcriptions()
         except Exception as e:
             # Jeśli w wątku wystąpi krytyczny błąd, bezpiecznie wyświetlamy go w GUI.
-            self.app.after(0, lambda: messagebox.showerror("Błąd krytyczny", f"Wystąpił błąd: {e}"))
+            self.app.after(0, lambda e=e: messagebox.showerror("Błąd krytyczny", f"Wystąpił błąd: {e}"))
         finally:
             # Blok `finally` wykona się zawsze, niezależnie od tego, czy wystąpił błąd, czy nie.
             # Planujemy wykonanie metody `on_processing_finished` w głównym wątku, aby posprzątać po zakończeniu pracy.
@@ -110,6 +110,11 @@ class TranscriptionController:
         # Resetujemy referencję do wątku i flagę pauzy.
         self.app.processing_thread = None
         self.app.pause_request_event.clear()
+        # Unieważniamy cache ponieważ dane zostały przetworzone
+        self.app.invalidate_cache()
+        # Optymalizujemy bazę danych po zakończeniu przetwarzania
+        from src import database
+        database.optimize_database()
         # Aktualizujemy finalny stan interfejsu.
         self.app.button_state_controller.update_ui_state()
         self.app.refresh_all_views()

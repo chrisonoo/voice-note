@@ -7,6 +7,8 @@ import os  # Moduł do operacji na ścieżkach plików, np. do wyciągania nazwy
 import threading  # Moduł do pracy z wątkami, używany tutaj do obsługi pauzy w trybie GUI.
 from src.whisper import Whisper  # Importujemy naszą klasę-wrapper dla API OpenAI Whisper.
 from src import database  # Importujemy moduł do operacji na bazie danych.
+# format_transcription_header usunięty - tag jest teraz tworzony wcześniej w metadanych
+from src.utils.error_handlers import with_error_handling, measure_performance  # Dekoratory
 
 class TranscriptionProcessor:
     """
@@ -30,6 +32,8 @@ class TranscriptionProcessor:
         self.pause_requested_event = pause_requested_event
         self.on_progress_callback = on_progress_callback
 
+    @with_error_handling("Transkrypcja plików")
+    @measure_performance
     def process_transcriptions(self):
         """
         Główna metoda orkiestrująca procesem transkrypcji.
@@ -49,19 +53,20 @@ class TranscriptionProcessor:
 
         # Iterujemy przez każdy plik, który wymaga transkrypcji.
         for source_path in files_to_process:
-            # Pobieramy szczegóły pliku (w tym ścieżkę do tymczasowego pliku .wav) wewnątrz pętli.
-            # Daje to pewność, że pracujemy na najbardziej aktualnych danych z bazy.
-            with database.get_db_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT tmp_file_path FROM files WHERE source_file_path = ?", (source_path,))
-                result = cursor.fetchone()
+            # Najpierw sprawdź dostępność pliku źródłowego
+            is_valid, error_msg = database.validate_file_access(source_path)
+            if not is_valid:
+                print(f"    BŁĄD: Plik źródłowy niedostępny - {error_msg}. Pomijanie.")
+                continue
 
-            # Sprawdzamy, czy udało się pobrać dane i czy ścieżka do pliku tymczasowego istnieje.
-            if not result or not result['tmp_file_path']:
-                 print(f"    BŁĄD: Brak ścieżki tymczasowej dla pliku: {source_path}. Pomijanie.")
-                 continue  # `continue` przerywa bieżącą iterację i przechodzi do następnego pliku.
+            # Pobieramy wszystkie potrzebne metadane pliku z bazy danych jednym zapytaniem.
+            file_metadata = database.get_file_metadata(source_path)
 
-            tmp_path = result['tmp_file_path']
+            if not file_metadata or not file_metadata['tmp_file_path']:
+                print(f"    BŁĄD: Brak metadanych lub ścieżki tymczasowej dla pliku: {source_path}. Pomijanie.")
+                continue
+
+            tmp_path = file_metadata['tmp_file_path']
 
             # Dodatkowe zabezpieczenie: sprawdzamy, czy plik tymczasowy fizycznie istnieje na dysku.
             if not os.path.exists(tmp_path):
@@ -78,9 +83,19 @@ class TranscriptionProcessor:
             # Sprawdzamy, czy transkrypcja się powiodła i czy wynik zawiera tekst.
             # `hasattr` sprawdza, czy obiekt `transcription` ma atrybut o nazwie 'text'.
             if transcription and hasattr(transcription, 'text'):
-                # Jeśli tak, zapisujemy uzyskaną transkrypcję w bazie danych.
+                # Pobieramy tag z bazy danych (został utworzony wcześniej podczas przetwarzania metadanych)
+                try:
+                    tag = file_metadata['tag'] or ''
+                except (KeyError, IndexError):
+                    tag = ''
+                    print(f"    OSTRZEŻENIE: Brak kolumny 'tag' dla pliku {os.path.basename(source_path)}")
+
+                if not tag:
+                    print(f"    OSTRZEŻENIE: Brak tagu dla pliku {os.path.basename(source_path)}")
+
+                # Zapisujemy tylko czystą transkrypcję w bazie danych (tag jest już w osobnej kolumnie)
                 database.update_file_transcription(source_path, transcription.text)
-                print(f"    Sukces: Transkrypcja zapisana w bazie danych.")
+                print(f"    Sukces: Transkrypcja z tagiem zapisana w bazie danych.")
 
                 # Jeśli do procesora została przekazana funkcja zwrotna (w trybie GUI)...
                 if self.on_progress_callback:

@@ -8,9 +8,11 @@
 import argparse  # Standardowa biblioteka Pythona do parsowania argumentów wiersza poleceń.
 import sys  # Moduł dający dostęp do funkcji systemowych, np. `sys.exit` do zamykania programu.
 import os  # Moduł do interakcji z systemem operacyjnym, np. sprawdzania ścieżek.
-from src.audio import encode_audio_files, validate_file_durations  # Funkcje do obsługi plików audio.
+from src.audio import encode_audio_files  # Funkcje do obsługi plików audio.
 from src.transcribe import TranscriptionProcessor  # Główna klasa zarządzająca procesem transkrypcji.
 from src import database  # Moduł do obsługi bazy danych.
+from src.metadata import process_and_update_all_metadata  # Moduł do obsługi metadanych.
+from src.utils.temp_file_manager import cleanup_temp_files_on_startup  # Czyszczenie plików tymczasowych
 
 def main_cli(args):
     """
@@ -46,20 +48,20 @@ def main_cli(args):
     from src.audio import get_audio_file_list_cli
     get_audio_file_list_cli(input_dir)
 
-    # === KROK 1.5: Walidacja długości plików ===
-    # Jeśli użytkownik nie użył flagi `--allow-long`, sprawdzamy, czy pliki nie są za długie.
-    if not args.allow_long:
-        print("\n--- Walidacja długości plików (limit: 5 minut) ---")
-        long_files = validate_file_durations()
-        if long_files:
-            print("BŁĄD: Znaleziono pliki przekraczające 5 minut:")
-            for f in long_files:
-                print(f"  - {f}")
-            print("\nProces przerwany. Użyj flagi -l lub --allow-long, aby zignorować to ograniczenie.")
-            sys.exit(1)
-        else:
-            print("Wszystkie pliki mieszczą się w limicie 5 minut.")
+    # === KROK 1.5: Przetwarzanie metadanych i walidacja ===
+    # Wywołujemy funkcję, która oblicza metadane (start, stop, przerwy, etc.)
+    # i jednocześnie waliduje długość plików.
+    long_files = process_and_update_all_metadata(allow_long=args.allow_long)
 
+    # Jeśli znaleziono długie pliki i użytkownik nie zezwolił na ich przetwarzanie...
+    if not args.allow_long and long_files:
+        print("\nBŁĄD: Znaleziono pliki przekraczające 5 minut:")
+        for f in long_files:
+            print(f"  - {f}")
+        print("\nProces przerwany. Użyj flagi -l lub --allow-long, aby zignorować to ograniczenie.")
+        sys.exit(1)
+    else:
+        print("Wszystkie pliki gotowe do dalszego przetwarzania.")
 
     # === KROK 2: Konwersja plików audio ===
     # Wywołujemy funkcję, która pobiera pliki z bazy i konwertuje je do formatu .wav.
@@ -81,6 +83,9 @@ def main_cli(args):
 if __name__ == "__main__":
     # Inicjalizujemy bazę danych na samym początku, niezależnie od trybu (CLI/GUI).
     database.initialize_database()
+
+    # Czyścimy stare pliki tymczasowe przy starcie aplikacji
+    cleanup_temp_files_on_startup()
 
     # Tworzymy parser argumentów. To on "uczy" nasz program, jakich flag oczekiwać.
     parser = argparse.ArgumentParser(description="Transkrypcja plików audio z użyciem API OpenAI Whisper.")

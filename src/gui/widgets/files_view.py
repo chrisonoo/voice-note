@@ -48,23 +48,32 @@ class FilesView(ctk.CTkFrame):
         # Jest to potrzebne, aby móc później np. aktualizować ikony przycisków play/pauza.
         self.file_widgets = []
 
+
+
+
+
     def populate_files(self, files_data):
         """
         Wypełnia przewijalną ramkę listą plików na podstawie danych z bazy.
-        Ta metoda jest wywoływana za każdym razem, gdy widok wymaga odświeżenia.
+        Wyświetla wszystkie pliki jednocześnie.
 
         Argumenty:
             files_data (list): Lista obiektów wierszy z bazy danych.
         """
-        # Najpierw czyścimy stary widok, aby uniknąć duplikatów.
+        # Najpierw czyścimy stary widok
         self.clear_view()
-        # `enumerate` pozwala nam iterować po plikach, jednocześnie mając ich indeks (do umieszczenia w siatce).
-        for i, file_row in enumerate(files_data, start=1): # `start=1`, bo wiersz 0 jest na nagłówki.
+
+        if not files_data:
+            return
+
+        # Wyświetl wszystkie pliki
+        for i, file_row in enumerate(files_data, start=1):
             # Wyciągamy potrzebne dane z obiektu wiersza.
             file_path = file_row['source_file_path']
-            duration_sec = file_row['duration_seconds'] or 0
+            duration_ms = file_row['duration_ms'] or 0
             is_selected = file_row['is_selected']
 
+            duration_sec = duration_ms / 1000
             filename = os.path.basename(file_path)
             # Formatujemy czas trwania na czytelny format MM:SS.
             duration_str = f"{int(duration_sec // 60):02d}:{int(duration_sec % 60):02d}"
@@ -75,9 +84,6 @@ class FilesView(ctk.CTkFrame):
             checkbox_var = ctk.BooleanVar(value=is_selected)
             checkbox = ctk.CTkCheckBox(
                 self.scrollable_frame, text="", width=35, variable=checkbox_var,
-                # `command` z `lambda` jest kluczowe. Tworzy funkcję, która "pamięta"
-                # właściwą ścieżkę (`fp`) i zmienną (`var`) dla danego wiersza.
-                # Bez `lambda` wszystkie checkboxy wywoływałyby komendę z wartościami z ostatniej iteracji pętli.
                 command=lambda fp=file_path, var=checkbox_var: self.on_checkbox_toggle(fp, var)
             )
             checkbox.grid(row=i, column=0, padx=(5,0), pady=2)
@@ -100,10 +106,11 @@ class FilesView(ctk.CTkFrame):
                 duration_label.configure(text_color="red")
 
             # Zapisujemy referencje do stworzonych widżetów.
-            self.file_widgets.append((checkbox, file_path, duration_sec, play_button, delete_button))
+            self.file_widgets.append((checkbox, file_path, duration_ms, play_button, delete_button))
 
-        # Po dodaniu wszystkich plików, aktualizujemy stan przycisków play/pauza.
+        # Po dodaniu plików, aktualizujemy stan przycisków play/pauza.
         self.update_play_buttons()
+
 
     def on_checkbox_toggle(self, file_path, var):
         """
@@ -123,6 +130,8 @@ class FilesView(ctk.CTkFrame):
         if answer:
             # Jeśli użytkownik się zgodził, usuwamy plik z bazy (i z dysku).
             database.delete_file(file_path)
+            # Unieważniamy cache ponieważ dane zostały zmienione
+            self.master.invalidate_cache()
             # Odświeżamy wszystkie widoki, aby usunięty plik zniknął z interfejsu.
             self.master.refresh_all_views()
 

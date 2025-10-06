@@ -6,6 +6,7 @@ import customtkinter as ctk  # Biblioteka do tworzenia nowoczesnego interfejsu g
 from tkinter import messagebox  # Standardowy moduł Tkinter do wyświetlania okien dialogowych (np. z potwierdzeniem).
 import threading  # Moduł do pracy z wątkami, kluczowy do wykonywania długich operacji (jak transkrypcja) w tle.
 import pygame  # Biblioteka używana tutaj do odtwarzania dźwięku (próbek audio).
+import time  # Dodane dla cachowania danych
 from src import config, database  # Importujemy nasze własne moduły: konfigurację i bazę danych.
 
 # Importujemy wszystkie komponenty i kontrolery, które będą używane w głównym oknie.
@@ -41,6 +42,11 @@ class App(ctk.CTk):
         # `threading.Event` to prosty mechanizm do komunikacji między wątkami. Używamy go do sygnalizowania pauzy.
         self.pause_request_event = threading.Event()
 
+        # Inicjalizujemy cache dla danych z bazy
+        self._cached_files_data = None
+        self._cache_timestamp = 0
+        self._cache_timeout = 2.0  # sekundy
+
         # Ustawiamy tytuł okna, pobierając go z pliku konfiguracyjnego.
         self.title(config.APP_NAME)
         # Ustawiamy minimalny rozmiar okna.
@@ -71,50 +77,80 @@ class App(ctk.CTk):
 
         # Wywołujemy metodę, która fizycznie tworzy i umieszcza wszystkie widżety w oknie.
         self.interface_builder.create_widgets()
-        
+
         # Ustawiamy początkowy stan przycisków i odświeżamy widoki.
         self.button_state_controller.update_ui_state()
         self.refresh_all_views()
 
+        # Inicjalizujemy wyświetlanie transkrypcji zgodnie z domyślnym stanem checkboxa
+        self.refresh_transcription_display()
+
         # Uruchamiamy cykliczne sprawdzanie statusu odtwarzania audio.
         self._check_playback_status()
-    
+
+    def get_cached_files_data(self):
+        """Zwraca dane z cache'a lub odświeża jeśli cache jest przestarzały."""
+        current_time = time.time()
+        if self._cached_files_data is None or (current_time - self._cache_timestamp) > self._cache_timeout:
+            self._cached_files_data = database.get_all_files()
+            self._cache_timestamp = current_time
+        return self._cached_files_data
+
+    def invalidate_cache(self):
+        """Unieważnia cache gdy dane mogły się zmienić."""
+        self._cached_files_data = None
+
     def update_all_counters(self, all_files=None):
         """
         Aktualizuje wszystkie etykiety z licznikami plików.
-        Jeśli dane nie są dostarczone (`all_files` jest None), pobiera je z bazy.
+        Jeśli dane nie są dostarczone (`all_files` jest None), pobiera je z cache'a.
         W przeciwnym razie, używa istniejących danych, aby uniknąć zbędnych zapytań do bazy.
         """
         try:
-            # Optymalizacja: jeśli nie dostaliśmy danych, pobieramy je raz.
+            # Używamy cache'a zamiast bezpośredniego zapytania do bazy
             if all_files is None:
-                all_files = database.get_all_files()
+                all_files = self.get_cached_files_data()
 
-            # Obliczamy różne statystyki na podstawie listy plików.
-            total_files = len(all_files)
-            selected_files = sum(1 for row in all_files if row['is_selected'])
-            long_files = sum(1 for row in all_files if row['duration_seconds'] is not None and row['duration_seconds'] > config.MAX_FILE_DURATION_SECONDS)
-            # Aktualizujemy tekst etykiety.
-            counter_text = f"Razem: {total_files}  |  Zaznaczone: {selected_files}  |  Długie: {long_files}"
-            self.files_counter_label.configure(text=counter_text)
+            # Jedna pętla dla wszystkich obliczeń - optymalizacja wydajności
+            stats = {
+                'total': len(all_files),
+                'selected': 0,
+                'long': 0,
+                'loaded': 0,
+                'processing': 0,
+                'processed': 0
+            }
 
-            loaded_count = sum(1 for row in all_files if row['is_loaded'])
-            processing_count = sum(1 for row in all_files if row['is_loaded'] and not row['is_processed'])
-            processed_count = sum(1 for row in all_files if row['is_processed'])
-            self.loaded_counter_label.configure(text=f"Wczytane: {loaded_count}")
-            self.processing_counter_label.configure(text=f"Kolejka: {processing_count}")
-            self.processed_counter_label.configure(text=f"Gotowe: {processed_count}")
+            max_duration_ms = config.MAX_FILE_DURATION_SECONDS * 1000
+
+            for row in all_files:
+                if row['is_selected']:
+                    stats['selected'] += 1
+                if row['duration_ms'] and row['duration_ms'] > max_duration_ms:
+                    stats['long'] += 1
+                if row['is_loaded']:
+                    stats['loaded'] += 1
+                    if not row['is_processed']:
+                        stats['processing'] += 1
+                if row['is_processed']:
+                    stats['processed'] += 1
+
+            # Aktualizuj etykiety
+            self.files_counter_label.configure(text=f"Razem: {stats['total']} | Zaznaczone: {stats['selected']} | Długie: {stats['long']}")
+            self.loaded_counter_label.configure(text=f"Wczytane: {stats['loaded']}")
+            self.processing_counter_label.configure(text=f"Kolejka: {stats['processing']}")
+            self.processed_counter_label.configure(text=f"Gotowe: {stats['processed']}")
 
         except Exception as e:
             print(f"Błąd podczas aktualizacji liczników: {e}")
 
     def refresh_all_views(self):
         """
-        Odświeża wszystkie główne widoki (panele z plikami), pobierając dane z bazy tylko raz
+        Odświeża wszystkie główne widoki (panele z plikami), pobierając dane z cache'a
         i przekazując je do poszczególnych metod, co jest wydajniejsze.
         """
         try:
-            all_files = database.get_all_files()
+            all_files = self.get_cached_files_data()
             # Przekazujemy pobrane dane do menedżera paneli, liczników i kontrolera przycisków.
             self.panel_manager.refresh_all_views(data=all_files)
             self.update_all_counters(all_files=all_files)
@@ -143,14 +179,56 @@ class App(ctk.CTk):
         is_fully_processed = all_files and all(f['is_processed'] for f in all_files if f['is_selected'])
 
         if is_fully_processed:
-            # Zbieramy wszystkie transkrypcje z przetworzonych plików.
-            processed_transcriptions = [
-                f['transcription'] for f in all_files if f['is_processed'] and f['transcription']
+            # Wyświetlamy transkrypcje z uwzględnieniem ustawień checkboxa
+            self.refresh_transcription_display()
+
+    def refresh_transcription_display(self):
+        """
+        Odświeża wyświetlanie transkrypcji z uwzględnieniem ustawień checkboxa
+        (czy pokazywać tagi czy tylko czysty tekst).
+        """
+        try:
+            # Pobieramy wszystkie pliki z bazy danych
+            all_files = database.get_all_files()
+
+            # Filtrujemy tylko przetworzone pliki z zaznaczonymi plikami
+            processed_files = [
+                f for f in all_files
+                if f['is_processed'] and f['is_selected'] and f['transcription']
             ]
-            # Łączymy je w jeden tekst, oddzielając podwójnym znakiem nowej linii.
+
+            if not processed_files:
+                self.transcription_output_panel.update_text("")
+                return
+
+            # Sprawdzamy ustawienie checkboxa
+            show_tags = self.transcription_output_panel.should_show_tags()
+
+            if show_tags:
+                # Pokazujemy transkrypcje z tagami: "tag transcription"
+                processed_transcriptions = []
+                for f in processed_files:
+                    tag = f['tag'] or ''
+                    transcription = f['transcription'] or ''
+                    if tag and transcription:
+                        full_text = f"{tag} {transcription}"
+                    elif transcription:
+                        # Jeśli nie ma tagu, pokazujemy tylko transkrypcję
+                        full_text = transcription
+                    else:
+                        full_text = ""
+                    processed_transcriptions.append(full_text)
+            else:
+                # Pokazujemy tylko czyste transkrypcje bez tagów
+                processed_transcriptions = [f['transcription'] for f in processed_files]
+
+            # Łączymy transkrypcje w jeden tekst
             full_text = "\n\n".join(processed_transcriptions)
-            # Aktualizujemy główny panel wyjściowy z połączonymi transkrypcjami.
+            # Aktualizujemy główny panel wyjściowy
             self.transcription_output_panel.update_text(full_text)
+
+        except Exception as e:
+            print(f"Błąd podczas odświeżania wyświetlania transkrypcji: {e}")
 
     def start_transcription_process(self):
         """Deleguje zadanie rozpoczęcia procesu transkrypcji do kontrolera."""
@@ -158,7 +236,7 @@ class App(ctk.CTk):
 
     def reset_application(self):
         """
-        Resetuje aplikację do stanu początkowego, czyszcząc bazę danych i folder tymczasowy.
+        Resetuje aplikację do stanu początkowego, czyszcząc tabelę files i pliki audio.
         Prosi użytkownika o potwierdzenie tej operacji.
         """
         answer = messagebox.askyesno(
@@ -172,12 +250,16 @@ class App(ctk.CTk):
                 if self.audio_player:
                     self.audio_player.stop()
 
-                # Czyścimy bazę danych i pliki tymczasowe.
-                database.clear_database_and_tmp_folder()
+                # Resetujemy tabelę files i czyścimy pliki audio.
+                database.reset_files_table()
+                # Optymalizujemy bazę danych po wyczyszczeniu
+                database.optimize_database()
+                # Unieważniamy cache ponieważ dane zostały wyczyszczone
+                self.invalidate_cache()
                 # Odświeżamy wszystkie widoki, aby odzwierciedliły pusty stan.
                 self.refresh_all_views()
                 # Czyścimy również główny panel z transkrypcją.
-                self.transcription_output_panel.update_text("")
+                self.refresh_transcription_display()
 
                 messagebox.showinfo("Reset zakończony", "Aplikacja została zresetowana.")
             except Exception as e:
@@ -194,6 +276,9 @@ class App(ctk.CTk):
             self.panel_manager.refresh_transcription_progress_views(data=all_files)
             self.update_all_counters(all_files=all_files)
             self.button_state_controller.update_ui_state(all_files=all_files)
+
+            # Odświeżamy również panel transkrypcji z uwzględnieniem ustawień checkboxa
+            self.refresh_transcription_display()
         except Exception as e:
             print(f"Błąd w trakcie aktualizacji postępu: {e}")
 
