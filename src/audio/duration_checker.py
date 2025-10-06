@@ -49,41 +49,25 @@ def get_file_duration(file_path):
 
 def validate_file_durations():
     """
-    Sprawdza czas trwania plików, które nie mają go jeszcze zapisanego w bazie danych.
-    Aktualizuje bazę danych o te informacje i zwraca listę plików przekraczających limit.
+    Sprawdza, czy którykolwiek z plików w bazie danych przekracza dozwolony limit czasu trwania.
     Funkcja używana jest głównie w trybie wiersza poleceń (CLI).
 
     Zwraca:
         list: Lista samych nazw plików (bez ścieżek), które są dłuższe niż dozwolony limit.
     """
-    # Inicjujemy pustą listę na pliki, które okażą się za długie.
     long_files = []
-    # Pobieramy z bazy danych informacje o wszystkich plikach.
     all_files = database.get_all_files()
 
-    # Filtrujemy listę, aby znaleźć tylko te pliki, dla których `duration_seconds` jest `None`.
-    # Oznacza to, że są to nowe pliki, których czasu trwania jeszcze nie sprawdzaliśmy.
-    files_to_check = [row for row in all_files if row['duration_seconds'] is None]
-
-    # Jeśli nie ma plików do sprawdzenia, wyświetlamy komunikat i kończymy.
-    if not files_to_check:
-        print("Brak nowych plików do walidacji czasu trwania.")
+    if not all_files:
         return long_files
 
-    # Iterujemy przez pliki, które wymagają sprawdzenia.
-    for file_row in files_to_check:
-        # Pobieramy pełną ścieżkę do pliku z obiektu wiersza.
-        file_path = file_row['source_file_path']
-        # Wywołujemy naszą funkcję, aby uzyskać czas trwania.
-        duration = get_file_duration(file_path)
+    # Limit czasu trwania w milisekundach
+    max_duration_ms = config.MAX_FILE_DURATION_SECONDS * 1000
 
-        # Aktualizujemy bazę danych, zapisując obliczony czas trwania.
-        database.update_file_duration(file_path, duration)
+    for file_row in all_files:
+        # Sprawdzamy, czy czas trwania przekracza limit.
+        # duration_ms może być None, jeśli coś poszło nie tak przy dodawaniu pliku
+        if file_row['duration_ms'] is not None and file_row['duration_ms'] > max_duration_ms:
+            long_files.append(os.path.basename(file_row['source_file_path']))
 
-        # Sprawdzamy, czy czas trwania przekracza limit zdefiniowany w pliku konfiguracyjnym.
-        if duration > config.MAX_FILE_DURATION_SECONDS:
-            # Jeśli tak, dodajemy samą nazwę pliku do naszej listy `long_files`.
-            long_files.append(os.path.basename(file_path))
-
-    # Zwracamy listę "za długich" plików. Może być pusta, jeśli wszystkie pliki są w porządku.
     return long_files

@@ -69,8 +69,8 @@ def process_files_metadata():
             print(f"    OSTRZEŻENIE: Nie można wyodrębnić daty z pliku: {file_data['source_file_path']}. Pomijanie.")
             continue
 
-        # Czas trwania jest już w bazie (w sekundach), konwertujemy go na milisekundy.
-        duration_ms = int(file_data['duration_seconds'] * 1000)
+        # Czas trwania jest już w bazie (w milisekundach).
+        duration_ms = file_data['duration_ms']
         duration_td = timedelta(milliseconds=duration_ms)
 
         # Obliczamy czas zakończenia.

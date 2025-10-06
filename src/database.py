@@ -124,7 +124,6 @@ def initialize_database():
             is_loaded BOOLEAN NOT NULL DEFAULT 0,
             is_processed BOOLEAN NOT NULL DEFAULT 0,
             transcription TEXT,
-            duration_seconds REAL,
             start_datetime TEXT,
             end_datetime TEXT,
             duration_ms INTEGER,
@@ -141,10 +140,11 @@ def add_file(file_path):
     Dodaje nowy plik do bazy danych, jeśli jeszcze nie istnieje.
     Automatycznie oblicza czas trwania i na tej podstawie ustawia flagę 'is_selected'.
     """
-    # Pobieramy czas trwania pliku.
-    duration = get_file_duration(file_path)
+    # Pobieramy czas trwania pliku w sekundach.
+    duration_sec = get_file_duration(file_path)
+    duration_ms = int(duration_sec * 1000)
     # Plik jest domyślnie odznaczony, jeśli jest za długi.
-    is_selected = not (duration > config.MAX_FILE_DURATION_SECONDS)
+    is_selected = not (duration_sec > config.MAX_FILE_DURATION_SECONDS)
 
     with get_db_connection() as conn:
         cursor = conn.cursor()
@@ -153,8 +153,8 @@ def add_file(file_path):
             # Używamy `?` jako placeholderów na wartości, co jest bezpieczną praktyką.
             _execute_query(
                 cursor,
-                "INSERT INTO files (source_file_path, duration_seconds, is_selected) VALUES (?, ?, ?)",
-                (file_path, duration, is_selected)
+                "INSERT INTO files (source_file_path, duration_ms, is_selected) VALUES (?, ?, ?)",
+                (file_path, duration_ms, is_selected)
             )
             conn.commit()
         except sqlite3.IntegrityError:
@@ -162,31 +162,6 @@ def add_file(file_path):
             # baza rzuci błąd `IntegrityError`. My go przechwytujemy i ignorujemy, bo to oczekiwane zachowanie.
             pass
 
-@log_db_operation
-def update_file_duration(file_path, duration):
-    """Aktualizuje czas trwania dla danego pliku w bazie danych."""
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        _execute_query(
-            cursor,
-            "UPDATE files SET duration_seconds = ? WHERE source_file_path = ?",
-            (duration, file_path)
-        )
-        conn.commit()
-
-@log_db_operation
-def update_file_durations_bulk(files_data):
-    """Masowo aktualizuje czasy trwania dla listy plików, co jest wydajniejsze niż pojedyncze zapytania."""
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        # Przygotowujemy listę krotek (czas_trwania, ścieżka) do masowej aktualizacji.
-        update_data = [(duration, path) for path, duration in files_data]
-        # `executemany` wykonuje to samo zapytanie dla każdego elementu z listy `update_data`.
-        cursor.executemany(
-            "UPDATE files SET duration_seconds = ? WHERE source_file_path = ?",
-            update_data
-        )
-        conn.commit()
 
 @log_db_operation
 def update_file_transcription(file_path, transcription_text):
@@ -255,7 +230,7 @@ def get_all_files_for_metadata():
     with get_db_connection() as conn:
         cursor = conn.cursor()
         # Zwracamy tylko te kolumny, które są potrzebne do obliczeń metadanych.
-        return _execute_query(cursor, "SELECT id, source_file_path, duration_seconds FROM files ORDER BY source_file_path", fetch='all')
+        return _execute_query(cursor, "SELECT id, source_file_path, duration_ms FROM files ORDER BY source_file_path", fetch='all')
 
 @log_db_operation
 def update_files_metadata_bulk(metadata_list):

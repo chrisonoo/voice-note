@@ -34,24 +34,6 @@ class PanelManager:
             # Jeśli nie otrzymaliśmy gotowych danych, pobieramy je z bazy.
             all_files = data if data is not None else database.get_all_files()
 
-            # Sprawdzamy, czy dla nowo dodanych plików został obliczony czas trwania.
-            # Jeśli nie (`duration_seconds` jest None), obliczamy go teraz.
-            files_to_update_duration = []
-            for file_row in all_files:
-                if file_row['duration_seconds'] is None:
-                    try:
-                        duration = get_file_duration(file_row['source_file_path'])
-                        # Dodajemy parę (ścieżka, czas_trwania) do listy do aktualizacji.
-                        files_to_update_duration.append((file_row['source_file_path'], duration))
-                    except Exception as e:
-                        print(f"Nie udało się pobrać czasu trwania dla {file_row['source_file_path']}: {e}")
-
-            # Jeśli znaleziono pliki wymagające aktualizacji czasu trwania...
-            if files_to_update_duration:
-                # ...wykonujemy jedną, masową aktualizację w bazie danych.
-                database.update_file_durations_bulk(files_to_update_duration)
-                # Po aktualizacji musimy ponownie pobrać dane, aby mieć ich najnowszą wersję.
-                all_files = database.get_all_files()
 
             # Odświeżamy poszczególne panele, przekazując im już przygotowane i aktualne dane.
             self._refresh_selected_files_view(all_files)
