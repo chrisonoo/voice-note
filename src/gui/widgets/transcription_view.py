@@ -46,7 +46,6 @@ class TranscriptionView(ctk.CTkFrame):
             command=self._on_checkbox_toggle
         )
         self.show_tags_checkbox.grid(row=0, column=1, sticky="e", padx=(10, 0))
-        self.show_tags_checkbox.select()  # Domyślnie zaznaczony
 
         # Pole tekstowe do wyświetlania wyniku transkrypcji.
         self.text = ctk.CTkTextbox(
