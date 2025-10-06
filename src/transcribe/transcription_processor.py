@@ -76,8 +76,8 @@ class TranscriptionProcessor:
             if transcription and hasattr(transcription, 'text'):
                 # Tworzymy sformatowany nagłówek na podstawie metadanych.
                 header = format_transcription_header(file_metadata)
-                # Łączymy nagłówek z transkrypcją.
-                final_transcription = f"{header}\n\n{transcription.text}"
+                # Łączymy nagłówek z transkrypcją w jednej linii.
+                final_transcription = f"{header} {transcription.text}"
 
                 # Zapisujemy połączony tekst w bazie danych.
                 database.update_file_transcription(source_path, final_transcription)
