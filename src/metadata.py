@@ -95,6 +95,7 @@ def format_transcription_header(file_metadata):
     """
     Tworzy sformatowany nagłówek tekstowy na podstawie metadanych z bazy.
     Funkcja jest odporna na brakujące dane (NULL w bazie).
+    Obsługuje zarówno słowniki jak i obiekty sqlite3.Row.
     """
     if not file_metadata:
         return ""
@@ -107,25 +108,42 @@ def format_transcription_header(file_metadata):
 
     try:
         # Próbujemy sformatować datę rozpoczęcia.
-        start_dt_str = file_metadata.get('start_datetime')
+        # Używamy bezpośredniego dostępu [] zamiast .get(), bo sqlite3.Row nie ma metody .get()
+        try:
+            start_dt_str = file_metadata['start_datetime']
+        except (KeyError, IndexError):
+            start_dt_str = None
+            
         if start_dt_str:
             start_dt = datetime.strptime(start_dt_str, '%Y-%m-%d %H:%M:%S')
             start_str = start_dt.strftime('%Y-%m-%d %H:%M:%S')
 
         # Próbujemy sformatować datę zakończenia.
-        end_dt_str = file_metadata.get('end_datetime')
+        try:
+            end_dt_str = file_metadata['end_datetime']
+        except (KeyError, IndexError):
+            end_dt_str = None
+            
         if end_dt_str:
             end_dt = datetime.strptime(end_dt_str, '%Y-%m-%d %H:%M:%S.%f')
             end_str = end_dt.strftime('%H:%M:%S.%f')[:-3]
 
         # Próbujemy sformatować czas trwania.
-        duration_ms = file_metadata.get('duration_ms')
+        try:
+            duration_ms = file_metadata['duration_ms']
+        except (KeyError, IndexError):
+            duration_ms = None
+            
         if duration_ms is not None:
             duration_td = timedelta(milliseconds=duration_ms)
             duration_str = _format_timedelta_to_mss(duration_td)
 
         # Próbujemy sformatować przerwę od poprzedniego.
-        previous_ms = file_metadata.get('previous_ms')
+        try:
+            previous_ms = file_metadata['previous_ms']
+        except (KeyError, IndexError):
+            previous_ms = None
+            
         if previous_ms is not None:
             previous_td = timedelta(milliseconds=previous_ms)
             previous_str = _format_timedelta_to_hms(previous_td)
