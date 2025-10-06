@@ -7,7 +7,7 @@ import os  # Moduł do operacji na ścieżkach plików, np. do wyciągania nazwy
 import threading  # Moduł do pracy z wątkami, używany tutaj do obsługi pauzy w trybie GUI.
 from src.whisper import Whisper  # Importujemy naszą klasę-wrapper dla API OpenAI Whisper.
 from src import database  # Importujemy moduł do operacji na bazie danych.
-from src.metadata import format_transcription_header # Importujemy funkcję do formatowania nagłówka.
+# format_transcription_header usunięty - tag jest teraz tworzony wcześniej w metadanych
 from src.utils.error_handlers import with_error_handling, measure_performance  # Dekoratory
 
 class TranscriptionProcessor:
@@ -83,14 +83,22 @@ class TranscriptionProcessor:
             # Sprawdzamy, czy transkrypcja się powiodła i czy wynik zawiera tekst.
             # `hasattr` sprawdza, czy obiekt `transcription` ma atrybut o nazwie 'text'.
             if transcription and hasattr(transcription, 'text'):
-                # Tworzymy sformatowany nagłówek na podstawie metadanych.
-                header = format_transcription_header(file_metadata)
-                # Łączymy nagłówek z transkrypcją w jednej linii.
-                final_transcription = f"{header} {transcription.text}"
+                # Pobieramy tag z bazy danych (został utworzony wcześniej podczas przetwarzania metadanych)
+                try:
+                    tag = file_metadata['tag'] or ''
+                except (KeyError, IndexError):
+                    tag = ''
+                    print(f"    OSTRZEŻENIE: Brak kolumny 'tag' dla pliku {os.path.basename(source_path)}")
+
+                if not tag:
+                    print(f"    OSTRZEŻENIE: Brak tagu dla pliku {os.path.basename(source_path)}")
+
+                # Łączymy tag z transkrypcją
+                final_transcription = f"{tag} {transcription.text}"
 
                 # Zapisujemy połączony tekst w bazie danych.
                 database.update_file_transcription(source_path, final_transcription)
-                print(f"    Sukces: Transkrypcja z nagłówkiem zapisana w bazie danych.")
+                print(f"    Sukces: Transkrypcja z tagiem zapisana w bazie danych.")
 
                 # Jeśli do procesora została przekazana funkcja zwrotna (w trybie GUI)...
                 if self.on_progress_callback:

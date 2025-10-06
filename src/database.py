@@ -142,6 +142,7 @@ def initialize_database():
             is_selected BOOLEAN NOT NULL DEFAULT 1,
             is_loaded BOOLEAN NOT NULL DEFAULT 0,
             is_processed BOOLEAN NOT NULL DEFAULT 0,
+            tag TEXT,
             transcription TEXT,
             start_datetime TEXT,
             end_datetime TEXT,
@@ -155,6 +156,7 @@ def initialize_database():
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_start_datetime ON files(start_datetime)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_source_path ON files(source_file_path)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_duration_ms ON files(duration_ms)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_tag ON files(tag)")
 
         # `conn.commit()` zapisuje wszystkie zmiany wykonane w transakcji.
         conn.commit()
@@ -267,13 +269,14 @@ def update_all_metadata_bulk(metadata_list):
                 item['end_datetime'],
                 item['previous_ms'],
                 item['is_selected'],
+                item['tag'],
                 item['id']
             ) for item in metadata_list
         ]
         cursor.executemany(
             """
             UPDATE files
-            SET start_datetime = ?, duration_ms = ?, end_datetime = ?, previous_ms = ?, is_selected = ?
+            SET start_datetime = ?, duration_ms = ?, end_datetime = ?, previous_ms = ?, is_selected = ?, tag = ?
             WHERE id = ?
             """,
             update_data
@@ -287,7 +290,7 @@ def get_file_metadata(source_file_path):
         cursor = conn.cursor()
         return _execute_query(
             cursor,
-            "SELECT tmp_file_path, start_datetime, end_datetime, duration_ms, previous_ms, transcription FROM files WHERE source_file_path = ?",
+            "SELECT tmp_file_path, start_datetime, end_datetime, duration_ms, previous_ms, transcription, tag FROM files WHERE source_file_path = ?",
             (source_file_path,),
             fetch='one'
         )

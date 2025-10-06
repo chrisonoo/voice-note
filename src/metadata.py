@@ -28,6 +28,33 @@ def _format_timedelta_to_mss(td: timedelta):
     milliseconds = td.microseconds // 1000
     return f"{int(minutes):02}:{int(seconds):02}.{milliseconds:03}"
 
+def _create_file_tag(start_dt: datetime, end_dt: datetime, duration_ms: int, previous_ms: int):
+    """
+    Tworzy tag dla pliku na podstawie jego metadanych czasowych.
+    Tag jest tworzony podczas przetwarzania metadanych, przed transkrypcją.
+    """
+    try:
+        # Formatowanie dat i czasów
+        start_str = start_dt.strftime('%Y-%m-%d %H:%M:%S')
+        end_str = end_dt.strftime('%H:%M:%S.%f')[:-3]  # Bez daty, tylko czas
+
+        # Czas trwania
+        duration_td = timedelta(milliseconds=duration_ms)
+        duration_str = _format_timedelta_to_mss(duration_td)
+
+        # Czas od poprzedniego nagrania
+        if previous_ms > 0:
+            previous_td = timedelta(milliseconds=previous_ms)
+            previous_str = _format_timedelta_to_hms(previous_td)
+        else:
+            previous_str = "00:00:00"
+
+        return f"[START: {start_str} | END: {end_str} | DURATION: {duration_str} | PREVIOUS: {previous_str}]"
+
+    except Exception as e:
+        print(f"Błąd podczas tworzenia tagu: {e}")
+        return "[TAG_ERROR]"
+
 @with_error_handling("Przetwarzanie metadanych")
 @measure_performance
 def process_and_update_all_metadata(allow_long=False):
@@ -78,13 +105,17 @@ def process_and_update_all_metadata(allow_long=False):
 
         is_selected = True if allow_long else not is_long
 
+        # Tworzymy tag na podstawie metadanych
+        tag = _create_file_tag(start_dt, end_dt, duration_ms, previous_ms)
+
         all_metadata_to_update.append({
             'id': file_info['id'],
             'start_datetime': start_dt.strftime('%Y-%m-%d %H:%M:%S'),
             'duration_ms': duration_ms,
             'end_datetime': end_dt.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
             'previous_ms': previous_ms,
-            'is_selected': is_selected
+            'is_selected': is_selected,
+            'tag': tag
         })
 
     if all_metadata_to_update:
