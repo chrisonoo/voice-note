@@ -29,6 +29,9 @@ class FileHandler:
         # Zabezpieczenie: nie pozwól na dodawanie plików, gdy proces transkrypcji jest w toku.
         if self.app.processing_thread and self.app.processing_thread.is_alive():
             return
+
+        # Upewnij się, że tabela files istnieje (może być usunięta przez reset)
+        database.ensure_files_table_exists()
             
         # `filedialog.askopenfilenames` otwiera natywne okno systemowe do wyboru jednego lub wielu plików.
         paths = filedialog.askopenfilenames(

@@ -233,7 +233,7 @@ class App(ctk.CTk):
 
     def reset_application(self):
         """
-        Resetuje aplikację do stanu początkowego, czyszcząc bazę danych i folder tymczasowy.
+        Resetuje aplikację do stanu początkowego, czyszcząc tabelę files i pliki audio.
         Prosi użytkownika o potwierdzenie tej operacji.
         """
         answer = messagebox.askyesno(
@@ -247,8 +247,8 @@ class App(ctk.CTk):
                 if self.audio_player:
                     self.audio_player.stop()
 
-                # Czyścimy bazę danych i pliki tymczasowe.
-                database.clear_database_and_tmp_folder()
+                # Resetujemy tabelę files i czyścimy pliki audio.
+                database.reset_files_table()
                 # Optymalizujemy bazę danych po wyczyszczeniu
                 database.optimize_database()
                 # Unieważniamy cache ponieważ dane zostały wyczyszczone
