@@ -19,15 +19,34 @@ class TranscriptionView(ctk.CTkFrame):
         # Wywołujemy konstruktor klasy nadrzędnej `ctk.CTkFrame`.
         super().__init__(parent, **kwargs)
 
+        # Przechowujemy referencję do głównego okna aplikacji
+        self.app = parent
+
         # Konfigurujemy siatkę (grid) wewnątrz tej ramki.
         # Wiersz 1 (z polem tekstowym) i kolumna 0 będą się rozciągać,
         # aby wypełnić dostępną przestrzeń.
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
+        # Ramka dla nagłówka z etykietą i checkboxem
+        self.header_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 5))
+
+        # Konfigurujemy siatkę w header_frame
+        self.header_frame.grid_columnconfigure(0, weight=1)
+
         # Etykieta tytułowa dla panelu.
-        self.label = ctk.CTkLabel(self, text=text, anchor="center")
-        self.label.grid(row=0, column=0, sticky="ew", pady=(0, 5))
+        self.label = ctk.CTkLabel(self.header_frame, text=text, anchor="center")
+        self.label.grid(row=0, column=0, sticky="ew")
+
+        # Checkbox do pokazywania/ukrywania tagów
+        self.show_tags_checkbox = ctk.CTkCheckBox(
+            self.header_frame,
+            text="Pokaż tagi",
+            command=self._on_checkbox_toggle
+        )
+        self.show_tags_checkbox.grid(row=0, column=1, sticky="e", padx=(10, 0))
+        self.show_tags_checkbox.select()  # Domyślnie zaznaczony
 
         # Pole tekstowe do wyświetlania wyniku transkrypcji.
         self.text = ctk.CTkTextbox(
@@ -61,3 +80,13 @@ class TranscriptionView(ctk.CTkFrame):
         """Zwraca całą zawartość pola tekstowego jako ciąg znaków."""
         # '1.0' oznacza pierwszy wiersz, zerowy znak. "end" oznacza koniec tekstu.
         return self.text.get("1.0", "end")
+
+    def _on_checkbox_toggle(self):
+        """Obsługuje zmianę stanu checkboxa - przeładowuje transkrypcje."""
+        # Wywołujemy metodę przeładowania transkrypcji w głównym oknie
+        if hasattr(self.app, 'refresh_transcription_display'):
+            self.app.refresh_transcription_display()
+
+    def should_show_tags(self):
+        """Zwraca True jeśli checkbox jest zaznaczony (pokazuj tagi)."""
+        return self.show_tags_checkbox.get() == 1

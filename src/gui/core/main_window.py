@@ -176,14 +176,56 @@ class App(ctk.CTk):
         is_fully_processed = all_files and all(f['is_processed'] for f in all_files if f['is_selected'])
 
         if is_fully_processed:
-            # Zbieramy wszystkie transkrypcje z przetworzonych plików.
-            processed_transcriptions = [
-                f['transcription'] for f in all_files if f['is_processed'] and f['transcription']
+            # Wyświetlamy transkrypcje z uwzględnieniem ustawień checkboxa
+            self.refresh_transcription_display()
+
+    def refresh_transcription_display(self):
+        """
+        Odświeża wyświetlanie transkrypcji z uwzględnieniem ustawień checkboxa
+        (czy pokazywać tagi czy tylko czysty tekst).
+        """
+        try:
+            # Pobieramy wszystkie pliki z bazy danych
+            all_files = database.get_all_files()
+
+            # Filtrujemy tylko przetworzone pliki z zaznaczonymi plikami
+            processed_files = [
+                f for f in all_files
+                if f['is_processed'] and f['is_selected'] and f['transcription']
             ]
-            # Łączymy je w jeden tekst, oddzielając podwójnym znakiem nowej linii.
+
+            if not processed_files:
+                self.transcription_output_panel.update_text("")
+                return
+
+            # Sprawdzamy ustawienie checkboxa
+            show_tags = self.transcription_output_panel.should_show_tags()
+
+            if show_tags:
+                # Pokazujemy transkrypcje z tagami: "tag transcription"
+                processed_transcriptions = []
+                for f in processed_files:
+                    tag = f['tag'] or ''
+                    transcription = f['transcription'] or ''
+                    if tag and transcription:
+                        full_text = f"{tag} {transcription}"
+                    elif transcription:
+                        # Jeśli nie ma tagu, pokazujemy tylko transkrypcję
+                        full_text = transcription
+                    else:
+                        full_text = ""
+                    processed_transcriptions.append(full_text)
+            else:
+                # Pokazujemy tylko czyste transkrypcje bez tagów
+                processed_transcriptions = [f['transcription'] for f in processed_files]
+
+            # Łączymy transkrypcje w jeden tekst
             full_text = "\n\n".join(processed_transcriptions)
-            # Aktualizujemy główny panel wyjściowy z połączonymi transkrypcjami.
+            # Aktualizujemy główny panel wyjściowy
             self.transcription_output_panel.update_text(full_text)
+
+        except Exception as e:
+            print(f"Błąd podczas odświeżania wyświetlania transkrypcji: {e}")
 
     def start_transcription_process(self):
         """Deleguje zadanie rozpoczęcia procesu transkrypcji do kontrolera."""
@@ -214,7 +256,7 @@ class App(ctk.CTk):
                 # Odświeżamy wszystkie widoki, aby odzwierciedliły pusty stan.
                 self.refresh_all_views()
                 # Czyścimy również główny panel z transkrypcją.
-                self.transcription_output_panel.update_text("")
+                self.refresh_transcription_display()
 
                 messagebox.showinfo("Reset zakończony", "Aplikacja została zresetowana.")
             except Exception as e:

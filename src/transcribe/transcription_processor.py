@@ -93,11 +93,8 @@ class TranscriptionProcessor:
                 if not tag:
                     print(f"    OSTRZEŻENIE: Brak tagu dla pliku {os.path.basename(source_path)}")
 
-                # Łączymy tag z transkrypcją
-                final_transcription = f"{tag} {transcription.text}"
-
-                # Zapisujemy połączony tekst w bazie danych.
-                database.update_file_transcription(source_path, final_transcription)
+                # Zapisujemy tylko czystą transkrypcję w bazie danych (tag jest już w osobnej kolumnie)
+                database.update_file_transcription(source_path, transcription.text)
                 print(f"    Sukces: Transkrypcja z tagiem zapisana w bazie danych.")
 
                 # Jeśli do procesora została przekazana funkcja zwrotna (w trybie GUI)...
