@@ -9,21 +9,6 @@ import re
 from datetime import datetime, timedelta
 from . import database
 
-def _get_start_datetime_from_mtime(file_path):
-    """
-    Pobiera datę i czas rozpoczęcia nagrania na podstawie
-    daty ostatniej modyfikacji pliku. Jest to bardziej niezawodne
-    niż parsowanie nazwy pliku.
-    """
-    try:
-        # Pobieramy czas ostatniej modyfikacji jako timestamp.
-        mtime = os.path.getmtime(file_path)
-        # Konwertujemy timestamp na obiekt datetime.
-        return datetime.fromtimestamp(mtime)
-    except (OSError, ValueError):
-        # Zwracamy None w przypadku błędu (np. plik nie istnieje).
-        return None
-
 def _format_timedelta_to_hms(td: timedelta):
     """Formatuje obiekt timedelta do czytelnego formatu HH:MM:SS."""
     if not isinstance(td, timedelta):
@@ -45,14 +30,13 @@ def _format_timedelta_to_mss(td: timedelta):
 
 def process_files_metadata():
     """
-    Główna funkcja orkiestrująca przetwarzanie metadanych.
-    Pobiera wszystkie pliki z bazy, sortuje je, oblicza metadane
-    i zapisuje je z powrotem do bazy.
+    Uzupełnia metadane plików (czas zakończenia, przerwy).
+    Pobiera wszystkie pliki z bazy, sortuje je chronologicznie,
+    oblicza brakujące metadane i zapisuje je z powrotem do bazy.
     """
-    print("\n--- Rozpoczynam przetwarzanie metadanych plików ---")
+    print("\n--- Rozpoczynam uzupełnianie metadanych plików ---")
 
-    # Pobieramy wszystkie pliki z bazy danych, posortowane chronologicznie według nazwy.
-    # Sortowanie jest kluczowe dla poprawnego obliczenia przerw między nagraniami.
+    # Pobieramy wszystkie pliki z bazy danych, posortowane chronologicznie.
     files = database.get_all_files_for_metadata()
     if not files:
         print("Brak plików do przetworzenia.")
@@ -64,10 +48,11 @@ def process_files_metadata():
 
     # Przetwarzamy pliki w pętli.
     for file_data in files:
-        # Wyodrębniamy datę rozpoczęcia z daty modyfikacji pliku.
-        start_datetime = _get_start_datetime_from_mtime(file_data['source_file_path'])
-        if not start_datetime:
-            print(f"    OSTRZEŻENIE: Nie można odczytać daty modyfikacji pliku: {file_data['source_file_path']}. Pomijanie.")
+        # start_datetime jest już w bazie, parsujemy go do obiektu datetime.
+        try:
+            start_datetime = datetime.strptime(file_data['start_datetime'], '%Y-%m-%d %H:%M:%S')
+        except (TypeError, ValueError):
+            print(f"    OSTRZEŻENIE: Nieprawidłowy format daty dla pliku: {file_data['source_file_path']}. Pomijanie.")
             continue
 
         # Czas trwania jest już w bazie (w milisekundach).
@@ -93,9 +78,7 @@ def process_files_metadata():
         # Przygotowujemy dane do aktualizacji w bazie.
         metadata_to_update.append({
             'id': file_data['id'],
-            'start_datetime': start_datetime.strftime('%Y-%m-%d %H:%M:%S'),
             'end_datetime': end_datetime.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
-            'duration_ms': duration_ms,
             'previous_ms': previous_ms,
         })
 

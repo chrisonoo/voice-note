@@ -7,6 +7,7 @@ import sqlite3  # Standardowa biblioteka Pythona do obsługi baz danych SQLite.
 import os  # Biblioteka do interakcji z systemem operacyjnym, np. operacje na plikach i folderach.
 import shutil  # Biblioteka do operacji na plikach wysokiego poziomu, np. usuwanie całych drzew folderów.
 import functools  # Używane do tworzenia dekoratorów, które "owijają" inne funkcje.
+from datetime import datetime
 from . import config  # Importujemy nasz plik konfiguracyjny, aby mieć dostęp do globalnych ustawień.
 from .audio.duration_checker import get_file_duration  # Importujemy funkcję do sprawdzania długości plików audio.
 
@@ -138,29 +139,37 @@ def initialize_database():
 def add_file(file_path):
     """
     Dodaje nowy plik do bazy danych, jeśli jeszcze nie istnieje.
-    Automatycznie oblicza czas trwania i na tej podstawie ustawia flagę 'is_selected'.
+    Automatycznie oblicza czas trwania i datę startową, a następnie ustawia flagę 'is_selected'.
     """
-    # Pobieramy czas trwania pliku w sekundach.
-    duration_sec = get_file_duration(file_path)
-    duration_ms = int(duration_sec * 1000)
-    # Plik jest domyślnie odznaczony, jeśli jest za długi.
-    is_selected = not (duration_sec > config.MAX_FILE_DURATION_SECONDS)
+    try:
+        # Pobieramy czas trwania pliku w sekundach.
+        duration_sec = get_file_duration(file_path)
+        duration_ms = int(duration_sec * 1000)
 
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        try:
+        # Pobieramy czas ostatniej modyfikacji, konwertujemy i formatujemy.
+        mtime = os.path.getmtime(file_path)
+        start_dt = datetime.fromtimestamp(mtime)
+        start_datetime_str = start_dt.strftime('%Y-%m-%d %H:%M:%S')
+
+        # Plik jest domyślnie odznaczony, jeśli jest za długi.
+        is_selected = not (duration_sec > config.MAX_FILE_DURATION_SECONDS)
+
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
             # Próbujemy wstawić nowy wiersz do tabeli.
-            # Używamy `?` jako placeholderów na wartości, co jest bezpieczną praktyką.
             _execute_query(
                 cursor,
-                "INSERT INTO files (source_file_path, duration_ms, is_selected) VALUES (?, ?, ?)",
-                (file_path, duration_ms, is_selected)
+                "INSERT INTO files (source_file_path, duration_ms, is_selected, start_datetime) VALUES (?, ?, ?, ?)",
+                (file_path, duration_ms, is_selected, start_datetime_str)
             )
             conn.commit()
-        except sqlite3.IntegrityError:
-            # Jeśli plik już istnieje (dzięki ograniczeniu UNIQUE na kolumnie `source_file_path`),
-            # baza rzuci błąd `IntegrityError`. My go przechwytujemy i ignorujemy, bo to oczekiwane zachowanie.
-            pass
+    except sqlite3.IntegrityError:
+        # Jeśli plik już istnieje (dzięki ograniczeniu UNIQUE na kolumnie `source_file_path`),
+        # baza rzuci błąd `IntegrityError`. My go przechwytujemy i ignorujemy, bo to oczekiwane zachowanie.
+        pass
+    except (OSError, ValueError) as e:
+        # Przechwytujemy błędy związane z odczytem pliku (np. nie istnieje, brak uprawnień).
+        print(f"Błąd podczas dodawania pliku {file_path}: {e}")
 
 
 @log_db_operation
@@ -192,7 +201,7 @@ def get_files_to_load():
     """Pobiera listę ścieżek do plików, które są zaznaczone i nie zostały jeszcze wczytane/przekonwertowane."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        rows = _execute_query(cursor, "SELECT source_file_path FROM files WHERE is_selected = 1 AND is_loaded = 0 ORDER BY source_file_path", fetch='all')
+        rows = _execute_query(cursor, "SELECT source_file_path FROM files WHERE is_selected = 1 AND is_loaded = 0 ORDER BY start_datetime", fetch='all')
         # Zwracamy listę ścieżek, a nie całe obiekty wierszy.
         return [row['source_file_path'] for row in rows]
 
@@ -201,7 +210,7 @@ def get_files_to_process():
     """Pobiera listę ścieżek do plików, które zostały wczytane (przekonwertowane), ale nie mają jeszcze transkrypcji."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        rows = _execute_query(cursor, "SELECT source_file_path FROM files WHERE is_loaded = 1 AND is_processed = 0 ORDER BY source_file_path", fetch='all')
+        rows = _execute_query(cursor, "SELECT source_file_path FROM files WHERE is_loaded = 1 AND is_processed = 0 ORDER BY start_datetime", fetch='all')
         return [row['source_file_path'] for row in rows]
 
 @log_db_operation
@@ -219,30 +228,28 @@ def set_files_as_loaded(file_paths, tmp_file_paths):
 
 @log_db_operation
 def get_all_files():
-    """Pobiera wszystkie pliki z bazy danych, posortowane alfabetycznie."""
+    """Pobiera wszystkie pliki z bazy danych, posortowane chronologicznie."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        return _execute_query(cursor, "SELECT * FROM files ORDER BY source_file_path", fetch='all')
+        return _execute_query(cursor, "SELECT * FROM files ORDER BY start_datetime", fetch='all')
 
 @log_db_operation
 def get_all_files_for_metadata():
-    """Pobiera wszystkie pliki z bazy danych, posortowane alfabetycznie, na potrzeby przetwarzania metadanych."""
+    """Pobiera wszystkie pliki z bazy danych, posortowane chronologicznie, na potrzeby przetwarzania metadanych."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
         # Zwracamy tylko te kolumny, które są potrzebne do obliczeń metadanych.
-        return _execute_query(cursor, "SELECT id, source_file_path, duration_ms FROM files ORDER BY source_file_path", fetch='all')
+        return _execute_query(cursor, "SELECT id, source_file_path, duration_ms, start_datetime FROM files ORDER BY start_datetime", fetch='all')
 
 @log_db_operation
 def update_files_metadata_bulk(metadata_list):
-    """Masowo aktualizuje metadane dla listy plików."""
+    """Masowo aktualizuje uzupełnione metadane (end_datetime, previous_ms) dla listy plików."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
         # Przygotowujemy dane do masowej aktualizacji.
         update_data = [
             (
-                item['start_datetime'],
                 item['end_datetime'],
-                item['duration_ms'],
                 item['previous_ms'],
                 item['id']
             ) for item in metadata_list
@@ -250,7 +257,7 @@ def update_files_metadata_bulk(metadata_list):
         cursor.executemany(
             """
             UPDATE files
-            SET start_datetime = ?, end_datetime = ?, duration_ms = ?, previous_ms = ?
+            SET end_datetime = ?, previous_ms = ?
             WHERE id = ?
             """,
             update_data
