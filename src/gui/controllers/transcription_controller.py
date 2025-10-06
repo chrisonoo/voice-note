@@ -96,7 +96,7 @@ class TranscriptionController:
             processor.process_transcriptions()
         except Exception as e:
             # Jeśli w wątku wystąpi krytyczny błąd, bezpiecznie wyświetlamy go w GUI.
-            self.app.after(0, lambda: messagebox.showerror("Błąd krytyczny", f"Wystąpił błąd: {e}"))
+            self.app.after(0, lambda e=e: messagebox.showerror("Błąd krytyczny", f"Wystąpił błąd: {e}"))
         finally:
             # Blok `finally` wykona się zawsze, niezależnie od tego, czy wystąpił błąd, czy nie.
             # Planujemy wykonanie metody `on_processing_finished` w głównym wątku, aby posprzątać po zakończeniu pracy.
