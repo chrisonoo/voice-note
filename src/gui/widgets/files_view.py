@@ -48,110 +48,26 @@ class FilesView(ctk.CTkFrame):
         # Jest to potrzebne, aby móc później np. aktualizować ikony przycisków play/pauza.
         self.file_widgets = []
 
-        # Paginacja - lazy loading
-        self.all_files = []  # Wszystkie pliki
-        self.page_size = 20  # Liczba plików na stronę (zmniejszona dla lepszej wydajności)
-        self.current_page = 0
-        self.total_pages = 0
 
-        # Przyciski nawigacji
-        self.nav_frame = None
-        self.prev_button = None
-        self.next_button = None
-        self.page_label = None
 
-    def _create_navigation(self):
-        """Tworzy przyciski nawigacji dla paginacji."""
-        if self.nav_frame:
-            return  # Już utworzone
 
-        # Ramka na przyciski nawigacji
-        self.nav_frame = ctk.CTkFrame(self, height=40)
-        self.nav_frame.grid(row=3, column=0, sticky="ew", padx=5, pady=(5, 10))
-        self.nav_frame.grid_columnconfigure(1, weight=1)
-
-        # Przyciski nawigacji
-        self.prev_button = ctk.CTkButton(
-            self.nav_frame, text="◀ Poprzednie", width=100,
-            command=self._prev_page
-        )
-        self.prev_button.grid(row=0, column=0, padx=(5, 2), pady=5)
-
-        self.page_label = ctk.CTkLabel(self.nav_frame, text="Strona 1 z 1")
-        self.page_label.grid(row=0, column=1, pady=5)
-
-        self.next_button = ctk.CTkButton(
-            self.nav_frame, text="Następne ▶", width=100,
-            command=self._next_page
-        )
-        self.next_button.grid(row=0, column=2, padx=(2, 5), pady=5)
-
-        # Ukryj nawigację jeśli niepotrzebna
-        self.nav_frame.grid_remove()
-
-    def _update_navigation(self):
-        """Aktualizuje stan przycisków nawigacji."""
-        if not self.nav_frame:
-            return
-
-        if self.total_pages <= 1:
-            self.nav_frame.grid_remove()
-            return
-
-        self.nav_frame.grid()
-        self.page_label.configure(text=f"Strona {self.current_page + 1} z {self.total_pages}")
-        self.prev_button.configure(state="normal" if self.current_page > 0 else "disabled")
-        self.next_button.configure(state="normal" if self.current_page < self.total_pages - 1 else "disabled")
-
-    def _prev_page(self):
-        """Przechodzi do poprzedniej strony."""
-        if self.current_page > 0:
-            self.current_page -= 1
-            self._display_current_page()
-
-    def _next_page(self):
-        """Przechodzi do następnej strony."""
-        if self.current_page < self.total_pages - 1:
-            self.current_page += 1
-            self._display_current_page()
 
     def populate_files(self, files_data):
         """
         Wypełnia przewijalną ramkę listą plików na podstawie danych z bazy.
-        Używa paginacji dla lepszej wydajności przy dużej liczbie plików.
+        Wyświetla wszystkie pliki jednocześnie.
 
         Argumenty:
             files_data (list): Lista obiektów wierszy z bazy danych.
         """
-        # Zapisz wszystkie dane i oblicz paginację
-        self.all_files = files_data
-        self.total_pages = max(1, (len(files_data) + self.page_size - 1) // self.page_size)
-        self.current_page = 0
-
-        # Utwórz nawigację jeśli jeszcze nie istnieje
-        self._create_navigation()
-
-        # Wyświetl pierwszą stronę
-        self._display_current_page()
-
-    def _display_current_page(self):
-        """
-        Wyświetla pliki z bieżącej strony paginacji.
-        """
         # Najpierw czyścimy stary widok
         self.clear_view()
 
-        if not self.all_files:
-            self._update_navigation()
+        if not files_data:
             return
 
-        # Oblicz zakres plików dla bieżącej strony
-        start_idx = self.current_page * self.page_size
-        end_idx = min(start_idx + self.page_size, len(self.all_files))
-        page_files = self.all_files[start_idx:end_idx]
-
-        # Wyświetl pliki z bieżącej strony
-        for i, file_row in enumerate(page_files, start=1):
+        # Wyświetl wszystkie pliki
+        for i, file_row in enumerate(files_data, start=1):
             # Wyciągamy potrzebne dane z obiektu wiersza.
             file_path = file_row['source_file_path']
             duration_ms = file_row['duration_ms'] or 0
@@ -192,9 +108,9 @@ class FilesView(ctk.CTkFrame):
             # Zapisujemy referencje do stworzonych widżetów.
             self.file_widgets.append((checkbox, file_path, duration_ms, play_button, delete_button))
 
-        # Po dodaniu plików, aktualizujemy stan przycisków play/pauza i nawigacji.
+        # Po dodaniu plików, aktualizujemy stan przycisków play/pauza.
         self.update_play_buttons()
-        self._update_navigation()
+
 
     def on_checkbox_toggle(self, file_path, var):
         """
