@@ -62,9 +62,10 @@ class FilesView(ctk.CTkFrame):
         for i, file_row in enumerate(files_data, start=1): # `start=1`, bo wiersz 0 jest na nagłówki.
             # Wyciągamy potrzebne dane z obiektu wiersza.
             file_path = file_row['source_file_path']
-            duration_sec = file_row['duration_seconds'] or 0
+            duration_ms = file_row['duration_ms'] or 0
             is_selected = file_row['is_selected']
 
+            duration_sec = duration_ms / 1000
             filename = os.path.basename(file_path)
             # Formatujemy czas trwania na czytelny format MM:SS.
             duration_str = f"{int(duration_sec // 60):02d}:{int(duration_sec % 60):02d}"
@@ -100,7 +101,7 @@ class FilesView(ctk.CTkFrame):
                 duration_label.configure(text_color="red")
 
             # Zapisujemy referencje do stworzonych widżetów.
-            self.file_widgets.append((checkbox, file_path, duration_sec, play_button, delete_button))
+            self.file_widgets.append((checkbox, file_path, duration_ms, play_button, delete_button))
 
         # Po dodaniu wszystkich plików, aktualizujemy stan przycisków play/pauza.
         self.update_play_buttons()
