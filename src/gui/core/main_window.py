@@ -93,7 +93,7 @@ class App(ctk.CTk):
             # Obliczamy różne statystyki na podstawie listy plików.
             total_files = len(all_files)
             selected_files = sum(1 for row in all_files if row['is_selected'])
-            long_files = sum(1 for row in all_files if row['duration_seconds'] is not None and row['duration_seconds'] > config.MAX_FILE_DURATION_SECONDS)
+            long_files = sum(1 for row in all_files if row['duration_ms'] is not None and row['duration_ms'] > (config.MAX_FILE_DURATION_SECONDS * 1000))
             # Aktualizujemy tekst etykiety.
             counter_text = f"Razem: {total_files}  |  Zaznaczone: {selected_files}  |  Długie: {long_files}"
             self.files_counter_label.configure(text=counter_text)
