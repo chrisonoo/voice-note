@@ -7,9 +7,14 @@ import sqlite3  # Standardowa biblioteka Pythona do obsługi baz danych SQLite.
 import os  # Biblioteka do interakcji z systemem operacyjnym, np. operacje na plikach i folderach.
 import shutil  # Biblioteka do operacji na plikach wysokiego poziomu, np. usuwanie całych drzew folderów.
 import functools  # Używane do tworzenia dekoratorów, które "owijają" inne funkcje.
+import time  # Dodane dla optymalizacji wydajności
 from datetime import datetime
 from . import config  # Importujemy nasz plik konfiguracyjny, aby mieć dostęp do globalnych ustawień.
 from .audio.duration_checker import get_file_duration  # Importujemy funkcję do sprawdzania długości plików audio.
+
+# Singleton dla połączenia z bazą danych
+_db_connection = None
+_db_connection_lock = time.thread_time_ns()  # Prosty lock dla bezpieczeństwa wątkowego
 
 def _format_row(row):
     """Formatuje obiekt sqlite3.Row do czytelnego ciągu znaków, np. 'id: 1, name: test'."""
@@ -83,16 +88,29 @@ def _execute_query(cursor, query, params=None, fetch=None):
         return cursor.fetchall()
 
 def get_db_connection():
-    """Nawiązuje połączenie z bazą danych i zwraca obiekt połączenia."""
-    # Upewniamy się, że folder, w którym ma być baza danych, istnieje.
-    # `exist_ok=True` sprawia, że funkcja nie rzuci błędu, jeśli folder już istnieje.
-    os.makedirs(os.path.dirname(config.DATABASE_FILE), exist_ok=True)
-    # Łączymy się z plikiem bazy danych zdefiniowanym w konfiguracji.
-    conn = sqlite3.connect(config.DATABASE_FILE)
-    # `row_factory = sqlite3.Row` sprawia, że wyniki zapytań będą dostępne jak słowniki (po nazwach kolumn),
-    # co jest znacznie czytelniejsze niż dostęp po indeksach.
-    conn.row_factory = sqlite3.Row
-    return conn
+    """Nawiązuje połączenie z bazą danych i zwraca obiekt połączenia (singleton z optymalizacjami)."""
+    global _db_connection
+
+    if _db_connection is None:
+        # Upewniamy się, że folder, w którym ma być baza danych, istnieje.
+        os.makedirs(os.path.dirname(config.DATABASE_FILE), exist_ok=True)
+
+        # Łączymy się z plikiem bazy danych zdefiniowanym w konfiguracji.
+        _db_connection = sqlite3.connect(config.DATABASE_FILE, check_same_thread=False)
+
+        # `row_factory = sqlite3.Row` sprawia, że wyniki zapytań będą dostępne jak słowniki (po nazwach kolumn),
+        # co jest znacznie czytelniejsze niż dostęp po indeksach.
+        _db_connection.row_factory = sqlite3.Row
+
+        # Optymalizacje SQLite dla lepszej wydajności
+        _db_connection.execute("PRAGMA synchronous = NORMAL")  # Zbalansowana synchronizacja
+        _db_connection.execute("PRAGMA cache_size = -1000000")  # 1GB cache (ujemna wartość = KB)
+        _db_connection.execute("PRAGMA temp_store = memory")   # Przechowuj temp tabele w pamięci
+        _db_connection.execute("PRAGMA mmap_size = 268435456") # 256MB memory-mapped I/O
+        _db_connection.execute("PRAGMA journal_mode = WAL")    # Write-Ahead Logging dla lepszej współbieżności
+        _db_connection.execute("PRAGMA wal_autocheckpoint = 1000")  # Auto-checkpoint co 1000 stron
+
+    return _db_connection
 
 @log_db_operation
 def initialize_database():
@@ -131,6 +149,13 @@ def initialize_database():
             previous_ms INTEGER
         );
         """)
+        # Dodajemy indeksy dla lepszej wydajności zapytań
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_selected_loaded ON files(is_selected, is_loaded)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_loaded_processed ON files(is_loaded, is_processed)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_start_datetime ON files(start_datetime)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_source_path ON files(source_file_path)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_duration_ms ON files(duration_ms)")
+
         # `conn.commit()` zapisuje wszystkie zmiany wykonane w transakcji.
         conn.commit()
     print(f"Baza danych została zainicjalizowana w: {config.DATABASE_FILE}")
@@ -315,3 +340,53 @@ def delete_file(file_path):
                 print(f"Usunięto plik tymczasowy: {tmp_file_path}")
         except OSError as e:
             print(f"Błąd podczas usuwania pliku tymczasowego {tmp_file_path}: {e}")
+
+@log_db_operation
+def get_cached_duration(file_path):
+    """Pobiera zcache'owaną długość pliku z bazy danych."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        return _execute_query(
+            cursor,
+            "SELECT duration_ms FROM files WHERE source_file_path = ? AND duration_ms IS NOT NULL",
+            (file_path,),
+            fetch='one'
+        )
+
+@log_db_operation
+def cache_file_duration(file_path, duration_seconds):
+    """Zapisuje obliczoną długość pliku w cache'u bazy danych."""
+    duration_ms = int(duration_seconds * 1000)
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        _execute_query(
+            cursor,
+            "UPDATE files SET duration_ms = ? WHERE source_file_path = ?",
+            (duration_ms, file_path)
+        )
+        conn.commit()
+
+@log_db_operation
+def optimize_database():
+    """Optymalizuje bazę danych - uruchamia VACUUM i ANALYZE."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        print("Optymalizacja bazy danych...")
+        cursor.execute("VACUUM")
+        cursor.execute("ANALYZE")
+        conn.commit()
+    print("Optymalizacja bazy danych zakończona.")
+
+@log_db_operation
+def validate_file_access(file_path):
+    """Sprawdza dostępność pliku przed przetworzeniem."""
+    if not os.path.exists(file_path):
+        return False, "Plik nie istnieje"
+
+    try:
+        # Sprawdź czy plik nie jest uszkodzony - czytaj pierwsze 1KB
+        with open(file_path, 'rb') as f:
+            f.read(1024)
+        return True, None
+    except (OSError, IOError) as e:
+        return False, f"Błąd dostępu do pliku: {e}"

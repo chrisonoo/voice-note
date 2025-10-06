@@ -110,6 +110,11 @@ class TranscriptionController:
         # Resetujemy referencję do wątku i flagę pauzy.
         self.app.processing_thread = None
         self.app.pause_request_event.clear()
+        # Unieważniamy cache ponieważ dane zostały przetworzone
+        self.app.invalidate_cache()
+        # Optymalizujemy bazę danych po zakończeniu przetwarzania
+        from src import database
+        database.optimize_database()
         # Aktualizujemy finalny stan interfejsu.
         self.app.button_state_controller.update_ui_state()
         self.app.refresh_all_views()

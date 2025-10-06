@@ -8,6 +8,7 @@ import threading  # Moduł do pracy z wątkami, używany tutaj do obsługi pauzy
 from src.whisper import Whisper  # Importujemy naszą klasę-wrapper dla API OpenAI Whisper.
 from src import database  # Importujemy moduł do operacji na bazie danych.
 from src.metadata import format_transcription_header # Importujemy funkcję do formatowania nagłówka.
+from src.utils.error_handlers import with_error_handling, measure_performance  # Dekoratory
 
 class TranscriptionProcessor:
     """
@@ -31,6 +32,8 @@ class TranscriptionProcessor:
         self.pause_requested_event = pause_requested_event
         self.on_progress_callback = on_progress_callback
 
+    @with_error_handling("Transkrypcja plików")
+    @measure_performance
     def process_transcriptions(self):
         """
         Główna metoda orkiestrująca procesem transkrypcji.
@@ -50,6 +53,12 @@ class TranscriptionProcessor:
 
         # Iterujemy przez każdy plik, który wymaga transkrypcji.
         for source_path in files_to_process:
+            # Najpierw sprawdź dostępność pliku źródłowego
+            is_valid, error_msg = database.validate_file_access(source_path)
+            if not is_valid:
+                print(f"    BŁĄD: Plik źródłowy niedostępny - {error_msg}. Pomijanie.")
+                continue
+
             # Pobieramy wszystkie potrzebne metadane pliku z bazy danych jednym zapytaniem.
             file_metadata = database.get_file_metadata(source_path)
 

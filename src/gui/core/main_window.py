@@ -6,6 +6,7 @@ import customtkinter as ctk  # Biblioteka do tworzenia nowoczesnego interfejsu g
 from tkinter import messagebox  # Standardowy moduł Tkinter do wyświetlania okien dialogowych (np. z potwierdzeniem).
 import threading  # Moduł do pracy z wątkami, kluczowy do wykonywania długich operacji (jak transkrypcja) w tle.
 import pygame  # Biblioteka używana tutaj do odtwarzania dźwięku (próbek audio).
+import time  # Dodane dla cachowania danych
 from src import config, database  # Importujemy nasze własne moduły: konfigurację i bazę danych.
 
 # Importujemy wszystkie komponenty i kontrolery, które będą używane w głównym oknie.
@@ -40,6 +41,11 @@ class App(ctk.CTk):
         self.processing_thread = None  # Będzie przechowywać referencję do wątku roboczego.
         # `threading.Event` to prosty mechanizm do komunikacji między wątkami. Używamy go do sygnalizowania pauzy.
         self.pause_request_event = threading.Event()
+
+        # Inicjalizujemy cache dla danych z bazy
+        self._cached_files_data = None
+        self._cache_timestamp = 0
+        self._cache_timeout = 2.0  # sekundy
 
         # Ustawiamy tytuł okna, pobierając go z pliku konfiguracyjnego.
         self.title(config.APP_NAME)
@@ -78,43 +84,70 @@ class App(ctk.CTk):
 
         # Uruchamiamy cykliczne sprawdzanie statusu odtwarzania audio.
         self._check_playback_status()
-    
+
+    def get_cached_files_data(self):
+        """Zwraca dane z cache'a lub odświeża jeśli cache jest przestarzały."""
+        current_time = time.time()
+        if self._cached_files_data is None or (current_time - self._cache_timestamp) > self._cache_timeout:
+            self._cached_files_data = database.get_all_files()
+            self._cache_timestamp = current_time
+        return self._cached_files_data
+
+    def invalidate_cache(self):
+        """Unieważnia cache gdy dane mogły się zmienić."""
+        self._cached_files_data = None
+
     def update_all_counters(self, all_files=None):
         """
         Aktualizuje wszystkie etykiety z licznikami plików.
-        Jeśli dane nie są dostarczone (`all_files` jest None), pobiera je z bazy.
+        Jeśli dane nie są dostarczone (`all_files` jest None), pobiera je z cache'a.
         W przeciwnym razie, używa istniejących danych, aby uniknąć zbędnych zapytań do bazy.
         """
         try:
-            # Optymalizacja: jeśli nie dostaliśmy danych, pobieramy je raz.
+            # Używamy cache'a zamiast bezpośredniego zapytania do bazy
             if all_files is None:
-                all_files = database.get_all_files()
+                all_files = self.get_cached_files_data()
 
-            # Obliczamy różne statystyki na podstawie listy plików.
-            total_files = len(all_files)
-            selected_files = sum(1 for row in all_files if row['is_selected'])
-            long_files = sum(1 for row in all_files if row['duration_ms'] is not None and row['duration_ms'] > (config.MAX_FILE_DURATION_SECONDS * 1000))
-            # Aktualizujemy tekst etykiety.
-            counter_text = f"Razem: {total_files}  |  Zaznaczone: {selected_files}  |  Długie: {long_files}"
-            self.files_counter_label.configure(text=counter_text)
+            # Jedna pętla dla wszystkich obliczeń - optymalizacja wydajności
+            stats = {
+                'total': len(all_files),
+                'selected': 0,
+                'long': 0,
+                'loaded': 0,
+                'processing': 0,
+                'processed': 0
+            }
 
-            loaded_count = sum(1 for row in all_files if row['is_loaded'])
-            processing_count = sum(1 for row in all_files if row['is_loaded'] and not row['is_processed'])
-            processed_count = sum(1 for row in all_files if row['is_processed'])
-            self.loaded_counter_label.configure(text=f"Wczytane: {loaded_count}")
-            self.processing_counter_label.configure(text=f"Kolejka: {processing_count}")
-            self.processed_counter_label.configure(text=f"Gotowe: {processed_count}")
+            max_duration_ms = config.MAX_FILE_DURATION_SECONDS * 1000
+
+            for row in all_files:
+                if row['is_selected']:
+                    stats['selected'] += 1
+                if row['duration_ms'] and row['duration_ms'] > max_duration_ms:
+                    stats['long'] += 1
+                if row['is_loaded']:
+                    stats['loaded'] += 1
+                    if not row['is_processed']:
+                        stats['processing'] += 1
+                if row['is_processed']:
+                    stats['processed'] += 1
+
+            # Aktualizuj etykiety
+            self.files_counter_label.configure(text=f"Razem: {stats['total']} | Zaznaczone: {stats['selected']} | Długie: {stats['long']}")
+            self.loaded_counter_label.configure(text=f"Wczytane: {stats['loaded']}")
+            self.processing_counter_label.configure(text=f"Kolejka: {stats['processing']}")
+            self.processed_counter_label.configure(text=f"Gotowe: {stats['processed']}")
 
         except Exception as e:
             print(f"Błąd podczas aktualizacji liczników: {e}")
 
     def refresh_all_views(self):
         """
-        Odświeża wszystkie główne widoki (panele z plikami), pobierając dane z bazy tylko raz
+        Odświeża wszystkie główne widoki (panele z plikami), pobierając dane z cache'a
         i przekazując je do poszczególnych metod, co jest wydajniejsze.
         """
         try:
-            all_files = database.get_all_files()
+            all_files = self.get_cached_files_data()
             # Przekazujemy pobrane dane do menedżera paneli, liczników i kontrolera przycisków.
             self.panel_manager.refresh_all_views(data=all_files)
             self.update_all_counters(all_files=all_files)
@@ -174,6 +207,10 @@ class App(ctk.CTk):
 
                 # Czyścimy bazę danych i pliki tymczasowe.
                 database.clear_database_and_tmp_folder()
+                # Optymalizujemy bazę danych po wyczyszczeniu
+                database.optimize_database()
+                # Unieważniamy cache ponieważ dane zostały wyczyszczone
+                self.invalidate_cache()
                 # Odświeżamy wszystkie widoki, aby odzwierciedliły pusty stan.
                 self.refresh_all_views()
                 # Czyścimy również główny panel z transkrypcją.

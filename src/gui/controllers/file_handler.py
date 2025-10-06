@@ -50,8 +50,9 @@ class FileHandler:
         # Po dodaniu plików, uruchamiamy centralną funkcję do przetworzenia ich metadanych.
         process_and_update_all_metadata()
 
-        # Po dodaniu plików i przetworzeniu metadanych, aktualizujemy stan przycisków i odświeżamy widoki,
+        # Po dodaniu plików i przetworzeniu metadanych, unieważniamy cache i aktualizujemy stan przycisków i odświeżamy widoki,
         # aby użytkownik od razu zobaczył efekt swojej akcji.
+        self.app.invalidate_cache()
         self.app.button_state_controller.update_ui_state()
         self.app.refresh_all_views()
 

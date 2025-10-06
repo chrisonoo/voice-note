@@ -8,6 +8,7 @@ import os
 from datetime import datetime, timedelta
 from . import database, config
 from .audio.duration_checker import get_file_duration
+from .utils.error_handlers import with_error_handling, measure_performance  # Dekoratory
 
 def _format_timedelta_to_hms(td: timedelta):
     """Formatuje obiekt timedelta do czytelnego formatu HH:MM:SS."""
@@ -27,6 +28,8 @@ def _format_timedelta_to_mss(td: timedelta):
     milliseconds = td.microseconds // 1000
     return f"{int(minutes):02}:{int(seconds):02}.{milliseconds:03}"
 
+@with_error_handling("Przetwarzanie metadanych")
+@measure_performance
 def process_and_update_all_metadata(allow_long=False):
     """
     Centralna funkcja do przetwarzania metadanych.

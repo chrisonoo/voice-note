@@ -8,7 +8,9 @@ from src import config, database  # Importujemy własne moduły: konfigurację i
 
 def get_file_duration(file_path):
     """
-    Pobiera czas trwania pliku audio za pomocą narzędzia ffprobe.
+    Pobiera czas trwania pliku audio za pomocą narzędzia ffprobe z cachowaniem.
+
+    Najpierw sprawdza cache w bazie danych, jeśli nie ma - oblicza i zapisuje.
 
     Argumenty:
         file_path (str): Ścieżka do pliku audio, którego czas trwania ma być sprawdzony.
@@ -16,12 +18,26 @@ def get_file_duration(file_path):
     Zwraca:
         float: Czas trwania pliku w sekundach. Jeśli wystąpi błąd, zwraca 0.0.
     """
-    # Budujemy komendę `ffprobe`, która zostanie wykonana w terminalu.
-    # `ffprobe -v quiet -print_format json -show_format -show_streams {plik}`
-    # -v quiet: Wyłącza logowanie informacyjne ffprobe, aby nie "zaśmiecać" wyjścia.
-    # -print_format json: Nakazuje ffprobe zwrócić wynik w formacie JSON, który jest łatwy do przetworzenia w Pythonie.
-    # -show_format: Dołącza do wyniku ogólne informacje o formacie pliku (w tym czas trwania).
-    # -show_streams: Dołącza informacje o poszczególnych strumieniach (audio, wideo) w pliku.
+    from src import database
+
+    # Najpierw sprawdź cache w bazie danych
+    cached_result = database.get_cached_duration(file_path)
+    if cached_result:
+        return cached_result['duration_ms'] / 1000.0
+
+    # Jeśli nie ma w cache, oblicz duration
+    duration_sec = _calculate_file_duration(file_path)
+
+    # Zapisz w cache jeśli się udało obliczyć
+    if duration_sec > 0:
+        database.cache_file_duration(file_path, duration_sec)
+
+    return duration_sec
+
+def _calculate_file_duration(file_path):
+    """
+    Oblicza czas trwania pliku audio za pomocą ffprobe (bez cachowania).
+    """
     command = [
         'ffprobe',
         '-v', 'quiet',
@@ -31,19 +47,13 @@ def get_file_duration(file_path):
         file_path
     ]
     try:
-        # Uruchamiamy komendę `ffprobe`.
-        # `capture_output=True`: Przechwytuje standardowe wyjście, gdzie znajdą się dane JSON.
-        # `text=True`: Dekoduje przechwycone wyjście jako tekst.
-        # `check=True`: Rzuci wyjątkiem, jeśli ffprobe zwróci błąd.
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
-        # `json.loads` parsuje tekst w formacie JSON na słownik Pythona.
+        result = subprocess.run(command, capture_output=True, text=True, check=True, timeout=30)
         data = json.loads(result.stdout)
-        # Czas trwania całego pliku znajduje się w kluczu 'duration' w sekcji 'format'.
-        # Konwertujemy go na typ float (liczba zmiennoprzecinkowa).
         return float(data['format']['duration'])
+    except subprocess.TimeoutExpired:
+        print(f"TIMEOUT: Sprawdzanie długości pliku {os.path.basename(file_path)} przekroczyło limit czasu")
+        return 0.0
     except Exception as e:
-        # Jeśli wystąpi jakikolwiek błąd (np. plik nie istnieje, nie jest plikiem multimedialnym, ffprobe nie jest zainstalowany),
-        # łapiemy wyjątek, drukujemy komunikat i zwracamy bezpieczną wartość 0.0.
         print(f"Błąd podczas sprawdzania czasu trwania pliku {os.path.basename(file_path)}: {e}")
         return 0.0
 
