@@ -94,19 +94,49 @@ def process_and_update_all_metadata(allow_long=False):
 def format_transcription_header(file_metadata):
     """
     Tworzy sformatowany nagłówek tekstowy na podstawie metadanych z bazy.
+    Funkcja jest odporna na brakujące dane (NULL w bazie).
     """
-    if not file_metadata or 'start_datetime' not in file_metadata or file_metadata['start_datetime'] is None:
+    if not file_metadata:
         return ""
 
-    start_dt = datetime.strptime(file_metadata['start_datetime'], '%Y-%m-%d %H:%M:%S')
-    end_dt = datetime.strptime(file_metadata['end_datetime'], '%Y-%m-%d %H:%M:%S.%f')
-    duration_td = timedelta(milliseconds=file_metadata['duration_ms'])
-    previous_td = timedelta(milliseconds=file_metadata['previous_ms'])
+    # Definiujemy domyślne wartości na wypadek błędów lub braku danych.
+    start_str = "N/A"
+    end_str = "N/A"
+    duration_str = "N/A"
+    previous_str = "N/A"
 
-    # Formatujemy wartości do szablonu.
-    start_str = start_dt.strftime('%Y-%m-%d %H:%M:%S')
-    end_str = end_dt.strftime('%H:%M:%S.%f')[:-3]
-    duration_str = _format_timedelta_to_mss(duration_td)
-    previous_str = _format_timedelta_to_hms(previous_td)
+    try:
+        # Próbujemy sformatować datę rozpoczęcia.
+        start_dt_str = file_metadata.get('start_datetime')
+        if start_dt_str:
+            start_dt = datetime.strptime(start_dt_str, '%Y-%m-%d %H:%M:%S')
+            start_str = start_dt.strftime('%Y-%m-%d %H:%M:%S')
+
+        # Próbujemy sformatować datę zakończenia.
+        end_dt_str = file_metadata.get('end_datetime')
+        if end_dt_str:
+            end_dt = datetime.strptime(end_dt_str, '%Y-%m-%d %H:%M:%S.%f')
+            end_str = end_dt.strftime('%H:%M:%S.%f')[:-3]
+
+        # Próbujemy sformatować czas trwania.
+        duration_ms = file_metadata.get('duration_ms')
+        if duration_ms is not None:
+            duration_td = timedelta(milliseconds=duration_ms)
+            duration_str = _format_timedelta_to_mss(duration_td)
+
+        # Próbujemy sformatować przerwę od poprzedniego.
+        previous_ms = file_metadata.get('previous_ms')
+        if previous_ms is not None:
+            previous_td = timedelta(milliseconds=previous_ms)
+            previous_str = _format_timedelta_to_hms(previous_td)
+
+    except (TypeError, ValueError) as e:
+        # W przypadku błędu parsowania, logujemy go, ale nie przerywamy działania.
+        print(f"    OSTRZEŻENIE: Błąd podczas formatowania nagłówka transkrypcji: {e}")
+        # Wartości pozostaną jako "N/A".
+
+    # Zwracamy pusty string tylko jeśli brakuje kluczowej informacji o starcie.
+    if start_str == "N/A":
+        return ""
 
     return f"[START: {start_str} | END: {end_str} | DURATION: {duration_str} | PREVIOUS: {previous_str}]"
