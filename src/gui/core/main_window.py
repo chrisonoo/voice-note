@@ -276,6 +276,9 @@ class App(ctk.CTk):
             self.panel_manager.refresh_transcription_progress_views(data=all_files)
             self.update_all_counters(all_files=all_files)
             self.button_state_controller.update_ui_state(all_files=all_files)
+
+            # Odświeżamy również panel transkrypcji z uwzględnieniem ustawień checkboxa
+            self.refresh_transcription_display()
         except Exception as e:
             print(f"Błąd w trakcie aktualizacji postępu: {e}")
 
