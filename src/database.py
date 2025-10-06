@@ -124,7 +124,11 @@ def initialize_database():
             is_loaded BOOLEAN NOT NULL DEFAULT 0,
             is_processed BOOLEAN NOT NULL DEFAULT 0,
             transcription TEXT,
-            duration_seconds REAL
+            duration_seconds REAL,
+            start_datetime TEXT,
+            end_datetime TEXT,
+            duration_ms INTEGER,
+            previous_ms INTEGER
         );
         """)
         # `conn.commit()` zapisuje wszystkie zmiany wykonane w transakcji.
@@ -244,6 +248,51 @@ def get_all_files():
     with get_db_connection() as conn:
         cursor = conn.cursor()
         return _execute_query(cursor, "SELECT * FROM files ORDER BY source_file_path", fetch='all')
+
+@log_db_operation
+def get_all_files_for_metadata():
+    """Pobiera wszystkie pliki z bazy danych, posortowane alfabetycznie, na potrzeby przetwarzania metadanych."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        # Zwracamy tylko te kolumny, które są potrzebne do obliczeń metadanych.
+        return _execute_query(cursor, "SELECT id, source_file_path, duration_seconds FROM files ORDER BY source_file_path", fetch='all')
+
+@log_db_operation
+def update_files_metadata_bulk(metadata_list):
+    """Masowo aktualizuje metadane dla listy plików."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        # Przygotowujemy dane do masowej aktualizacji.
+        update_data = [
+            (
+                item['start_datetime'],
+                item['end_datetime'],
+                item['duration_ms'],
+                item['previous_ms'],
+                item['id']
+            ) for item in metadata_list
+        ]
+        cursor.executemany(
+            """
+            UPDATE files
+            SET start_datetime = ?, end_datetime = ?, duration_ms = ?, previous_ms = ?
+            WHERE id = ?
+            """,
+            update_data
+        )
+        conn.commit()
+
+@log_db_operation
+def get_file_metadata(source_file_path):
+    """Pobiera metadane dla pojedynczego pliku."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        return _execute_query(
+            cursor,
+            "SELECT tmp_file_path, start_datetime, end_datetime, duration_ms, previous_ms, transcription FROM files WHERE source_file_path = ?",
+            (source_file_path,),
+            fetch='one'
+        )
 
 @log_db_operation
 def clear_database_and_tmp_folder():

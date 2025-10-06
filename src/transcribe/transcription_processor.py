@@ -7,6 +7,7 @@ import os  # Moduł do operacji na ścieżkach plików, np. do wyciągania nazwy
 import threading  # Moduł do pracy z wątkami, używany tutaj do obsługi pauzy w trybie GUI.
 from src.whisper import Whisper  # Importujemy naszą klasę-wrapper dla API OpenAI Whisper.
 from src import database  # Importujemy moduł do operacji na bazie danych.
+from src.metadata import format_transcription_header # Importujemy funkcję do formatowania nagłówka.
 
 class TranscriptionProcessor:
     """
@@ -49,19 +50,14 @@ class TranscriptionProcessor:
 
         # Iterujemy przez każdy plik, który wymaga transkrypcji.
         for source_path in files_to_process:
-            # Pobieramy szczegóły pliku (w tym ścieżkę do tymczasowego pliku .wav) wewnątrz pętli.
-            # Daje to pewność, że pracujemy na najbardziej aktualnych danych z bazy.
-            with database.get_db_connection() as conn:
-                cursor = conn.cursor()
-                cursor.execute("SELECT tmp_file_path FROM files WHERE source_file_path = ?", (source_path,))
-                result = cursor.fetchone()
+            # Pobieramy wszystkie potrzebne metadane pliku z bazy danych jednym zapytaniem.
+            file_metadata = database.get_file_metadata(source_path)
 
-            # Sprawdzamy, czy udało się pobrać dane i czy ścieżka do pliku tymczasowego istnieje.
-            if not result or not result['tmp_file_path']:
-                 print(f"    BŁĄD: Brak ścieżki tymczasowej dla pliku: {source_path}. Pomijanie.")
-                 continue  # `continue` przerywa bieżącą iterację i przechodzi do następnego pliku.
+            if not file_metadata or not file_metadata['tmp_file_path']:
+                print(f"    BŁĄD: Brak metadanych lub ścieżki tymczasowej dla pliku: {source_path}. Pomijanie.")
+                continue
 
-            tmp_path = result['tmp_file_path']
+            tmp_path = file_metadata['tmp_file_path']
 
             # Dodatkowe zabezpieczenie: sprawdzamy, czy plik tymczasowy fizycznie istnieje na dysku.
             if not os.path.exists(tmp_path):
@@ -78,9 +74,14 @@ class TranscriptionProcessor:
             # Sprawdzamy, czy transkrypcja się powiodła i czy wynik zawiera tekst.
             # `hasattr` sprawdza, czy obiekt `transcription` ma atrybut o nazwie 'text'.
             if transcription and hasattr(transcription, 'text'):
-                # Jeśli tak, zapisujemy uzyskaną transkrypcję w bazie danych.
-                database.update_file_transcription(source_path, transcription.text)
-                print(f"    Sukces: Transkrypcja zapisana w bazie danych.")
+                # Tworzymy sformatowany nagłówek na podstawie metadanych.
+                header = format_transcription_header(file_metadata)
+                # Łączymy nagłówek z transkrypcją.
+                final_transcription = f"{header}\n\n{transcription.text}"
+
+                # Zapisujemy połączony tekst w bazie danych.
+                database.update_file_transcription(source_path, final_transcription)
+                print(f"    Sukces: Transkrypcja z nagłówkiem zapisana w bazie danych.")
 
                 # Jeśli do procesora została przekazana funkcja zwrotna (w trybie GUI)...
                 if self.on_progress_callback:

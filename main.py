@@ -11,6 +11,7 @@ import os  # Moduł do interakcji z systemem operacyjnym, np. sprawdzania ście�
 from src.audio import encode_audio_files, validate_file_durations  # Funkcje do obsługi plików audio.
 from src.transcribe import TranscriptionProcessor  # Główna klasa zarządzająca procesem transkrypcji.
 from src import database  # Moduł do obsługi bazy danych.
+from src.metadata import process_files_metadata # Moduł do obsługi metadanych.
 
 def main_cli(args):
     """
@@ -60,6 +61,9 @@ def main_cli(args):
         else:
             print("Wszystkie pliki mieszczą się w limicie 5 minut.")
 
+    # === KROK 1.8: Przetwarzanie metadanych ===
+    # Wywołujemy funkcję, która oblicza i zapisuje metadane (start, stop, przerwy).
+    process_files_metadata()
 
     # === KROK 2: Konwersja plików audio ===
     # Wywołujemy funkcję, która pobiera pliki z bazy i konwertuje je do formatu .wav.
