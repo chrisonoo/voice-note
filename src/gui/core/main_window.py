@@ -77,10 +77,13 @@ class App(ctk.CTk):
 
         # Wywołujemy metodę, która fizycznie tworzy i umieszcza wszystkie widżety w oknie.
         self.interface_builder.create_widgets()
-        
+
         # Ustawiamy początkowy stan przycisków i odświeżamy widoki.
         self.button_state_controller.update_ui_state()
         self.refresh_all_views()
+
+        # Inicjalizujemy wyświetlanie transkrypcji zgodnie z domyślnym stanem checkboxa
+        self.refresh_transcription_display()
 
         # Uruchamiamy cykliczne sprawdzanie statusu odtwarzania audio.
         self._check_playback_status()
