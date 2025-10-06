@@ -9,19 +9,20 @@ import re
 from datetime import datetime, timedelta
 from . import database
 
-def _extract_start_datetime_from_filename(filename):
+def _get_start_datetime_from_mtime(file_path):
     """
-    Wyodrębnia datę i czas rozpoczęcia nagrania z nazwy pliku.
-    Oczekiwany format w nazwie pliku: RRRRMMDD_HHMMSS
-    Przykład: 'Nagranie_20231026_103000.mp3' -> datetime(2023, 10, 26, 10, 30, 0)
+    Pobiera datę i czas rozpoczęcia nagrania na podstawie
+    daty ostatniej modyfikacji pliku. Jest to bardziej niezawodne
+    niż parsowanie nazwy pliku.
     """
-    # Używamy wyrażenia regularnego do znalezienia wzorca daty i czasu w nazwie pliku.
-    match = re.search(r'(\d{8})_(\d{6})', os.path.basename(filename))
-    if match:
-        date_str, time_str = match.groups()
-        # Łączymy znalezione ciągi znaków i parsujemy je do obiektu datetime.
-        return datetime.strptime(f"{date_str}{time_str}", '%Y%m%d%H%M%S')
-    return None
+    try:
+        # Pobieramy czas ostatniej modyfikacji jako timestamp.
+        mtime = os.path.getmtime(file_path)
+        # Konwertujemy timestamp na obiekt datetime.
+        return datetime.fromtimestamp(mtime)
+    except (OSError, ValueError):
+        # Zwracamy None w przypadku błędu (np. plik nie istnieje).
+        return None
 
 def _format_timedelta_to_hms(td: timedelta):
     """Formatuje obiekt timedelta do czytelnego formatu HH:MM:SS."""
@@ -63,10 +64,10 @@ def process_files_metadata():
 
     # Przetwarzamy pliki w pętli.
     for file_data in files:
-        # Wyodrębniamy datę rozpoczęcia z nazwy pliku.
-        start_datetime = _extract_start_datetime_from_filename(file_data['source_file_path'])
+        # Wyodrębniamy datę rozpoczęcia z daty modyfikacji pliku.
+        start_datetime = _get_start_datetime_from_mtime(file_data['source_file_path'])
         if not start_datetime:
-            print(f"    OSTRZEŻENIE: Nie można wyodrębnić daty z pliku: {file_data['source_file_path']}. Pomijanie.")
+            print(f"    OSTRZEŻENIE: Nie można odczytać daty modyfikacji pliku: {file_data['source_file_path']}. Pomijanie.")
             continue
 
         # Czas trwania jest już w bazie (w milisekundach).
