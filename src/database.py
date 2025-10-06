@@ -139,37 +139,26 @@ def initialize_database():
 def add_file(file_path):
     """
     Dodaje nowy plik do bazy danych, jeśli jeszcze nie istnieje.
-    Automatycznie oblicza czas trwania i datę startową, a następnie ustawia flagę 'is_selected'.
+    Na tym etapie zapisujemy tylko ścieżkę, reszta metadanych zostanie
+    obliczona w osobnym kroku.
     """
     try:
-        # Pobieramy czas trwania pliku w sekundach.
-        duration_sec = get_file_duration(file_path)
-        duration_ms = int(duration_sec * 1000)
-
-        # Pobieramy czas ostatniej modyfikacji, konwertujemy i formatujemy.
-        mtime = os.path.getmtime(file_path)
-        start_dt = datetime.fromtimestamp(mtime)
-        start_datetime_str = start_dt.strftime('%Y-%m-%d %H:%M:%S')
-
-        # Plik jest domyślnie odznaczony, jeśli jest za długi.
-        is_selected = not (duration_sec > config.MAX_FILE_DURATION_SECONDS)
-
         with get_db_connection() as conn:
             cursor = conn.cursor()
             # Próbujemy wstawić nowy wiersz do tabeli.
             _execute_query(
                 cursor,
-                "INSERT INTO files (source_file_path, duration_ms, is_selected, start_datetime) VALUES (?, ?, ?, ?)",
-                (file_path, duration_ms, is_selected, start_datetime_str)
+                "INSERT INTO files (source_file_path) VALUES (?)",
+                (file_path,)
             )
             conn.commit()
     except sqlite3.IntegrityError:
         # Jeśli plik już istnieje (dzięki ograniczeniu UNIQUE na kolumnie `source_file_path`),
         # baza rzuci błąd `IntegrityError`. My go przechwytujemy i ignorujemy, bo to oczekiwane zachowanie.
         pass
-    except (OSError, ValueError) as e:
-        # Przechwytujemy błędy związane z odczytem pliku (np. nie istnieje, brak uprawnień).
-        print(f"Błąd podczas dodawania pliku {file_path}: {e}")
+    except Exception as e:
+        # Przechwytujemy inne potencjalne błędy.
+        print(f"Błąd podczas dodawania pliku {file_path} do bazy: {e}")
 
 
 @log_db_operation
@@ -234,30 +223,32 @@ def get_all_files():
         return _execute_query(cursor, "SELECT * FROM files ORDER BY start_datetime", fetch='all')
 
 @log_db_operation
-def get_all_files_for_metadata():
-    """Pobiera wszystkie pliki z bazy danych, posortowane chronologicznie, na potrzeby przetwarzania metadanych."""
+def get_files_needing_metadata():
+    """Pobiera pliki, które nie mają jeszcze przetworzonych metadanych (start_datetime jest NULL)."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        # Zwracamy tylko te kolumny, które są potrzebne do obliczeń metadanych.
-        return _execute_query(cursor, "SELECT id, source_file_path, duration_ms, start_datetime FROM files ORDER BY start_datetime", fetch='all')
+        return _execute_query(cursor, "SELECT id, source_file_path FROM files WHERE start_datetime IS NULL", fetch='all')
 
 @log_db_operation
-def update_files_metadata_bulk(metadata_list):
-    """Masowo aktualizuje uzupełnione metadane (end_datetime, previous_ms) dla listy plików."""
+def update_all_metadata_bulk(metadata_list):
+    """Masowo aktualizuje wszystkie obliczone metadane dla listy plików."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
         # Przygotowujemy dane do masowej aktualizacji.
         update_data = [
             (
+                item['start_datetime'],
+                item['duration_ms'],
                 item['end_datetime'],
                 item['previous_ms'],
+                item['is_selected'],
                 item['id']
             ) for item in metadata_list
         ]
         cursor.executemany(
             """
             UPDATE files
-            SET end_datetime = ?, previous_ms = ?
+            SET start_datetime = ?, duration_ms = ?, end_datetime = ?, previous_ms = ?, is_selected = ?
             WHERE id = ?
             """,
             update_data

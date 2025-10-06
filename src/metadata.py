@@ -5,9 +5,9 @@
 # oraz przerw między kolejnymi nagraniami.
 
 import os
-import re
 from datetime import datetime, timedelta
-from . import database
+from . import database, config
+from .audio.duration_checker import get_file_duration
 
 def _format_timedelta_to_hms(td: timedelta):
     """Formatuje obiekt timedelta do czytelnego formatu HH:MM:SS."""
@@ -27,67 +27,69 @@ def _format_timedelta_to_mss(td: timedelta):
     milliseconds = td.microseconds // 1000
     return f"{int(minutes):02}:{int(seconds):02}.{milliseconds:03}"
 
-
-def process_files_metadata():
+def process_and_update_all_metadata(allow_long=False):
     """
-    Uzupełnia metadane plików (czas zakończenia, przerwy).
-    Pobiera wszystkie pliki z bazy, sortuje je chronologicznie,
-    oblicza brakujące metadane i zapisuje je z powrotem do bazy.
+    Centralna funkcja do przetwarzania metadanych.
+    Wczytuje pliki bez metadanych, sortuje je w pamięci wg daty modyfikacji,
+    oblicza wszystkie metadane (w tym flagę `is_selected`), zapisuje je masowo do bazy
+    i zwraca listę plików, które przekraczają limit długości.
     """
-    print("\n--- Rozpoczynam uzupełnianie metadanych plików ---")
+    print("\n--- Rozpoczynam centralne przetwarzanie metadanych ---")
 
-    # Pobieramy wszystkie pliki z bazy danych, posortowane chronologicznie.
-    files = database.get_all_files_for_metadata()
-    if not files:
-        print("Brak plików do przetworzenia.")
-        return
+    files_to_process = database.get_files_needing_metadata()
+    if not files_to_process:
+        print("Brak nowych plików do przetworzenia metadanych.")
+        return []
 
-    # Inicjalizujemy zmienną przechowującą czas zakończenia poprzedniego pliku.
+    try:
+        files_with_mtime = []
+        for file_row in files_to_process:
+            mtime = os.path.getmtime(file_row['source_file_path'])
+            files_with_mtime.append({**file_row, 'mtime': mtime})
+
+        sorted_files = sorted(files_with_mtime, key=lambda x: x['mtime'])
+    except OSError as e:
+        print(f"BŁĄD: Nie można posortować plików, problem z dostępem do pliku: {e}")
+        return []
+
+    all_metadata_to_update = []
+    long_files = []
     previous_end_datetime = None
-    metadata_to_update = []
 
-    # Przetwarzamy pliki w pętli.
-    for file_data in files:
-        # start_datetime jest już w bazie, parsujemy go do obiektu datetime.
-        try:
-            start_datetime = datetime.strptime(file_data['start_datetime'], '%Y-%m-%d %H:%M:%S')
-        except (TypeError, ValueError):
-            print(f"    OSTRZEŻENIE: Nieprawidłowy format daty dla pliku: {file_data['source_file_path']}. Pomijanie.")
-            continue
+    for file_info in sorted_files:
+        start_dt = datetime.fromtimestamp(file_info['mtime'])
+        duration_sec = get_file_duration(file_info['source_file_path'])
+        duration_ms = int(duration_sec * 1000)
+        end_dt = start_dt + timedelta(milliseconds=duration_ms)
 
-        # Czas trwania jest już w bazie (w milisekundach).
-        duration_ms = file_data['duration_ms']
-        duration_td = timedelta(milliseconds=duration_ms)
-
-        # Obliczamy czas zakończenia.
-        end_datetime = start_datetime + duration_td
-
-        # Obliczamy przerwę od poprzedniego nagrania.
         if previous_end_datetime:
-            # Różnica między startem bieżącego a końcem poprzedniego.
-            previous_td = start_datetime - previous_end_datetime
-            previous_ms = int(previous_td.total_seconds() * 1000)
+            previous_ms = int((start_dt - previous_end_datetime).total_seconds() * 1000)
         else:
-            # Dla pierwszego pliku przerwa wynosi 0.
-            previous_td = timedelta(seconds=0)
             previous_ms = 0
 
-        # Przechowujemy czas zakończenia bieżącego pliku do następnej iteracji.
-        previous_end_datetime = end_datetime
+        previous_end_datetime = end_dt
 
-        # Przygotowujemy dane do aktualizacji w bazie.
-        metadata_to_update.append({
-            'id': file_data['id'],
-            'end_datetime': end_datetime.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
+        is_long = duration_sec > config.MAX_FILE_DURATION_SECONDS
+        if is_long:
+            long_files.append(os.path.basename(file_info['source_file_path']))
+
+        is_selected = True if allow_long else not is_long
+
+        all_metadata_to_update.append({
+            'id': file_info['id'],
+            'start_datetime': start_dt.strftime('%Y-%m-%d %H:%M:%S'),
+            'duration_ms': duration_ms,
+            'end_datetime': end_dt.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
             'previous_ms': previous_ms,
+            'is_selected': is_selected
         })
 
-    # Po przetworzeniu wszystkich plików, wykonujemy masową aktualizację w bazie danych.
-    if metadata_to_update:
-        database.update_files_metadata_bulk(metadata_to_update)
-        print(f"Zaktualizowano metadane dla {len(metadata_to_update)} plików.")
+    if all_metadata_to_update:
+        database.update_all_metadata_bulk(all_metadata_to_update)
+        print(f"Pomyślnie przetworzono i zaktualizowano metadane dla {len(all_metadata_to_update)} plików.")
 
-    print("--- Zakończono przetwarzanie metadanych ---")
+    print("--- Zakończono centralne przetwarzanie metadanych ---")
+    return long_files
 
 def format_transcription_header(file_metadata):
     """
@@ -105,6 +107,6 @@ def format_transcription_header(file_metadata):
     start_str = start_dt.strftime('%Y-%m-%d %H:%M:%S')
     end_str = end_dt.strftime('%H:%M:%S.%f')[:-3]
     duration_str = _format_timedelta_to_mss(duration_td)
-    previous_str = _format_timedelta_to_hms(previous_td) # Format HH:MM:SS
+    previous_str = _format_timedelta_to_hms(previous_td)
 
     return f"[START: {start_str} | END: {end_str} | DURATION: {duration_str} | PREVIOUS: {previous_str}]"
