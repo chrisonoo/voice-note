@@ -184,14 +184,14 @@ class App(ctk.CTk):
 
     def refresh_transcription_display(self):
         """
-        Odświeża wyświetlanie transkrypcji z uwzględnieniem ustawień checkboxa
-        (czy pokazywać tagi czy tylko czysty tekst).
+        Odświeża wyświetlanie transkrypcji z uwzględnieniem ustawień checkboxów
+        (czy pokazywać numerację i/lub tagi).
         """
         try:
             # Pobieramy wszystkie pliki z bazy danych
             all_files = database.get_all_files()
 
-            # Filtrujemy tylko przetworzone pliki z zaznaczonymi plikami
+            # Filtrujemy tylko przetworzone pliki z zaznaczonymi plikami, które mają transkrypcję
             processed_files = [
                 f for f in all_files
                 if f['is_processed'] and f['is_selected'] and f['transcription']
@@ -201,31 +201,36 @@ class App(ctk.CTk):
                 self.transcription_output_panel.update_text("")
                 return
 
-            # Sprawdzamy ustawienie checkboxa
+            # Sprawdzamy ustawienia checkboxów
+            show_numbering = self.transcription_output_panel.should_show_numbering()
             show_tags = self.transcription_output_panel.should_show_tags()
 
-            if show_tags:
-                # Pokazujemy transkrypcje z tagami: "tag transcription"
-                processed_transcriptions = []
-                for f in processed_files:
+            processed_transcriptions = []
+            for f in processed_files:
+                parts = []
+                transcription = f['transcription'] or ''
+
+                # Dodaj numerację, jeśli zaznaczone
+                if show_numbering:
+                    parts.append(f"**{f['id']}:**")
+
+                # Dodaj tag, jeśli zaznaczone i istnieje
+                if show_tags:
                     tag = f['tag'] or ''
-                    transcription = f['transcription'] or ''
-                    if tag and transcription:
-                        full_text = f"{tag} {transcription}"
-                    elif transcription:
-                        # Jeśli nie ma tagu, pokazujemy tylko transkrypcję
-                        full_text = transcription
-                    else:
-                        full_text = ""
-                    processed_transcriptions.append(full_text)
-            else:
-                # Pokazujemy tylko czyste transkrypcje bez tagów
-                processed_transcriptions = [f['transcription'] for f in processed_files]
+                    if tag:
+                        parts.append(tag)
+
+                # Dodaj właściwą transkrypcję
+                parts.append(transcription)
+
+                # Połącz wszystkie części w jeden tekst
+                full_text = " ".join(parts)
+                processed_transcriptions.append(full_text)
 
             # Łączymy transkrypcje w jeden tekst
-            full_text = "\n\n".join(processed_transcriptions)
+            final_text = "\n\n".join(processed_transcriptions)
             # Aktualizujemy główny panel wyjściowy
-            self.transcription_output_panel.update_text(full_text)
+            self.transcription_output_panel.update_text(final_text)
 
         except Exception as e:
             print(f"Błąd podczas odświeżania wyświetlania transkrypcji: {e}")
