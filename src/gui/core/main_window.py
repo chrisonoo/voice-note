@@ -206,13 +206,14 @@ class App(ctk.CTk):
             show_tags = self.transcription_output_panel.should_show_tags()
 
             processed_transcriptions = []
-            for f in processed_files:
+            # Użyj enumerate do dynamicznego generowania numeracji
+            for i, f in enumerate(processed_files, 1):
                 parts = []
                 transcription = f['transcription'] or ''
 
                 # Dodaj numerację, jeśli zaznaczone
                 if show_numbering:
-                    parts.append(f"**{f['id']}:**")
+                    parts.append(f"**{i}:**")
 
                 # Dodaj tag, jeśli zaznaczone i istnieje
                 if show_tags:
