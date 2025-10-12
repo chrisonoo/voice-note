@@ -68,3 +68,24 @@ FFMPEG_PARAMS = '-ac 1 -ar 16000 -af loudnorm=I=-12:TP=-1.0:LRA=7:dual_mono=true
 # Pliki dłuższe niż ta wartość zostaną specjalnie oznaczone w interfejsie.
 # Domyślnie ustawione na 5 minut (5 * 60 = 300 sekund).
 MAX_FILE_DURATION_SECONDS = 300
+
+# --- SZEROKOŚCI PANELI I KOLUMN ---
+# Szerokości paneli głównych
+PANEL_SELECTED_WIDTH = 450          # Panel "Wybrane" (FilesView)
+PANEL_STATUS_WIDTH = 150            # Panele statusu (Wczytane, Do przetworzenia, Przetworzone)
+PANEL_TRANSCRIPTION_WIDTH = 350     # Panel "Transkrypcja"
+
+# Szerokości kolumn w panelu "Wybrane"
+COLUMN_CHECKBOX_WIDTH = 30          # Kolumna checkboxów
+COLUMN_TYPE_WIDTH = 25              # Kolumna typu pliku (ikona)
+COLUMN_FILENAME_WIDTH = 180         # Kolumna nazwy pliku
+COLUMN_DURATION_WIDTH = 50          # Kolumna czasu trwania
+COLUMN_PLAY_WIDTH = 35              # Kolumna przycisku play
+COLUMN_DELETE_WIDTH = 30            # Kolumna przycisku usuwania
+
+# Szerokość przewijalnej ramki w panelu "Wybrane"
+SCROLLABLE_FRAME_WIDTH = 484        # Szerokość wewnętrznej ramki przewijalnej
+
+# Maksymalne długości nazw plików (dla ellipsis)
+MAX_FILENAME_LENGTH_SELECTED = 30   # W panelu "Wybrane"
+MAX_FILENAME_LENGTH_STATUS = 25     # W panelach statusu

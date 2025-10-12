@@ -9,11 +9,13 @@ import concurrent.futures  # Dodane dla równoległego przetwarzania
 from concurrent.futures import ThreadPoolExecutor
 from src import config, database  # Importujemy własne moduły: konfigurację i operacje na bazie danych.
 from src.utils.error_handlers import with_error_handling, measure_performance  # Dekoratory
+from src.utils.file_type_helper import is_video_file  # Funkcja do wykrywania plików wideo
 
 def _convert_single_file(original_path):
     """
     Konwertuje pojedynczy plik i zwraca tuple (source, tmp) lub None przy błędzie.
     Funkcja przeznaczona do równoległego przetwarzania.
+    Dla plików wideo ekstrahuje tylko ścieżkę audio (-vn), dla audio używa standardowych parametrów.
     """
     try:
         # Tworzymy standardową, bezpieczną nazwę pliku wyjściowego.
@@ -24,8 +26,16 @@ def _convert_single_file(original_path):
 
         print(f"  Konwertowanie: {os.path.basename(original_path)} -> {os.path.basename(tmp_file_path)}")
 
+        # Sprawdzamy czy plik jest wideo
+        is_video = is_video_file(original_path)
+
         # Budujemy komendę FFMPEG
-        command = f'ffmpeg -y -i "{original_path}" {config.FFMPEG_PARAMS} "{tmp_file_path}"'
+        if is_video:
+            # Dla plików wideo ekstrahujemy tylko audio (-vn ignoruje strumień wideo)
+            command = f'ffmpeg -y -i "{original_path}" -vn {config.FFMPEG_PARAMS} "{tmp_file_path}"'
+        else:
+            # Dla plików audio używamy standardowych parametrów
+            command = f'ffmpeg -y -i "{original_path}" {config.FFMPEG_PARAMS} "{tmp_file_path}"'
 
         # Uruchamiamy komendę FFMPEG z timeout'em
         subprocess.run(command, shell=True, check=True, capture_output=True, text=True, timeout=300)

@@ -62,7 +62,7 @@ class TranscriptionView(ctk.CTkFrame):
             self,
             wrap="word",  # Włącza zawijanie wierszy.
             state="disabled",  # Domyślnie wyłączone, aby użytkownik nie mógł edytować tekstu.
-            width=350,  # Szerokość początkowa (zmniejszona z 400).
+            width=config.PANEL_TRANSCRIPTION_WIDTH,  # Szerokość z konfiguracji.
             padx=8,  # Wewnętrzne marginesy.
             pady=8
         )
