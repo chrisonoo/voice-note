@@ -6,7 +6,7 @@ Ta aplikacja służy do automatycznej transkrypcji plików audio przy użyciu AP
 
 *   **Dwa tryby pracy:** Interaktywny interfejs graficzny (GUI) lub szybki tryb wiersza poleceń (CLI).
 *   **Zarządzanie stanem:** Aplikacja używa bazy danych SQLite do zapisywania stanu plików, co pozwala na wstrzymywanie i wznawianie pracy.
-*   **Konwersja w locie:** Automatycznie konwertuje różne formaty audio (np. `.mp3`, `.m4a`) do formatu `.wav` za pomocą `ffmpeg`.
+*   **Konwersja w locie:** Automatycznie konwertuje różne formaty audio (np. `.mp3`, `.m4a`) do zoptymalizowanego formatu audio za pomocą `ffmpeg`.
 *   **Przetwarzanie w tle:** W trybie GUI wszystkie operochłonne zadania (konwersja, transkrypcja) są wykonywane w osobnych wątkach, co zapobiega "zamrażaniu" interfejsu.
 
 ## Wymagania
@@ -68,7 +68,7 @@ Tryb graficzny zapewnia interaktywną obsługę i wizualizację całego procesu.
 2.  **Postępuj zgodnie z instrukcjami** na ekranie:
     *   Kliknij "Wybierz pliki", aby dodać pliki audio.
     *   Zaznacz pliki, które chcesz przetworzyć.
-    *   Kliknij "Wczytaj Pliki", aby przekonwertować je do formatu WAV.
+    *   Kliknij "Wczytaj Pliki", aby przekonwertować je do formatu audio gotowego do transkrypcji.
     *   Kliknij "Start", aby rozpocząć proces transkrypcji.
 
 #### Ułatwione uruchamianie w Windows
@@ -109,9 +109,9 @@ erDiagram
     files {
         INTEGER id PK "Klucz główny"
         TEXT source_file_path UK "Ścieżka do oryginalnego pliku"
-        TEXT tmp_file_path "Ścieżka do pliku .wav w folderze tmp"
+        TEXT tmp_file_path "Ścieżka do przetworzonego pliku audio w folderze tmp"
         BOOLEAN is_selected "Czy plik jest zaznaczony w GUI"
-        BOOLEAN is_loaded "Czy plik został przekonwertowany do .wav"
+        BOOLEAN is_loaded "Czy plik został skonwertowany do formatu audio gotowego do transkrypcji"
         BOOLEAN is_processed "Czy plik ma już transkrypcję"
         TEXT transcription "Wynik transkrypcji"
         INTEGER duration_ms "Czas trwania pliku w milisekundach"
@@ -262,4 +262,4 @@ Aby upewnić się, że korzystasz z najnowszych wersji bibliotek, możesz okreso
         *   `controllers/`: Klasy zarządzające logiką GUI (np. stanem przycisków, obsługą plików).
         *   `widgets/`: Niestandardowe komponenty GUI (np. panele list plików).
         *   `utils/`: Narzędzia pomocnicze dla GUI (np. odtwarzacz audio).
-*   `tmp/`: Folder na wszystkie pliki robocze (baza danych, przekonwertowane pliki .wav).
+*   `tmp/`: Folder na wszystkie pliki robocze (baza danych, przetworzone pliki audio).

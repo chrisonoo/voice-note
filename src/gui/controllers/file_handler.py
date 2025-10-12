@@ -61,7 +61,7 @@ class FileHandler:
 
     def load_selected_files(self):
         """
-        Uruchamia w osobnym wątku konwersję zaznaczonych plików do formatu WAV.
+        Uruchamia w osobnym wątku konwersję zaznaczonych plików do formatu audio gotowego do transkrypcji.
         Pliki do konwersji są identyfikowane na podstawie flagi 'is_selected' w bazie danych.
         """
         # Natychmiast wyłączamy przycisk, aby zapobiec wielokrotnemu kliknięciu.

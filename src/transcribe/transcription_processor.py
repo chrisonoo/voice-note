@@ -13,8 +13,8 @@ from src.utils.error_handlers import with_error_handling, measure_performance  #
 class TranscriptionProcessor:
     """
     Zarządza całym procesem transkrypcji. Pobiera pliki, które zostały
-    wcześniej przekonwertowane na format .wav, wysyła je do transkrypcji
-    i zapisuje wyniki z powrotem w bazie danych.
+    wcześniej skonwertowane do formatu audio gotowego do transkrypcji,
+    wysyła je do transkrypcji i zapisuje wyniki z powrotem w bazie danych.
     """
     def __init__(self, pause_requested_event: threading.Event = None, on_progress_callback=None):
         """
@@ -37,7 +37,7 @@ class TranscriptionProcessor:
     def process_transcriptions(self, allow_long=False):
         """
         Główna metoda orkiestrująca procesem transkrypcji.
-        Pobiera pliki, które są już załadowane (przekonwertowane na .wav),
+        Pobiera pliki, które są już załadowane (skonwertowane do formatu audio gotowego do transkrypcji),
         ale jeszcze nieprzetworzone (nie mają transkrypcji), wykonuje transkrypcję
         dla każdego z nich i aktualizuje odpowiednie wpisy w bazie danych.
         
@@ -100,7 +100,7 @@ class TranscriptionProcessor:
 
             print(f"  Przetwarzanie pliku: {os.path.basename(source_path)}")
 
-            # Tworzymy instancję naszej klasy `Whisper`, przekazując jej ścieżkę do pliku .wav.
+            # Tworzymy instancję naszej klasy `Whisper`, przekazując jej ścieżkę do przetworzonego pliku audio.
             whisper = Whisper(tmp_path)
             # Wywołujemy metodę, która wysyła plik do API OpenAI i zwraca wynik.
             transcription = whisper.transcribe()

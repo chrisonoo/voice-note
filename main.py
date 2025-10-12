@@ -64,7 +64,7 @@ def main_cli(args):
         print("Wszystkie pliki gotowe do dalszego przetwarzania.")
 
     # === KROK 2: Konwersja plików audio ===
-    # Wywołujemy funkcję, która pobiera pliki z bazy i konwertuje je do formatu .wav.
+    # Wywołujemy funkcję, która pobiera pliki z bazy i konwertuje je do formatu audio gotowego do transkrypcji.
     encode_audio_files()
 
     # === KROK 3: Transkrypcja plików ===

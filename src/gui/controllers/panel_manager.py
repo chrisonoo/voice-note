@@ -53,7 +53,7 @@ class PanelManager:
         Odświeża wszystkie panele statusu (Wczytane, Kolejka, Gotowe) oraz panel z transkrypcją,
         używając tych samych, raz pobranych danych.
         """
-        # Filtrujemy pliki dla panelu "Wczytane". Są to pliki, które zostały już przekonwertowane na .wav.
+        # Filtrujemy pliki dla panelu "Wczytane". Są to pliki, które zostały już skonwertowane do formatu audio gotowego do transkrypcji.
         files_to_load = [
             os.path.basename(row['tmp_file_path']) for row in all_files
             if row['is_loaded']

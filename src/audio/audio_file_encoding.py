@@ -1,7 +1,7 @@
 # Ten moduł odpowiada za konwersję (enkodowanie) plików audio do jednolitego formatu.
 # Głównym celem jest upewnienie się, że wszystkie pliki, niezależnie od ich oryginalnego
-# formatu (.mp3, .m4a itp.), zostaną przekonwertowane do standardowego formatu .wav,
-# który jest optymalny dla API Whisper.
+# formatu (.mp3, .m4a itp.), zostaną przekonwertowane do standardowego formatu audio,
+# który jest zoptymalizowany dla API Whisper.
 
 import os  # Moduł do interakcji z systemem operacyjnym, np. do operacji na ścieżkach plików.
 import subprocess  # Moduł pozwalający na uruchamianie zewnętrznych programów, w tym przypadku FFMPEG.
@@ -19,7 +19,7 @@ def _convert_single_file(original_path):
         # Tworzymy standardową, bezpieczną nazwę pliku wyjściowego.
         base_name = os.path.basename(original_path)
         standardized_name, _ = os.path.splitext(base_name.lower().replace(' ', '_'))
-        output_filename = f"{standardized_name}.wav"
+        output_filename = f"{standardized_name}.m4a"
         tmp_file_path = os.path.join(config.AUDIO_TMP_DIR, output_filename)
 
         print(f"  Konwertowanie: {os.path.basename(original_path)} -> {os.path.basename(tmp_file_path)}")
@@ -47,11 +47,11 @@ def _convert_single_file(original_path):
 @measure_performance
 def encode_audio_files():
     """
-    Pobiera z bazy danych listę plików do przetworzenia, konwertuje je do formatu WAV
+    Pobiera z bazy danych listę plików do przetworzenia, konwertuje je do formatu audio gotowego do transkrypcji
     za pomocą zewnętrznego narzędzia FFMPEG z równoległym przetwarzaniem,
     a następnie aktualizuje ich status w bazie danych.
     """
-    print("\nKrok 2: Konwertowanie plików audio do formatu WAV...")
+    print("\nKrok 2: Konwertowanie plików audio do formatu gotowego do transkrypcji...")
 
     # Pobieramy z bazy danych listę plików, które zostały zaznaczone przez użytkownika i nie były jeszcze konwertowane.
     files_to_encode = database.get_files_to_load()

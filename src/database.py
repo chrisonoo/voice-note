@@ -231,7 +231,7 @@ def get_files_to_process():
 
 @log_db_operation
 def set_files_as_loaded(file_paths, tmp_file_paths):
-    """Oznacza listę plików jako wczytane (przekonwertowane) i zapisuje ścieżki do ich tymczasowych wersji .wav."""
+    """Oznacza listę plików jako wczytane (skonwertowane) i zapisuje ścieżki do ich przetworzonych wersji audio."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
         # Przygotowujemy dane do masowej aktualizacji.
@@ -399,7 +399,7 @@ def reset_files_table():
 @log_db_operation
 def clear_database_and_tmp_folder():
     """
-    "Czyści" stan aplikacji. Usuwa cały folder tymczasowy (włączając w to bazę danych i pliki .wav),
+    "Czyści" stan aplikacji. Usuwa cały folder tymczasowy (włączając w to bazę danych i przetworzone pliki audio),
     a następnie tworzy na nowo pustą strukturę.
     """
     # Sprawdzamy, czy folder tymczasowy istnieje.
@@ -416,7 +416,7 @@ def clear_database_and_tmp_folder():
 def delete_file(file_path):
     """
     Usuwa plik z bazy danych oraz (jeśli istnieją) jego fizyczne odpowiedniki z dysku
-    (plik źródłowy i tymczasowy plik .wav).
+    (plik źródłowy i tymczasowy przetworzony plik audio).
     """
     with get_db_connection() as conn:
         cursor = conn.cursor()

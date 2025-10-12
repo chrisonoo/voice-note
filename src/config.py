@@ -50,9 +50,12 @@ WHISPER_API_PROMPT = ""
 AUDIO_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.mp4', '.wma']
 # Parametry dla narzędzia FFMPEG, używanego do konwersji audio.
 # `-ac 1`: Ustawia jeden kanał audio (mono).
-# `-ar 44100`: Ustawia częstotliwość próbkowania na 44100 Hz.
-# To standardowe ustawienia, które zapewniają dobrą kompatybilność z API Whisper.
-FFMPEG_PARAMS = '-ac 1 -ar 44100'
+# `-ar 16000`: Ustawia częstotliwość próbkowania na 16000 Hz.
+# `-af loudnorm=I=-12:TP=-1.0:LRA=7:dual_mono=true`: Normalizacja głośności.
+# `-c:a aac`: Kodek AAC.
+# `-b:a 24k`: Bitrate 24kbps.
+# Te ustawienia są zoptymalizowane dla API OpenAI Whisper.
+FFMPEG_PARAMS = '-ac 1 -ar 16000 -af loudnorm=I=-12:TP=-1.0:LRA=7:dual_mono=true -c:a aac -b:a 24k'
 
 # --- USTAWIENIA INTERFEJSU GRAFICZNEGO (GUI) ---
 # Maksymalna dopuszczalna długość pliku w sekundach.
