@@ -23,12 +23,16 @@ class FFplayAudioPlayer:
             self.stop()  # Zatrzymaj ewentualne poprzednie odtwarzanie
 
         try:
-            # Uruchamiamy ffplay z parametrami do cichego odtwarzania
+            # Uruchamiamy ffplay z parametrami do cichego odtwarzania z minimalnym opóźnieniem
             self.process = subprocess.Popen([
                 'ffplay',
                 '-nodisp',  # Bez okna graficznego
                 '-autoexit',  # Zamknij po zakończeniu odtwarzania
                 '-loglevel', 'quiet',  # Bez logów
+                '-fflags', 'nobuffer',  # Wyłącz buforowanie dla natychmiastowego odtwarzania
+                '-probesize', '32',  # Minimalny rozmiar próby dla szybszej analizy
+                '-analyzeduration', '0',  # Wyłącz analizę długości dla szybszego startu
+                '-bufsize', '1024',  # Mały bufor dla zmniejszenia opóźnienia
                 file_path
             ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
