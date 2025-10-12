@@ -5,7 +5,6 @@
 import customtkinter as ctk  # Biblioteka do tworzenia nowoczesnego interfejsu graficznego.
 from tkinter import messagebox  # Standardowy moduł Tkinter do wyświetlania okien dialogowych (np. z potwierdzeniem).
 import threading  # Moduł do pracy z wątkami, kluczowy do wykonywania długich operacji (jak transkrypcja) w tle.
-import pygame  # Biblioteka używana tutaj do odtwarzania dźwięku (próbek audio).
 import time  # Dodane dla cachowania danych
 from src import config, database  # Importujemy nasze własne moduły: konfigurację i bazę danych.
 
@@ -301,8 +300,8 @@ class App(ctk.CTk):
 
     def _check_playback_status(self):
         """Cyklicznie sprawdza, czy odtwarzanie audio się zakończyło, aby zaktualizować UI."""
-        # `pygame.mixer.music.get_busy()` zwraca `True`, jeśli dźwięk jest odtwarzany.
-        if self.audio_player.is_playing and not pygame.mixer.music.get_busy():
+        # Sprawdzamy czy ffplay jeszcze odtwarza plik
+        if self.audio_player.is_playing and not self.audio_player.is_busy():
             self.audio_player.stop()  # Aktualizujemy stan naszego odtwarzacza.
             # `hasattr` sprawdza, czy widżet został już utworzony.
             if hasattr(self, 'file_selection_panel'):
@@ -315,7 +314,6 @@ class App(ctk.CTk):
     def on_closing(self):
         """Obsługuje zdarzenie zamknięcia okna."""
         self.audio_player.stop()
-        pygame.quit()  # Zamykamy system pygame.
         # Sprawdzamy, czy wątek przetwarzający wciąż działa.
         if self.processing_thread and self.processing_thread.is_alive():
             # Jeśli tak, pytamy użytkownika, czy na pewno chce zamknąć aplikację.

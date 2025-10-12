@@ -43,10 +43,10 @@ class FFplayAudioPlayer:
         """Wstrzymuje odtwarzanie - uproszczone do stop."""
         self.stop()
 
-    def unpause(self):
+    def unpause(self, file_path):
         """Wznawia odtwarzanie - uproszczone do ponownego play."""
-        if self.current_file:
-            self.play_file(self.current_file, stop_first=False)
+        if file_path:
+            self.play_file(file_path, stop_first=False)
 
     def stop(self):
         """Zatrzymuje odtwarzanie."""
@@ -61,6 +61,12 @@ class FFplayAudioPlayer:
         self.process = None
         self.current_file = None
         self.is_playing = False
+
+    def is_busy(self):
+        """Sprawdza czy ffplay jeszcze odtwarza."""
+        if self.process:
+            return self.process.poll() is None  # None oznacza, że proces jeszcze działa
+        return False
 
     def get_state(self, file_path):
         """Zwraca stan odtwarzania dla danego pliku."""
@@ -120,7 +126,7 @@ class AudioPlayer:
             self.is_paused = True
         # Scenariusz 2: Kliknięto przycisk "play" dla wstrzymanego pliku.
         elif self.is_paused and self.current_file == file_path:
-            self.ffplay_player.unpause()
+            self.ffplay_player.unpause(file_path)
             self.is_playing = True
             self.is_paused = False
         # Scenariusz 3: Kliknięto "play" na nowym pliku (lub gdy nic nie gra).
@@ -147,6 +153,10 @@ class AudioPlayer:
         self.current_file = None
         self.is_playing = False
         self.is_paused = False
+
+    def is_busy(self):
+        """Sprawdza czy ffplay jeszcze odtwarza."""
+        return self.ffplay_player.is_busy()
 
     def get_state(self, file_path):
         """
