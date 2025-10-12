@@ -44,6 +44,21 @@ class StatusView(ctk.CTkFrame):
         )
         self.text.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 
+    def _truncate_filename(self, filename, max_length=25):
+        """
+        Skraca nazwę pliku do określonej długości i dodaje '...' jeśli jest za długa.
+        
+        Argumenty:
+            filename (str): Oryginalna nazwa pliku
+            max_length (int): Maksymalna długość nazwy (domyślnie 25)
+            
+        Zwraca:
+            str: Skrócona nazwa pliku z '...' jeśli potrzeba
+        """
+        if len(filename) <= max_length:
+            return filename
+        return filename[:max_length-3] + "..."
+
     def update_from_list(self, file_paths):
         """Wypełnia pole tekstowe listą nazw plików."""
         # Musimy tymczasowo włączyć pole tekstowe, aby móc je modyfikować.
@@ -53,7 +68,7 @@ class StatusView(ctk.CTkFrame):
         try:
             # Konwertujemy pełne ścieżki na same nazwy plików za pomocą `os.path.basename`.
             # Sprawdzamy `if path`, aby uniknąć błędów dla pustych wpisów.
-            file_names = [os.path.basename(path) for path in file_paths if path]
+            file_names = [self._truncate_filename(os.path.basename(path)) for path in file_paths if path]
             # Łączymy nazwy plików w jeden ciąg znaków, oddzielając je znakiem nowej linii.
             # `insert("end", ...)` wstawia tekst na końcu pola tekstowego.
             self.text.insert("end", '\n'.join(file_names))

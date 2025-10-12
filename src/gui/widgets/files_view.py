@@ -51,9 +51,20 @@ class FilesView(ctk.CTkFrame):
         # Jest to potrzebne, aby móc później np. aktualizować ikony przycisków play/pauza.
         self.file_widgets = []
 
-
-
-
+    def _truncate_filename(self, filename, max_length=20):
+        """
+        Skraca nazwę pliku do określonej długości i dodaje '...' jeśli jest za długa.
+        
+        Argumenty:
+            filename (str): Oryginalna nazwa pliku
+            max_length (int): Maksymalna długość nazwy (domyślnie 20)
+            
+        Zwraca:
+            str: Skrócona nazwa pliku z '...' jeśli potrzeba
+        """
+        if len(filename) <= max_length:
+            return filename
+        return filename[:max_length-3] + "..."
 
     def populate_files(self, files_data):
         """
@@ -98,7 +109,7 @@ class FilesView(ctk.CTkFrame):
             type_label = ctk.CTkLabel(self.scrollable_frame, text=type_icon, width=30, anchor="center")
             type_label.grid(row=i, column=1, padx=5, pady=2)
 
-            filename_label = ctk.CTkLabel(self.scrollable_frame, text=filename, width=120, anchor="w")
+            filename_label = ctk.CTkLabel(self.scrollable_frame, text=self._truncate_filename(filename), width=120, anchor="w")
             filename_label.grid(row=i, column=2, padx=5, pady=2)
 
             duration_label = ctk.CTkLabel(self.scrollable_frame, text=duration_str, width=50, anchor="center")
