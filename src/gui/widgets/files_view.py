@@ -118,6 +118,8 @@ class FilesView(ctk.CTkFrame):
         Aktualizuje stan zaznaczenia w bazie danych.
         """
         database.set_file_selected(file_path, var.get())
+        # Unieważniamy cache ponieważ dane zostały zmienione
+        self.master.invalidate_cache()
         # `self.master` odnosi się do rodzica tego widżetu, czyli głównego okna aplikacji `App`.
         # Wywołujemy metodę z głównego okna, aby zaktualizować liczniki.
         self.master.update_all_counters()
