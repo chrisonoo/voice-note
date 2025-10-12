@@ -48,11 +48,13 @@ class ButtonStateController:
         has_processed_files = any(f['is_processed'] for f in all_files)
         # Czy w bazie danych jest w ogóle jakikolwiek plik?
         any_files_exist = len(all_files) > 0
+        # Czy istnieją pliki, które zostały już wczytane (przekonwertowane)?
+        has_loaded_files = any(f['is_loaded'] for f in all_files)
 
         # --- Przycisk wyboru plików ---
-        # Powinien być wyłączony, jeśli w bazie są już jakieś pliki LUB trwa przetwarzanie.
-        # Użytkownik może dodawać pliki tylko na samym początku, przy czystym stanie.
-        self.app.file_selector_button.configure(state="disabled" if is_processing or any_files_exist else "normal")
+        # Powinien być wyłączony, jeśli pliki zostały już wczytane LUB trwa przetwarzanie.
+        # Użytkownik może dodawać pliki dopóki nie kliknie "Wczytaj pliki".
+        self.app.file_selector_button.configure(state="disabled" if is_processing or has_loaded_files else "normal")
 
         # --- Przycisk "Wczytaj Pliki" (konwersja) ---
         # Włączony tylko, jeśli są pliki do wczytania ORAZ nie trwa żadne przetwarzanie w tle.
