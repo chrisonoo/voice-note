@@ -29,8 +29,8 @@ def get_audio_file_list_cli(input_directory):
             extension = os.path.splitext(file)[1].lower()
 
             # Sprawdzamy, czy znalezione rozszerzenie znajduje się na naszej liście dozwolonych rozszerzeń w `config`.
-            # Warunek `config.AUDIO_EXTENSIONS is None` jest zabezpieczeniem, gdyby lista była pusta (choć w tym projekcie nie jest).
-            if config.AUDIO_EXTENSIONS is None or extension in config.AUDIO_EXTENSIONS:
+            # Warunek `config.ALL_SUPPORTED_EXTENSIONS is None` jest zabezpieczeniem, gdyby lista była pusta (choć w tym projekcie nie jest).
+            if config.ALL_SUPPORTED_EXTENSIONS is None or extension in config.ALL_SUPPORTED_EXTENSIONS:
                 # Jeśli plik ma pasujące rozszerzenie:
                 # 1. `os.path.join(root, file)` tworzy pełną ścieżkę do pliku.
                 # 2. `os.path.abspath` konwertuje ją na ścieżkę absolutną (np. "C:\Users\...\plik.mp3").

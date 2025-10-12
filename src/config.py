@@ -46,8 +46,14 @@ WHISPER_API_PROMPT = ""
 
 
 # --- USTAWIENIA KODOWANIA AUDIO ---
-# Lista rozszerzeń plików, które aplikacja będzie traktować jako pliki audio.
-AUDIO_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.mp4', '.wma']
+# Lista rozszerzeń plików audio
+AUDIO_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.wma']
+
+# Lista rozszerzeń plików wideo (z możliwością ekstrakcji audio)
+VIDEO_EXTENSIONS = ['.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv', '.webm']
+
+# Wszystkie obsługiwane rozszerzenia (dla dialogu wyboru plików)
+ALL_SUPPORTED_EXTENSIONS = AUDIO_EXTENSIONS + VIDEO_EXTENSIONS
 # Parametry dla narzędzia FFMPEG, używanego do konwersji audio.
 # `-ac 1`: Ustawia jeden kanał audio (mono).
 # `-ar 16000`: Ustawia częstotliwość próbkowania na 16000 Hz.

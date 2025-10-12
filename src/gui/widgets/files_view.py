@@ -4,6 +4,7 @@
 import customtkinter as ctk
 import os
 from src import config, database
+from src.utils.file_type_helper import get_file_type
 from ..utils.audio_player import AudioPlayer
 from tkinter.messagebox import askyesno
 
@@ -39,10 +40,12 @@ class FilesView(ctk.CTkFrame):
         # Tworzymy nagłówki kolumn, aby użytkownik wiedział, co oznaczają dane kolumny.
         header_checkbox = ctk.CTkLabel(self.scrollable_frame, text="", width=35)
         header_checkbox.grid(row=0, column=0, padx=(5,0), pady=2)
-        header_filename = ctk.CTkLabel(self.scrollable_frame, text="Nazwa", width=150, anchor="w")
-        header_filename.grid(row=0, column=1, padx=5, pady=2)
+        header_type = ctk.CTkLabel(self.scrollable_frame, text="", width=30, anchor="center")
+        header_type.grid(row=0, column=1, padx=5, pady=2)
+        header_filename = ctk.CTkLabel(self.scrollable_frame, text="Nazwa", width=120, anchor="w")
+        header_filename.grid(row=0, column=2, padx=5, pady=2)
         header_duration = ctk.CTkLabel(self.scrollable_frame, text="Czas", width=50, anchor="center")
-        header_duration.grid(row=0, column=2, padx=5, pady=2)
+        header_duration.grid(row=0, column=3, padx=5, pady=2)
 
         # Lista do przechowywania referencji do widżetów dla każdego pliku.
         # Jest to potrzebne, aby móc później np. aktualizować ikony przycisków play/pauza.
@@ -79,6 +82,10 @@ class FilesView(ctk.CTkFrame):
             duration_str = f"{int(duration_sec // 60):02d}:{int(duration_sec % 60):02d}"
             # Sprawdzamy, czy plik jest dłuższy niż limit z konfiguracji.
             is_long = duration_sec > config.MAX_FILE_DURATION_SECONDS
+            
+            # Określamy typ pliku i ikonkę
+            file_type = get_file_type(file_path)
+            type_icon = "🎵" if file_type == 'audio' else "🎬"
 
             # Tworzymy widżety dla każdego pliku.
             checkbox_var = ctk.BooleanVar(value=is_selected)
@@ -88,17 +95,20 @@ class FilesView(ctk.CTkFrame):
             )
             checkbox.grid(row=i, column=0, padx=(5,0), pady=2)
 
-            filename_label = ctk.CTkLabel(self.scrollable_frame, text=filename, width=150, anchor="w")
-            filename_label.grid(row=i, column=1, padx=5, pady=2)
+            type_label = ctk.CTkLabel(self.scrollable_frame, text=type_icon, width=30, anchor="center")
+            type_label.grid(row=i, column=1, padx=5, pady=2)
+
+            filename_label = ctk.CTkLabel(self.scrollable_frame, text=filename, width=120, anchor="w")
+            filename_label.grid(row=i, column=2, padx=5, pady=2)
 
             duration_label = ctk.CTkLabel(self.scrollable_frame, text=duration_str, width=50, anchor="center")
-            duration_label.grid(row=i, column=2, padx=5, pady=2)
+            duration_label.grid(row=i, column=3, padx=5, pady=2)
 
             play_button = ctk.CTkButton(self.scrollable_frame, text="▶", width=35, height=25, command=lambda fp=file_path: self.on_play_button_click(fp))
-            play_button.grid(row=i, column=3, padx=5, pady=2)
+            play_button.grid(row=i, column=4, padx=5, pady=2)
 
             delete_button = ctk.CTkButton(self.scrollable_frame, text="X", width=30, command=lambda fp=file_path: self.on_delete_button_click(fp))
-            delete_button.grid(row=i, column=4, padx=5, pady=2)
+            delete_button.grid(row=i, column=5, padx=5, pady=2)
 
             # Jeśli plik jest za długi, kolorujemy jego etykiety na czerwono.
             if is_long:
@@ -106,7 +116,7 @@ class FilesView(ctk.CTkFrame):
                 duration_label.configure(text_color="red")
 
             # Zapisujemy referencje do stworzonych widżetów.
-            self.file_widgets.append((checkbox, file_path, duration_ms, play_button, delete_button))
+            self.file_widgets.append((checkbox, file_path, duration_ms, play_button, delete_button, type_label))
 
         # Po dodaniu plików, aktualizujemy stan przycisków play/pauza.
         self.update_play_buttons()
@@ -149,7 +159,7 @@ class FilesView(ctk.CTkFrame):
         if not self.file_widgets:
             return
         # Iterujemy przez zapisane referencje do widżetów.
-        for _, file_path, _, button, _ in self.file_widgets:
+        for _, file_path, _, button, _, _ in self.file_widgets:
             state = self.audio_player.get_state(file_path)
             # Ustawiamy odpowiednią ikonę (w formie tekstu) w zależności od stanu.
             if state == 'playing':

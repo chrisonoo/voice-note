@@ -35,9 +35,9 @@ class FileHandler:
             
         # `filedialog.askopenfilenames` otwiera natywne okno systemowe do wyboru jednego lub wielu plików.
         paths = filedialog.askopenfilenames(
-            title="Wybierz pliki audio", 
+            title="Wybierz pliki audio i wideo", 
             # `filetypes` filtruje wyświetlane pliki. Tworzymy listę typów na podstawie rozszerzeń z pliku konfiguracyjnego.
-            filetypes=[("Pliki audio", " ".join(config.AUDIO_EXTENSIONS))]
+            filetypes=[("Pliki audio i wideo", " ".join(config.ALL_SUPPORTED_EXTENSIONS))]
         )
         # Jeśli użytkownik zamknie okno bez wybierania plików, `paths` będzie puste.
         if not paths:
