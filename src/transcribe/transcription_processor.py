@@ -34,12 +34,16 @@ class TranscriptionProcessor:
 
     @with_error_handling("Transkrypcja plików")
     @measure_performance
-    def process_transcriptions(self):
+    def process_transcriptions(self, allow_long=False):
         """
         Główna metoda orkiestrująca procesem transkrypcji.
         Pobiera pliki, które są już załadowane (przekonwertowane na .wav),
         ale jeszcze nieprzetworzone (nie mają transkrypcji), wykonuje transkrypcję
         dla każdego z nich i aktualizuje odpowiednie wpisy w bazie danych.
+        
+        Argumenty:
+            allow_long (bool): Jeśli True, przetwarza również długie pliki.
+                              Jeśli False, pomija długie pliki.
         """
         print("\nKrok 3: Rozpoczynanie transkrypcji plików...")
 
@@ -50,6 +54,27 @@ class TranscriptionProcessor:
         if not files_to_process:
             print("Brak plików oczekujących na transkrypcję.")
             return
+
+        # Jeśli allow_long=False, filtrujemy długie pliki
+        if not allow_long:
+            from src import config
+            filtered_files = []
+            for source_path in files_to_process:
+                file_metadata = database.get_file_metadata(source_path)
+                if file_metadata and file_metadata.get('duration_ms'):
+                    duration_sec = file_metadata['duration_ms'] / 1000
+                    if duration_sec <= config.MAX_FILE_DURATION_SECONDS:
+                        filtered_files.append(source_path)
+                    else:
+                        print(f"    Pominięto długi plik: {os.path.basename(source_path)} ({duration_sec:.1f}s)")
+                else:
+                    # Jeśli nie ma metadanych, dodaj plik (może być problem z bazą danych)
+                    filtered_files.append(source_path)
+            files_to_process = filtered_files
+            
+            if not files_to_process:
+                print("Brak krótkich plików do transkrypcji (wszystkie są za długie).")
+                return
 
         # Iterujemy przez każdy plik, który wymaga transkrypcji.
         for source_path in files_to_process:

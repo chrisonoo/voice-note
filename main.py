@@ -71,7 +71,7 @@ def main_cli(args):
     # Tworzymy instancję (obiekt) klasy `TranscriptionProcessor`.
     processor = TranscriptionProcessor()
     # Wywołujemy metodę, która pobiera przekonwertowane pliki i wysyła je do API Whisper.
-    processor.process_transcriptions()
+    processor.process_transcriptions(allow_long=args.allow_long)
 
     print("\n--- Proces transkrypcji zakończony pomyślnie! ---")
 
