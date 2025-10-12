@@ -5,6 +5,7 @@ import pygame  # Główna biblioteka do obsługi multimediów, w tym dźwięku.
 import threading  # Używany do zapewnienia bezpieczeństwa wątkowego przy tworzeniu Singletonu.
 from pydub import AudioSegment  # Potężna biblioteka do manipulacji plikami audio.
 import io  # Moduł do obsługi operacji I/O w pamięci (traktowania danych binarnych jak pliku).
+import os  # Do sprawdzania rozszerzeń plików.
 
 class AudioPlayer:
     """
@@ -12,14 +13,18 @@ class AudioPlayer:
     Zapewnia, że w danym momencie odtwarzany jest tylko jeden plik.
     Została zaimplementowana jako Singleton, aby zagwarantować istnienie
     tylko jednej, globalnej instancji odtwarzacza w całej aplikacji.
-    Konwertuje pliki do formatu WAV w pamięci RAM przed odtworzeniem,
-    dzięki czemu nie trzeba tworzyć tymczasowych plików na dysku.
+
+    Dla formatów wspieranych przez pygame (WAV, niektóre MP3) odtwarza bezpośrednio.
+    Dla pozostałych formatów (WMA, M4A, MP4) konwertuje w locie do WAV w pamięci RAM.
     """
     # Wzorzec Singleton - implementacja
     # `_instance` przechowuje jedyną instancję klasy.
     _instance = None
     # `_lock` zapewnia, że tylko jeden wątek na raz może tworzyć instancję (bezpieczeństwo wątkowe).
     _lock = threading.Lock()
+
+    # Format pliku audio wspierane bezpośrednio przez pygame
+    PYGAME_SUPPORTED_FORMATS = {'.wav', '.mp3', '.ogg', '.mid'}
 
     def __new__(cls, *args, **kwargs):
         # `__new__` jest wywoływane przed `__init__`. To tutaj kontrolujemy tworzenie obiektu.
@@ -67,24 +72,32 @@ class AudioPlayer:
                 # Zatrzymujemy cokolwiek, co mogło być odtwarzane wcześniej.
                 pygame.mixer.music.stop()
 
-                # --- Konwersja w locie (on-the-fly) do formatu WAV w pamięci RAM ---
-                # 1. Ładujemy plik w dowolnym formacie (np. mp3, m4a) za pomocą biblioteki pydub.
-                audio_segment = AudioSegment.from_file(file_path)
+                # Sprawdzamy rozszerzenie pliku
+                file_extension = os.path.splitext(file_path)[1].lower()
 
-                # 2. Tworzymy w pamięci obiekt, który zachowuje się jak plik binarny (bufor).
-                wav_io = io.BytesIO()
+                if file_extension in self.PYGAME_SUPPORTED_FORMATS:
+                    # Format wspierany przez pygame - odtwarzamy bezpośrednio
+                    pygame.mixer.music.load(file_path)
+                    pygame.mixer.music.play()
+                else:
+                    # Format niewspierany przez pygame (np. WMA, M4A) - konwertujemy w locie
+                    # 1. Ładujemy plik w dowolnym formacie za pomocą biblioteki pydub.
+                    audio_segment = AudioSegment.from_file(file_path)
 
-                # 3. Eksportujemy załadowany segment audio do formatu WAV, ale zamiast zapisywać go
-                #    na dysku, zapisujemy go do naszego bufora w pamięci.
-                audio_segment.export(wav_io, format="wav")
+                    # 2. Tworzymy w pamięci obiekt, który zachowuje się jak plik binarny (bufor).
+                    wav_io = io.BytesIO()
 
-                # 4. Po zapisie, "wskaźnik" w buforze jest na końcu. Musimy go przewinąć na początek,
-                #    aby pygame mógł odczytać dane od początku.
-                wav_io.seek(0)
+                    # 3. Eksportujemy załadowany segment audio do formatu WAV, ale zamiast zapisywać go
+                    #    na dysku, zapisujemy go do naszego bufora w pamięci.
+                    audio_segment.export(wav_io, format="wav")
 
-                # 5. Ładujemy dane audio w formacie WAV bezpośrednio z bufora w pamięci do pygame.
-                pygame.mixer.music.load(wav_io)
-                pygame.mixer.music.play()
+                    # 4. Po zapisie, "wskaźnik" w buforze jest na końcu. Musimy go przewinąć na początek,
+                    #    aby pygame mógł odczytać dane od początku.
+                    wav_io.seek(0)
+
+                    # 5. Ładujemy dane audio w formacie WAV bezpośrednio z bufora w pamięci do pygame.
+                    pygame.mixer.music.load(wav_io)
+                    pygame.mixer.music.play()
 
                 # Aktualizujemy stan odtwarzacza.
                 self.current_file = file_path
