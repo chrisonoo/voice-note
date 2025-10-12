@@ -93,7 +93,9 @@ class TranscriptionController:
                 on_progress_callback=progress_callback
             )
             # Uruchamiamy pętlę przetwarzania w procesorze.
-            processor.process_transcriptions()
+            # W trybie GUI zakładamy, że użytkownik świadomie wybrał pliki,
+            # więc `allow_long=True` jest ustawione na stałe.
+            processor.process_transcriptions(allow_long=True)
         except Exception as e:
             # Jeśli w wątku wystąpi krytyczny błąd, bezpiecznie wyświetlamy go w GUI.
             self.app.after(0, lambda e=e: messagebox.showerror("Błąd krytyczny", f"Wystąpił błąd: {e}"))
