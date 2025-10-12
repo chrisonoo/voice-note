@@ -94,7 +94,7 @@ class FilesView(ctk.CTkFrame):
             duration_label = ctk.CTkLabel(self.scrollable_frame, text=duration_str, width=50, anchor="center")
             duration_label.grid(row=i, column=2, padx=5, pady=2)
 
-            play_button = ctk.CTkButton(self.scrollable_frame, text="▶", width=30, command=lambda fp=file_path: self.on_play_button_click(fp))
+            play_button = ctk.CTkButton(self.scrollable_frame, text="▶", width=35, height=25, command=lambda fp=file_path: self.on_play_button_click(fp))
             play_button.grid(row=i, column=3, padx=5, pady=2)
 
             delete_button = ctk.CTkButton(self.scrollable_frame, text="X", width=30, command=lambda fp=file_path: self.on_delete_button_click(fp))
@@ -152,7 +152,12 @@ class FilesView(ctk.CTkFrame):
         for _, file_path, _, button, _ in self.file_widgets:
             state = self.audio_player.get_state(file_path)
             # Ustawiamy odpowiednią ikonę (w formie tekstu) w zależności od stanu.
-            button.configure(text="⏸" if state == 'playing' else "▶")
+            if state == 'playing':
+                button.configure(text="⏸")
+            elif state == 'paused':
+                button.configure(text="▶")
+            else:
+                button.configure(text="▶")
 
     def clear_view(self):
         """
