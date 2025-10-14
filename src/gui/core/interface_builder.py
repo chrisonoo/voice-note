@@ -105,7 +105,7 @@ class InterfaceBuilder:
         self.app.transcription_control_button = ctk.CTkButton(
             self.app,
             text="Pauza",
-            command=self.app.transcription_controller.pause_transcription
+            command=self.app.stop_transcription
         )
         self.app.transcription_control_button.grid(row=0, column=3, sticky="ew", padx=5, pady=(10, 0))
 

@@ -52,15 +52,10 @@ class TranscriptionController:
         # Ponownie aktualizujemy stan przycisków, tym razem aby pokazać, że proces jest aktywny (np. włączając przycisk "Pauza").
         self.app.button_state_controller.update_ui_state()
 
-    def pause_transcription(self):
-        """Wysyła żądanie pauzy do wątku przetwarzającego poprzez ustawienie flagi `Event`."""
+    def stop_transcription(self):
+        """Wysyła żądanie zatrzymania do wątku przetwarzającego poprzez ustawienie flagi `Event`."""
         self.app.pause_request_event.set()
-        # Aktualizujemy UI, aby np. zmienić przycisk "Pauza" na "Wznów".
-        self.app.button_state_controller.update_ui_state()
-
-    def resume_transcription(self):
-        """Wycofuje żądanie pauzy, czyszcząc flagę `Event`. Wątek roboczy wznowi pracę."""
-        self.app.pause_request_event.clear()
+        # Aktualizujemy UI - przyciski zostaną zaktualizowane po zakończeniu wątku.
         self.app.button_state_controller.update_ui_state()
 
     def resume_interrupted_process(self):

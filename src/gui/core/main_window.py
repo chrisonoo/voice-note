@@ -170,19 +170,17 @@ class App(ctk.CTk):
         except Exception as e:
             print(f"Błąd podczas pełnego odświeżania: {e}")
 
-    def pause_transcription(self):
-        """Deleguje zadanie pauzy do kontrolera transkrypcji."""
-        self.transcription_controller.pause_transcription()
-
-    def resume_transcription(self):
-        """Deleguje zadanie wznowienia do kontrolera transkrypcji."""
-        self.transcription_controller.resume_transcription()
+    def stop_transcription(self):
+        """Deleguje zadanie zatrzymania do kontrolera transkrypcji."""
+        self.transcription_controller.stop_transcription()
 
     def on_processing_finished(self):
         """
         Obsługuje zakończenie procesu transkrypcji.
         Ta metoda jest wywoływana z kontrolera transkrypcji, gdy pętla przetwarzania się zakończy.
         """
+        # Resetujemy flagę rozpoczęcia transkrypcji, aby użytkownik mógł ponownie wybrać pliki
+        self.transcription_started = False
         # Finalizuje stan w kontrolerze (np. zmienia stan przycisków).
         self.transcription_controller.on_processing_finished()
 
