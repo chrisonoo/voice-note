@@ -61,7 +61,7 @@ ALL_SUPPORTED_EXTENSIONS = AUDIO_EXTENSIONS + VIDEO_EXTENSIONS
 # `-c:a aac`: Kodek AAC.
 # `-b:a 24k`: Bitrate 24kbps.
 # Te ustawienia są zoptymalizowane dla API OpenAI Whisper.
-FFMPEG_PARAMS = '-ac 1 -ar 16000 -af loudnorm=I=-12:TP=-1.0:LRA=7:dual_mono=true -c:a aac -b:a 24k'
+FFMPEG_PARAMS = '-ac 1 -ar 16000 -af loudnorm=I=-12:TP=-1.0:LRA=7:dual_mono=true -c:a aac -b:a 32k'
 
 # --- USTAWIENIA INTERFEJSU GRAFICZNEGO (GUI) ---
 # Maksymalna dopuszczalna długość pliku w sekundach.

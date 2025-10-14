@@ -98,7 +98,7 @@ def encode_audio_files(app=None):
             # Odśwież GUI jeśli mamy referencję do aplikacji
             if app:
                 app.after(0, lambda: app.invalidate_cache())
-                app.after(0, lambda: app.refresh_all_views())
+                app.after(0, lambda: app.panel_manager.refresh_transcription_progress_views())
         else:
             print(f"    ✗ Nie udało się przetworzyć: {os.path.basename(original_path)}")
 
