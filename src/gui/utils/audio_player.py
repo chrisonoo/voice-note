@@ -32,7 +32,10 @@ class FFplayAudioPlayer:
                 '-fflags', 'nobuffer',  # Wyłącz buforowanie dla natychmiastowego odtwarzania
                 '-probesize', '32',  # Minimalny rozmiar próby dla szybszej analizy
                 '-analyzeduration', '0',  # Wyłącz analizę długości dla szybszego startu
-                '-bufsize', '1024',  # Mały bufor dla zmniejszenia opóźnienia
+                '-bufsize', '512',  # Jeszcze mniejszy bufor dla zmniejszenia opóźnienia
+                '-sync', 'audio',  # Synchronizuj tylko audio (bez wideo)
+                '-framedrop',  # Upuszczaj opóźnione ramki dla płynniejszego odtwarzania
+                '-af', 'volume=1',  # Wymuś przetwarzanie audio dla lepszego buforowania
                 file_path
             ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
