@@ -5,3 +5,4 @@ pygame==2.6.1
 pydub==0.25.1
 audioop-lts==0.2.1
 psutil==5.9.8
+audioplayer==0.6

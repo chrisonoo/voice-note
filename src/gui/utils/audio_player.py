@@ -2,93 +2,99 @@
 # odpowiedzialną za odtwarzanie próbek audio bezpośrednio w interfejsie.
 
 import threading  # Używany do zapewnienia bezpieczeństwa wątkowego przy tworzeniu Singletonu.
-import subprocess  # Do uruchamiania ffplay.
-import psutil  # Do zarządzania procesami systemowymi
+import os  # Do sprawdzania istnienia plików
+from audioplayer import AudioPlayer as AudioPlayerLib  # Nowa biblioteka do odtwarzania audio
+from src.utils.file_type_helper import is_video_file  # Do sprawdzania typu pliku
 
-class FFplayAudioPlayer:
+class AudioPlayerWrapper:
     """
-    Odtwarzacz audio używający ffplay (część ffmpeg) do obsługi wszystkich formatów audio.
-    Wspiera WMA, M4A, MP4 i inne formaty bez konwersji.
-    Używa tylko play/stop - pauza nie jest wspierana dla uproszczenia.
+    Odtwarzacz audio używający biblioteki audioplayer do obsługi wszystkich formatów audio.
+    Wspiera WMA, M4A, MP4, MP3 i inne formaty bez konwersji.
+    Ma pełną funkcjonalność pauzy i wznowienia.
     """
 
     def __init__(self):
-        self.process = None
+        self.player = None
         self.current_file = None
         self.is_playing = False
+        self.is_paused = False
 
     def play_file(self, file_path, stop_first=True):
         """Rozpoczyna odtwarzanie pliku."""
+        if not os.path.exists(file_path):
+            print(f"Plik nie istnieje: {file_path}")
+            return
+
+        # Sprawdzamy czy to plik wideo - nie odtwarzamy filmów (tylko audio)
+        if is_video_file(file_path):
+            print(f"Plik wideo {os.path.basename(file_path)} nie może być odtwarzany bezpośrednio.")
+            print("Skonwertuj plik wideo do formatu audio najpierw.")
+            return
+
         if stop_first:
             self.stop()  # Zatrzymaj ewentualne poprzednie odtwarzanie
 
         try:
-            # Uruchamiamy ffplay z parametrami do cichego odtwarzania z minimalnym opóźnieniem
-            self.process = subprocess.Popen([
-                'ffplay',
-                '-nodisp',  # Bez okna graficznego
-                '-autoexit',  # Zamknij po zakończeniu odtwarzania
-                '-loglevel', 'quiet',  # Bez logów
-                '-fflags', 'nobuffer',  # Wyłącz buforowanie dla natychmiastowego odtwarzania
-                '-probesize', '32',  # Minimalny rozmiar próby dla szybszej analizy
-                '-analyzeduration', '0',  # Wyłącz analizę długości dla szybszego startu
-                '-bufsize', '512',  # Jeszcze mniejszy bufor dla zmniejszenia opóźnienia
-                '-sync', 'audio',  # Synchronizuj tylko audio (bez wideo)
-                '-framedrop',  # Upuszczaj opóźnione ramki dla płynniejszego odtwarzania
-                '-af', 'volume=1',  # Wymuś przetwarzanie audio dla lepszego buforowania
-                file_path
-            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            # Tworzymy nowego playera z plikiem
+            self.player = AudioPlayerLib(file_path)
+            self.player.play()
 
             self.current_file = file_path
             self.is_playing = True
+            self.is_paused = False
 
         except Exception as e:
-            print(f"Nie można odtworzyć pliku przez ffplay: {file_path}. Błąd: {e}")
+            print(f"Nie można odtworzyć pliku przez audioplayer: {file_path}. Błąd: {e}")
             self.stop()
 
     def pause(self):
-        """Wstrzymuje odtwarzanie - uproszczone do stop."""
-        self.stop()
+        """Wstrzymuje odtwarzanie."""
+        if self.player and self.is_playing and not self.is_paused:
+            self.player.pause()
+            self.is_paused = True
 
-    def unpause(self, file_path):
-        """Wznawia odtwarzanie - uproszczone do ponownego play."""
-        if file_path:
-            self.play_file(file_path, stop_first=False)
+    def unpause(self, file_path=None):
+        """Wznawia odtwarzanie."""
+        if self.player and self.is_paused:
+            self.player.resume()  # Używamy resume() do wznowienia pauzy
+            self.is_paused = False
 
     def stop(self):
         """Zatrzymuje odtwarzanie."""
-        # Zabijamy wszystkie procesy ffplay w systemie
-        try:
-            for proc in psutil.process_iter(['pid', 'name']):
-                if proc.info['name'] == 'ffplay.exe':
-                    proc.kill()
-        except:
-            pass
+        if self.player:
+            try:
+                self.player.stop()
+            except:
+                pass  # Ignoruj błędy przy zatrzymywaniu
 
-        self.process = None
+        self.player = None
         self.current_file = None
         self.is_playing = False
+        self.is_paused = False
 
     def is_busy(self):
-        """Sprawdza czy ffplay jeszcze odtwarza."""
-        if self.process:
-            return self.process.poll() is None  # None oznacza, że proces jeszcze działa
-        return False
+        """Sprawdza czy odtwarzacz jeszcze odtwarza."""
+        # W audioplayer nie ma prostej właściwości is_playing,
+        # więc sprawdzamy czy player istnieje i nie jest w stanie stopped
+        return self.player is not None and self.is_playing
 
     def get_state(self, file_path):
         """Zwraca stan odtwarzania dla danego pliku."""
-        if self.current_file == file_path and self.is_playing:
-            return 'playing'
+        if self.current_file == file_path:
+            if self.is_playing and not self.is_paused:
+                return 'playing'
+            elif self.is_paused:
+                return 'paused'
         return 'stopped'
 
 class AudioPlayer:
     """
-    Zarządza odtwarzaniem plików audio przy użyciu `ffplay`.
+    Zarządza odtwarzaniem plików audio przy użyciu biblioteki `audioplayer`.
     Zapewnia, że w danym momencie odtwarzany jest tylko jeden plik.
     Została zaimplementowana jako Singleton, aby zagwarantować istnienie
     tylko jednej, globalnej instancji odtwarzacza w całej aplikacji.
 
-    Używa ffplay dla wszystkich formatów audio bez konwersji.
+    Używa audioplayer dla wszystkich formatów audio bez konwersji.
     """
     # Wzorzec Singleton - implementacja
     # `_instance` przechowuje jedyną instancję klasy.
@@ -107,10 +113,10 @@ class AudioPlayer:
 
     def __init__(self):
         # Inicjalizator jest wywoływany za każdym razem, gdy próbujemy "stworzyć" instancję
-        # (np. `AudioPlayer()`), ale właściwa inicjalizacja stanu (pygame, zmienne)
+        # (np. `AudioPlayer()`), ale właściwa inicjalizacja stanu (zmienne)
         # odbywa się tylko raz, dzięki fladze `self.initialized`.
         if not hasattr(self, 'initialized'):
-            self.ffplay_player = FFplayAudioPlayer()  # Player dla wszystkich formatów
+            self.audio_player = AudioPlayerWrapper()  # Player dla wszystkich formatów
             self.current_file = None  # Ścieżka do aktualnie odtwarzanego pliku.
             self.is_playing = False  # Flaga, czy coś jest aktywnie odtwarzane.
             self.is_paused = False  # Flaga, czy odtwarzanie jest wstrzymane.
@@ -128,12 +134,12 @@ class AudioPlayer:
         """
         # Scenariusz 1: Kliknięto przycisk "pauza" dla aktualnie odtwarzanego pliku.
         if self.is_playing and self.current_file == file_path:
-            self.ffplay_player.pause()
+            self.audio_player.pause()
             self.is_playing = False
             self.is_paused = True
         # Scenariusz 2: Kliknięto przycisk "play" dla wstrzymanego pliku.
         elif self.is_paused and self.current_file == file_path:
-            self.ffplay_player.unpause(file_path)
+            self.audio_player.unpause(file_path)
             self.is_playing = True
             self.is_paused = False
         # Scenariusz 3: Kliknięto "play" na nowym pliku (lub gdy nic nie gra).
@@ -142,8 +148,8 @@ class AudioPlayer:
                 # Zatrzymujemy cokolwiek, co mogło być odtwarzane wcześniej.
                 self.stop()
 
-                # Używamy ffplay dla wszystkich formatów
-                self.ffplay_player.play_file(file_path)
+                # Używamy audioplayer dla wszystkich formatów
+                self.audio_player.play_file(file_path)
 
                 # Aktualizujemy stan odtwarzacza.
                 self.current_file = file_path
@@ -155,15 +161,15 @@ class AudioPlayer:
 
     def stop(self):
         """Zatrzymuje odtwarzanie i całkowicie resetuje stan odtwarzacza."""
-        self.ffplay_player.stop()
+        self.audio_player.stop()
 
         self.current_file = None
         self.is_playing = False
         self.is_paused = False
 
     def is_busy(self):
-        """Sprawdza czy ffplay jeszcze odtwarza."""
-        return self.ffplay_player.is_busy()
+        """Sprawdza czy audioplayer jeszcze odtwarza."""
+        return self.audio_player.is_busy()
 
     def get_state(self, file_path):
         """
