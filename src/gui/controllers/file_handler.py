@@ -88,7 +88,7 @@ class FileHandler:
         Odpowiada za wywołanie właściwej funkcji konwertującej pliki i obsługę aktualizacji GUI po zakończeniu.
         """
         try:
-            # Wywołujemy funkcję, która wykonuje całą logikę konwersji FFMPEG.
+            # Wywołujemy funkcję, która wykonuje całą logikę konwersji audio za pomocą PyAV.
             # Przekazujemy referencję do aplikacji, aby móc aktualizować GUI w trakcie przetwarzania.
             encode_audio_files(app=self.app)
             

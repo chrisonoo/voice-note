@@ -3,6 +3,7 @@
 import sqlite3
 import os
 from .connection import get_db_connection, _execute_query, log_db_operation
+from .queries import get_file_metadata
 
 @log_db_operation
 def add_file(file_path):
@@ -109,6 +110,17 @@ def optimize_database():
         cursor.execute("ANALYZE")
         conn.commit()
     print("Optymalizacja bazy danych zakończona.")
+
+@log_db_operation
+def get_playback_file_path(source_file_path):
+    """
+    Zwraca ścieżkę do pliku, który powinien być odtwarzany dla danego source_file_path.
+    Dla skonwertowanych plików zwraca tmp_file_path, dla nieskonwertowanych - source_file_path.
+    """
+    metadata = get_file_metadata(source_file_path)
+    if metadata and metadata['tmp_file_path']:
+        return metadata['tmp_file_path']
+    return source_file_path
 
 @log_db_operation
 def validate_file_access(file_path):

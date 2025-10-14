@@ -164,8 +164,12 @@ class FilesView(ctk.CTkFrame):
 
     def on_play_button_click(self, file_path):
         """Obsługuje kliknięcie przycisku play/pauza."""
+        # Dla skonwertowanych plików używamy tmp_file_path zamiast source_file_path
+        from src.database.operations import get_playback_file_path
+        playback_path = get_playback_file_path(file_path)
+
         # Delegujemy logikę do odtwarzacza audio.
-        self.audio_player.toggle_play_pause(file_path)
+        self.audio_player.toggle_play_pause(file_path, playback_path)
         # Aktualizujemy ikony na przyciskach.
         self.update_play_buttons()
 

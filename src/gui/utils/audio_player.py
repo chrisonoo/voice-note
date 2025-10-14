@@ -29,6 +29,11 @@ class AudioPlayerWrapper:
         """Dekoduje plik audio do numpy array używając PyAV."""
         try:
             container = av.open(file_path)
+
+            if not container.streams.audio:
+                container.close()
+                return None, None
+
             stream = container.streams.audio[0]
 
             # Zbieramy wszystkie próbki audio
@@ -44,6 +49,8 @@ class AudioPlayerWrapper:
             # Łączymy wszystkie ramki w jedną tablicę
             if audio_frames:
                 audio_data = np.concatenate(audio_frames)
+                # Konwertuj do float32 dla sounddevice
+                audio_data = audio_data.astype(np.float32)
                 sample_rate = stream.rate
                 container.close()
                 return audio_data, sample_rate
@@ -67,7 +74,7 @@ class AudioPlayerWrapper:
             chunk_size = self.sample_rate // 10  # 100ms chunks
 
             while start_idx < len(self.audio_data) and not self.stop_event.is_set():
-                if self.pause_event.is_set():
+                if not self.pause_event.is_set():
                     # Pauza - czekaj aż zostanie wznowione
                     self.pause_event.wait()
                     continue
@@ -92,17 +99,15 @@ class AudioPlayerWrapper:
             print(f"Plik nie istnieje: {file_path}")
             return
 
-        # Sprawdzamy czy to plik wideo - nie odtwarzamy filmów (tylko audio)
+        # Sprawdzamy czy to plik wideo - wyświetlamy informację, ale pozwalamy na odtwarzanie
         if is_video_file(file_path):
-            print(f"Plik wideo {os.path.basename(file_path)} nie może być odtwarzany bezpośrednio.")
-            print("Skonwertuj plik wideo do formatu audio najpierw.")
-            return
+            print(f"Plik wideo {os.path.basename(file_path)} - odtwarzanie ścieżki audio...")
 
         if stop_first:
             self.stop()  # Zatrzymaj ewentualne poprzednie odtwarzanie
 
         try:
-            # Dekoduj plik audio
+            # Dekoduj plik audio (PyAV obsługuje zarówno audio jak i wideo - wyciąga ścieżkę audio)
             audio_data, sample_rate = self._decode_audio(file_path)
             if audio_data is None:
                 print(f"Nie można zdekodować pliku: {file_path}")
@@ -216,7 +221,7 @@ class AudioPlayer:
             self.is_paused = False  # Flaga, czy odtwarzanie jest wstrzymane.
             self.initialized = True  # Ustawiamy flagę, aby uniknąć ponownej inicjalizacji.
 
-    def toggle_play_pause(self, file_path):
+    def toggle_play_pause(self, file_path, playback_path=None):
         """
         Przełącza stan odtwarzania dla danego pliku (play/pauza/wznów).
 
@@ -226,6 +231,10 @@ class AudioPlayer:
         - Jeśli kliknięto na nowy plik -> zatrzymuje stary i odtwarza nowy.
         - Jeśli nic nie jest odtwarzane -> odtwarza kliknięty plik.
         """
+        # Jeśli nie podano playback_path, użyj file_path
+        if playback_path is None:
+            playback_path = file_path
+
         # Scenariusz 1: Kliknięto przycisk "pauza" dla aktualnie odtwarzanego pliku.
         if self.is_playing and self.current_file == file_path:
             self.audio_player.pause()
@@ -243,7 +252,7 @@ class AudioPlayer:
                 self.stop()
 
                 # Używamy PyAV + sounddevice dla wszystkich formatów
-                self.audio_player.play_file(file_path)
+                self.audio_player.play_file(playback_path)
 
                 # Aktualizujemy stan odtwarzacza.
                 self.current_file = file_path

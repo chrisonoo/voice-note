@@ -168,7 +168,7 @@ def _convert_single_file(original_path):
 def encode_audio_files(app=None):
     """
     Pobiera z bazy danych listę plików do przetworzenia, konwertuje je do formatu audio gotowego do transkrypcji
-    za pomocą zewnętrznego narzędzia FFMPEG z sekwencyjnym przetwarzaniem,
+    za pomocą PyAV z sekwencyjnym przetwarzaniem,
     aktualizując GUI po każdym przetworzonym pliku.
     """
     print("\nKrok 2: Konwertowanie plików audio do formatu gotowego do transkrypcji...")
