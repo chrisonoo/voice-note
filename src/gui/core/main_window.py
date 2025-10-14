@@ -51,6 +51,9 @@ class App(ctk.CTk):
         # Inicjalizujemy stan terminala (domyślnie rozwinięty)
         self.terminal_expanded = True
 
+        # Inicjalizujemy flagę wskazującą czy transkrypcja została już rozpoczęta
+        self.transcription_started = False
+
         # Ustawiamy tytuł okna, pobierając go z pliku konfiguracyjnego.
         self.title(config.APP_NAME)
         # Ustawiamy minimalny rozmiar okna.
@@ -271,6 +274,8 @@ class App(ctk.CTk):
                 database.optimize_database()
                 # Unieważniamy cache ponieważ dane zostały wyczyszczone
                 self.invalidate_cache()
+                # Resetujemy flagę rozpoczęcia transkrypcji
+                self.transcription_started = False
                 # Odświeżamy wszystkie widoki, aby odzwierciedliły pusty stan.
                 self.refresh_all_views()
                 # Czyścimy również główny panel z transkrypcją.

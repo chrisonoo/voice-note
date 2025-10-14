@@ -33,6 +33,9 @@ class TranscriptionController:
             messagebox.showwarning("Brak plików", "Brak plików wczytanych do przetworzenia.")
             return
 
+        # Ustawiamy flagę, że transkrypcja została rozpoczęta
+        self.app.transcription_started = True
+
         # Aktualizujemy stan przycisków (np. wyłączamy "Start"), aby zapobiec ponownemu kliknięciu.
         self.app.button_state_controller.update_ui_state()
         # Odświeżamy widoki, aby pokazać, które pliki trafiły do kolejki.

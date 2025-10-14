@@ -52,9 +52,9 @@ class ButtonStateController:
         has_loaded_files = any(f['is_loaded'] for f in all_files)
 
         # --- Przycisk wyboru plików ---
-        # Powinien być wyłączony, jeśli pliki zostały już wczytane LUB trwa przetwarzanie.
-        # Użytkownik może dodawać pliki dopóki nie kliknie "Wczytaj pliki".
-        self.app.file_selector_button.configure(state="disabled" if is_processing or has_loaded_files else "normal")
+        # Powinien być wyłączony, jeśli trwa przetwarzanie LUB transkrypcja została już rozpoczęta.
+        # Użytkownik może dodawać pliki dopóki nie kliknie przycisku "Start".
+        self.app.file_selector_button.configure(state="disabled" if is_processing or self.app.transcription_started else "normal")
 
         # --- Przycisk "Wczytaj Pliki" (konwersja) ---
         # Włączony tylko, jeśli są pliki do wczytania ORAZ nie trwa żadne przetwarzanie w tle.
