@@ -1,16 +1,16 @@
-# Ten moduł definiuje klasę `TranscriptionProcessor`, która jest "mózgiem"
+# Ten moduł definiuje klasę `TranscriptionService`, która jest "mózgiem"
 # operacji transkrypcji. Działa jak menedżer, który koordynuje pracę:
 # pobiera informacje z bazy danych, zleca transkrypcję modułowi `whisper`
 # i zapisuje wyniki z powrotem do bazy.
 
 import os  # Moduł do operacji na ścieżkach plików, np. do wyciągania nazwy pliku.
 import threading  # Moduł do pracy z wątkami, używany tutaj do obsługi pauzy w trybie GUI.
-from src.whisper import Whisper  # Importujemy naszą klasę-wrapper dla API OpenAI Whisper.
+from src.services.whisper_service import WhisperService  # Importujemy nasz serwis Whisper.
 from src import database  # Importujemy moduł do operacji na bazie danych.
 # format_transcription_header usunięty - tag jest teraz tworzony wcześniej w metadanych
 from src.utils.error_handlers import with_error_handling, measure_performance  # Dekoratory
 
-class TranscriptionProcessor:
+class TranscriptionService:
     """
     Zarządza całym procesem transkrypcji. Pobiera pliki, które zostały
     wcześniej skonwertowane do formatu audio gotowego do transkrypcji,
@@ -18,7 +18,7 @@ class TranscriptionProcessor:
     """
     def __init__(self, pause_requested_event: threading.Event = None, on_progress_callback=None):
         """
-        Inicjalizuje obiekt procesora transkrypcji.
+        Inicjalizuje obiekt serwisu transkrypcji.
 
         Argumenty:
             pause_requested_event (threading.Event, opcjonalnie):
@@ -40,7 +40,7 @@ class TranscriptionProcessor:
         Pobiera pliki, które są już załadowane (skonwertowane do formatu audio gotowego do transkrypcji),
         ale jeszcze nieprzetworzone (nie mają transkrypcji), wykonuje transkrypcję
         dla każdego z nich i aktualizuje odpowiednie wpisy w bazie danych.
-        
+
         Argumenty:
             allow_long (bool): Jeśli True, przetwarza również długie pliki.
                               Jeśli False, pomija długie pliki.
@@ -71,7 +71,7 @@ class TranscriptionProcessor:
                     # Jeśli nie ma metadanych, dodaj plik (może być problem z bazą danych)
                     filtered_files.append(source_path)
             files_to_process = filtered_files
-            
+
             if not files_to_process:
                 print("Brak krótkich plików do transkrypcji (wszystkie są za długie).")
                 return
@@ -100,10 +100,10 @@ class TranscriptionProcessor:
 
             print(f"  Przetwarzanie pliku: {os.path.basename(source_path)}")
 
-            # Tworzymy instancję naszej klasy `Whisper`, przekazując jej ścieżkę do przetworzonego pliku audio.
-            whisper = Whisper(tmp_path)
+            # Tworzymy instancję naszego serwisu Whisper, przekazując jej ścieżkę do przetworzonego pliku audio.
+            whisper_service = WhisperService(tmp_path)
             # Wywołujemy metodę, która wysyła plik do API OpenAI i zwraca wynik.
-            transcription = whisper.transcribe()
+            transcription = whisper_service.transcribe()
 
             # Sprawdzamy, czy transkrypcja się powiodła i czy wynik zawiera tekst.
             # `hasattr` sprawdza, czy obiekt `transcription` ma atrybut o nazwie 'text'.
@@ -122,7 +122,7 @@ class TranscriptionProcessor:
                 database.update_file_transcription(source_path, transcription.text)
                 print(f"    Sukces: Transkrypcja z tagiem zapisana w bazie danych.")
 
-                # Jeśli do procesora została przekazana funkcja zwrotna (w trybie GUI)...
+                # Jeśli do serwisu została przekazana funkcja zwrotna (w trybie GUI)...
                 if self.on_progress_callback:
                     # ...wywołujemy ją. To pozwala na aktualizację interfejsu użytkownika w czasie rzeczywistym.
                     self.on_progress_callback()

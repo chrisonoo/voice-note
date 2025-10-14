@@ -6,7 +6,7 @@
 import threading
 from tkinter import messagebox
 from src import database
-from src.transcribe.transcription_processor import TranscriptionProcessor
+from src.services.transcription_service import TranscriptionService
 
 class TranscriptionController:
     """
@@ -86,7 +86,7 @@ class TranscriptionController:
 
             # Tworzymy instancję procesora, przekazując mu obiekt Event do obsługi pauzy
             # oraz naszą funkcję zwrotną do raportowania postępu.
-            processor = TranscriptionProcessor(
+            processor = TranscriptionService(
                 pause_requested_event=self.app.pause_request_event,
                 on_progress_callback=progress_callback
             )
