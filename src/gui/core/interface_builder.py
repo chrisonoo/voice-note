@@ -185,9 +185,28 @@ class InterfaceBuilder:
         self.app.terminal_frame.grid_columnconfigure(0, weight=1)
         self.app.terminal_frame.grid_rowconfigure(0, weight=1)
 
+        # Ramka dla nagłówka z etykietą i przyciskiem czyszczenia
+        header_frame = ctk.CTkFrame(self.app.terminal_frame, fg_color="transparent")
+        header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=(5, 0))
+
+        # Konfiguracja siatki dla nagłówka
+        header_frame.grid_columnconfigure(0, weight=1)  # Etykieta rozciąga się
+        header_frame.grid_columnconfigure(1, weight=0)  # Przycisk ma stałą szerokość
+
         # Etykieta nagłówka
-        terminal_label = ctk.CTkLabel(self.app.terminal_frame, text="Terminal", font=ctk.CTkFont(size=12, weight="bold"))
-        terminal_label.grid(row=0, column=0, sticky="w", padx=10, pady=(5, 0))
+        terminal_label = ctk.CTkLabel(header_frame, text="Terminal", font=ctk.CTkFont(size=12, weight="bold"))
+        terminal_label.grid(row=0, column=0, sticky="w")
+
+        # Mały przycisk do czyszczenia terminala
+        self.app.clear_terminal_button = ctk.CTkButton(
+            header_frame,
+            text="Clear",
+            command=self.app.clear_terminal,
+            width=25,
+            height=20,
+            font=ctk.CTkFont(size=10)
+        )
+        self.app.clear_terminal_button.grid(row=0, column=1, sticky="e", padx=(5, 0))
 
         # Pole tekstowe z przewijaniem dla terminala
         self.app.terminal_text = ctk.CTkTextbox(

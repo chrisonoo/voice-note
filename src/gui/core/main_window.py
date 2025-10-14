@@ -356,6 +356,13 @@ class App(ctk.CTk):
             # Przewiń na dół
             self.terminal_text.see("end")
 
+    def clear_terminal(self):
+        """Czyści zawartość terminala GUI."""
+        if hasattr(self, 'terminal_text'):
+            self.terminal_text.configure(state="normal")
+            self.terminal_text.delete("1.0", "end")
+            self.terminal_text.configure(state="disabled")
+
     def on_closing(self):
         """Obsługuje zdarzenie zamknięcia okna."""
         self.audio_player.stop()
