@@ -16,12 +16,14 @@ from src import config, database  # Importujemy nasze własne moduły: konfigura
 # - `TranscriptionController`: Zarządza procesem transkrypcji w tle.
 # - `PanelManager`: Odświeża zawartość paneli z listami plików.
 # - `AudioPlayer`: Kontroluje odtwarzanie próbek audio.
+# - `TerminalRedirector`: Przekierowuje stdout/stderr do GUI.
 from .interface_builder import InterfaceBuilder
 from ..controllers.button_state_controller import ButtonStateController
 from ..controllers.file_handler import FileHandler
 from ..controllers.transcription_controller import TranscriptionController
 from ..controllers.panel_manager import PanelManager
 from ..utils.audio_player import AudioPlayer
+from ..utils.terminal_redirector import TerminalRedirector
 
 class App(ctk.CTk):
     """
@@ -46,10 +48,13 @@ class App(ctk.CTk):
         self._cache_timestamp = 0
         self._cache_timeout = 2.0  # sekundy
 
+        # Inicjalizujemy stan terminala (domyślnie rozwinięty)
+        self.terminal_expanded = True
+
         # Ustawiamy tytuł okna, pobierając go z pliku konfiguracyjnego.
         self.title(config.APP_NAME)
         # Ustawiamy minimalny rozmiar okna.
-        self.minsize(1110, 600)
+        self.minsize(1110, 850)
         # `protocol` pozwala przechwycić zdarzenia systemowe okna. "WM_DELETE_WINDOW" to kliknięcie przycisku "X".
         # Zamiast domyślnego zamknięcia, wywołujemy naszą własną metodę `on_closing`.
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -64,6 +69,7 @@ class App(ctk.CTk):
         # Wiersz 1 (z głównymi panelami) ma `weight=1`, więc będzie się rozciągał w pionie.
         self.grid_rowconfigure(1, weight=1)
         self.grid_rowconfigure(2, weight=0)
+        self.grid_rowconfigure(3, weight=0)
 
         # Tworzymy instancje naszych klas pomocniczych (kontrolerów i menedżerów).
         # Przekazujemy `self` (czyli instancję `App`), aby miały one dostęp do głównego okna i jego komponentów.
@@ -76,6 +82,10 @@ class App(ctk.CTk):
 
         # Wywołujemy metodę, która fizycznie tworzy i umieszcza wszystkie widżety w oknie.
         self.interface_builder.create_widgets()
+
+        # Inicjalizujemy przekierowanie terminala
+        self.terminal_redirector = TerminalRedirector(self.append_to_terminal)
+        self.terminal_redirector.start_redirect()
 
         # Ustawiamy początkowy stan przycisków i odświeżamy widoki.
         self.button_state_controller.update_ui_state()
@@ -311,9 +321,42 @@ class App(ctk.CTk):
         # Wywołując samą siebie, tworzymy pętlę, która działa w tle bez blokowania GUI.
         self.after(100, self._check_playback_status)
 
+    def toggle_terminal(self):
+        """Zwijanie/rozwijanie panelu terminala."""
+        if self.terminal_expanded:
+            # Zwijamy terminal
+            self.terminal_frame.grid_remove()
+            self.terminal_toggle_button.configure(text="▼ Terminal")
+            self.terminal_expanded = False
+            # Dostosuj rozmiar okna po zwinięciu
+            current_width = self.winfo_width()
+            self.geometry(f"{current_width}x600")
+        else:
+            # Rozwijamy terminal
+            self.terminal_frame.grid()
+            self.terminal_toggle_button.configure(text="▲ Terminal")
+            self.terminal_expanded = True
+            # Dostosuj rozmiar okna po rozwinięciu
+            current_width = self.winfo_width()
+            self.geometry(f"{current_width}x850")
+
+    def append_to_terminal(self, text):
+        """Dodaje tekst do terminala GUI."""
+        if hasattr(self, 'terminal_text'):
+            self.terminal_text.configure(state="normal")
+            self.terminal_text.insert("end", text)
+            self.terminal_text.configure(state="disabled")
+            # Przewiń na dół
+            self.terminal_text.see("end")
+
     def on_closing(self):
         """Obsługuje zdarzenie zamknięcia okna."""
         self.audio_player.stop()
+
+        # Zatrzymaj przekierowanie terminala
+        if hasattr(self, 'terminal_redirector'):
+            self.terminal_redirector.stop_redirect()
+
         # Sprawdzamy, czy wątek przetwarzający wciąż działa.
         if self.processing_thread and self.processing_thread.is_alive():
             # Jeśli tak, pytamy użytkownika, czy na pewno chce zamknąć aplikację.

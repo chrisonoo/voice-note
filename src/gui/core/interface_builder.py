@@ -66,7 +66,16 @@ class InterfaceBuilder:
             fg_color="darkred",  # Kolor przycisku.
             hover_color="red"  # Kolor po najechaniu myszką.
         )
-        self.app.reset_button.grid(row=2, column=4, sticky="ew", padx=(5, 10), pady=(5, 10))
+        self.app.reset_button.grid(row=2, column=4, sticky="ew", padx=(5, 5), pady=(5, 10))
+
+        # --- Przycisk zwijania/rozwijania terminala ---
+        self.app.terminal_toggle_button = ctk.CTkButton(
+            self.app,
+            text="▲ Terminal",
+            command=self.app.toggle_terminal,
+            width=80
+        )
+        self.app.terminal_toggle_button.grid(row=2, column=4, sticky="e", padx=(5, 10), pady=(5, 10))
 
         # --- Kolumna 1: Przycisk wczytywania (konwersji) plików ---
         self.app.convert_files_button = ctk.CTkButton(
@@ -132,6 +141,9 @@ class InterfaceBuilder:
         # --- Kolumna 4: Panel wyjściowy z transkrypcją ---
         self.app.transcription_output_panel = TranscriptionView(self.app, text="Transkrypcja")
         self.app.transcription_output_panel.grid(row=1, column=4, sticky="nsew", padx=(5, 10), pady=5)
+
+        # --- Panel terminala na dole ---
+        self._create_terminal_panel()
     
     def _create_counter_labels(self):
         """Tworzy etykiety liczników do dynamicznego podsumowania stanu."""
@@ -154,3 +166,31 @@ class InterfaceBuilder:
         # --- Kolumna 3: Licznik plików przetworzonych ---
         self.app.processed_counter_label = ctk.CTkLabel(self.app, text="", anchor="center")
         self.app.processed_counter_label.grid(row=2, column=3, sticky="ew", padx=5, pady=(5, 10))
+
+    def _create_terminal_panel(self):
+        """Tworzy panel terminala z przewijaniem na dole okna."""
+        # Główna ramka dla terminala
+        self.app.terminal_frame = ctk.CTkFrame(self.app)
+        self.app.terminal_frame.grid(row=3, column=0, columnspan=5, sticky="ew", padx=10, pady=(5, 10))
+
+        # Konfiguracja siatki dla ramki terminala
+        self.app.terminal_frame.grid_columnconfigure(0, weight=1)
+        self.app.terminal_frame.grid_rowconfigure(0, weight=1)
+
+        # Etykieta nagłówka
+        terminal_label = ctk.CTkLabel(self.app.terminal_frame, text="Terminal", font=ctk.CTkFont(size=12, weight="bold"))
+        terminal_label.grid(row=0, column=0, sticky="w", padx=10, pady=(5, 0))
+
+        # Pole tekstowe z przewijaniem dla terminala
+        self.app.terminal_text = ctk.CTkTextbox(
+            self.app.terminal_frame,
+            wrap="word",
+            font=ctk.CTkFont(family="Courier", size=10)  # Font monospace dla terminala
+        )
+        self.app.terminal_text.grid(row=1, column=0, sticky="nsew", padx=10, pady=(5, 10))
+
+        # Ustaw wysokość na około 10 linii tekstu
+        self.app.terminal_text.configure(height=200)  # około 10 linii po 20px każda
+
+        # Ustawienie jako tylko do odczytu
+        self.app.terminal_text.configure(state="disabled")
