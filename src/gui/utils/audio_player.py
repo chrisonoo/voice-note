@@ -10,63 +10,50 @@ from src.utils.file_type_helper import is_video_file  # Do sprawdzania typu plik
 
 class AudioPlayerWrapper:
     """
-    Odtwarzacz audio używający PyAV do dekodowania i sounddevice do odtwarzania.
+    Prosty odtwarzacz audio używający PyAV do dekodowania i sounddevice do odtwarzania.
     Wspiera wszystkie formaty obsługiwane przez FFmpeg.
-    Ma pełną funkcjonalność pauzy i wznowienia poprzez kontrolę wątku odtwarzania.
     """
 
     def __init__(self):
-        self.container = None
-        self.sample_rate = None  # Częstotliwość próbkowania
         self.current_file = None
+        self.audio_data = None  # Zdekodowane dane audio
+        self.sample_rate = None
         self.is_playing = False
         self.is_paused = False
-        self.play_thread = None  # Wątek odtwarzania
-        self.stop_event = threading.Event()
-        self.pause_event = threading.Event()
 
     def _decode_audio(self, file_path):
-        """Otwiera plik audio/wideo i przygotowuje do streamingu."""
+        """Dekoduje cały plik audio do numpy array."""
         try:
             container = av.open(file_path)
             if not container.streams.audio:
                 container.close()
                 return None, None
+
             stream = container.streams.audio[0]
-            return container, stream
+            audio_frames = []
+
+            # Dekoduj wszystkie ramki
+            for frame in container.decode(stream):
+                audio_array = frame.to_ndarray()
+                if audio_array.ndim > 1:
+                    audio_array = np.mean(audio_array, axis=0)  # Konwertuj na mono
+                audio_frames.append(audio_array.astype(np.float32))
+
+            container.close()
+
+            if audio_frames:
+                # Połącz wszystkie ramki w jedną tablicę
+                audio_data = np.concatenate(audio_frames)
+                return audio_data, stream.rate
+
+            return None, None
+
         except av.AVError as e:
             print(f"Błąd PyAV podczas otwierania pliku {file_path}: {e}")
             return None, None
         except Exception as e:
             print(f"Nieoczekiwany błąd podczas otwierania pliku {file_path}: {e}")
             return None, None
-
-    def _play_audio_thread(self, container, stream):
-        """Wątek odtwarzający audio bezpośrednio ze streamu PyAV."""
-        try:
-            self.sample_rate = stream.rate
-            for frame in container.decode(stream):
-                if self.stop_event.is_set():
-                    break
-
-                self.pause_event.wait()
-
-                audio_array = frame.to_ndarray()
-                if audio_array.ndim > 1:
-                    audio_array = np.mean(audio_array, axis=0)
-
-                audio_data = audio_array.astype(np.float32)
-
-                if audio_data.size > 0:
-                    sd.play(audio_data, self.sample_rate, blocking=True)
-        except (av.AVError, sd.PortAudioError) as e:
-            print(f"Błąd biblioteki audio podczas odtwarzania: {e}")
-        except Exception as e:
-            print(f"Nieoczekiwany błąd podczas odtwarzania audio: {e}")
-        finally:
-            self.stop()
-            if container:
-                container.close()
 
     def play_file(self, file_path, stop_first=True):
         """Rozpoczyna odtwarzanie pliku."""
@@ -80,52 +67,53 @@ class AudioPlayerWrapper:
         if stop_first:
             self.stop()
 
-        container, stream = self._decode_audio(file_path)
-        if not container or not stream:
-            print(f"Nie można zdekodować pliku: {file_path}")
-            return
+        # Dekoduj plik jeśli to nowy plik lub jeszcze nie zdekodowany
+        if self.current_file != file_path or self.audio_data is None:
+            audio_data, sample_rate = self._decode_audio(file_path)
+            if audio_data is None or sample_rate is None:
+                print(f"Nie można zdekodować pliku: {file_path}")
+                return
 
-        self.container = container
-        self.current_file = file_path
-        self.is_playing = True
-        self.is_paused = False
+            self.audio_data = audio_data
+            self.sample_rate = sample_rate
+            self.current_file = file_path
 
-        self.stop_event.clear()
-        self.pause_event.set()
-
-        self.play_thread = threading.Thread(target=self._play_audio_thread, args=(container, stream), daemon=True)
-        self.play_thread.start()
+        # Rozpocznij odtwarzanie
+        try:
+            sd.play(self.audio_data, self.sample_rate)
+            self.is_playing = True
+            self.is_paused = False
+        except Exception as e:
+            print(f"Błąd podczas odtwarzania: {e}")
+            self.is_playing = False
 
     def pause(self):
         """Wstrzymuje odtwarzanie."""
         if self.is_playing and not self.is_paused:
-            self.pause_event.clear()
+            sd.stop()
             self.is_paused = True
+            self.is_playing = False
 
     def unpause(self, file_path=None):
-        """Wznawia odtwarzanie."""
-        if self.is_paused:
-            self.pause_event.set()
-            self.is_paused = False
+        """Wznawia odtwarzanie od początku."""
+        if self.is_paused and self.audio_data is not None:
+            try:
+                sd.play(self.audio_data, self.sample_rate)
+                self.is_playing = True
+                self.is_paused = False
+            except Exception as e:
+                print(f"Błąd podczas wznawiania: {e}")
 
     def stop(self):
         """Zatrzymuje odtwarzanie."""
-        self.stop_event.set()
-        self.pause_event.set()
-
         try:
             sd.stop()
         except Exception as e:
             print(f"Błąd przy zatrzymywaniu sounddevice: {e}")
 
-        if self.play_thread and self.play_thread.is_alive():
-            self.play_thread.join(timeout=0.5)
-
-        if self.container:
-            self.container.close()
-            self.container = None
-
         self.current_file = None
+        self.audio_data = None
+        self.sample_rate = None
         self.is_playing = False
         self.is_paused = False
 
