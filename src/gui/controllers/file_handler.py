@@ -89,7 +89,8 @@ class FileHandler:
         """
         try:
             # Wywołujemy funkcję, która wykonuje całą logikę konwersji FFMPEG.
-            encode_audio_files()
+            # Przekazujemy referencję do aplikacji, aby móc aktualizować GUI w trakcie przetwarzania.
+            encode_audio_files(app=self.app)
             
             # WAŻNE: Bezpośrednia modyfikacja widżetów Tkinter z innego wątku niż główny jest niebezpieczna.
             # `self.app.after(0, ...)` to bezpieczny sposób na zaplanowanie wykonania funkcji

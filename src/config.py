@@ -72,7 +72,7 @@ MAX_FILE_DURATION_SECONDS = 300
 # --- SZEROKOŚCI PANELI I KOLUMN ---
 # Szerokości paneli głównych
 PANEL_SELECTED_WIDTH = 450          # Panel "Wybrane" (FilesView)
-PANEL_STATUS_WIDTH = 150            # Panele statusu (Wczytane, Do przetworzenia, Przetworzone)
+PANEL_STATUS_WIDTH = 180            # Panele statusu (Wczytane, Do przetworzenia, Przetworzone)
 PANEL_TRANSCRIPTION_WIDTH = 350     # Panel "Transkrypcja"
 
 # Szerokości kolumn w panelu "Wybrane"
@@ -88,4 +88,4 @@ SCROLLABLE_FRAME_WIDTH = 484        # Szerokość wewnętrznej ramki przewijalne
 
 # Maksymalne długości nazw plików (dla ellipsis)
 MAX_FILENAME_LENGTH_SELECTED = 30   # W panelu "Wybrane"
-MAX_FILENAME_LENGTH_STATUS = 25     # W panelach statusu
+MAX_FILENAME_LENGTH_STATUS = 40     # W panelach statusu

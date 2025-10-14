@@ -37,13 +37,19 @@ def _convert_single_file(original_path):
             # Dla plików audio używamy standardowych parametrów
             command = f'ffmpeg -y -i "{original_path}" {config.FFMPEG_PARAMS} "{tmp_file_path}"'
 
-        # Uruchamiamy komendę FFMPEG z timeout'em
-        subprocess.run(command, shell=True, check=True, capture_output=True, text=True, timeout=300)
+        # Obliczamy timeout proporcjonalny do długości pliku + 5 minut bufora
+        # Dla pliku 139 min: ~147 min timeout, dla krótkich plików: minimum 10 min
+        from src.audio.duration_checker import get_file_duration
+        duration_sec = get_file_duration(original_path)
+        timeout_sec = max(600, int(duration_sec * 1.1) + 300)  # 10% + 5 min bufora, minimum 10 min
+
+        print(f"    Timeout dla tego pliku: {timeout_sec//60} minut")
+        subprocess.run(command, shell=True, check=True, capture_output=True, text=True, timeout=timeout_sec)
 
         return (original_path, tmp_file_path)
 
     except subprocess.TimeoutExpired:
-        print(f"    TIMEOUT: Konwersja pliku {os.path.basename(original_path)} przekroczyła limit czasu (5 min)")
+        print(f"    TIMEOUT: Konwersja pliku {os.path.basename(original_path)} przekroczyła wyliczony limit czasu")
         return None
     except subprocess.CalledProcessError as e:
         print(f"    BŁĄD FFMPEG: Nie udało się przekonwertować pliku {os.path.basename(original_path)}.")
@@ -55,11 +61,11 @@ def _convert_single_file(original_path):
 
 @with_error_handling("Konwersja plików audio")
 @measure_performance
-def encode_audio_files():
+def encode_audio_files(app=None):
     """
     Pobiera z bazy danych listę plików do przetworzenia, konwertuje je do formatu audio gotowego do transkrypcji
-    za pomocą zewnętrznego narzędzia FFMPEG z równoległym przetwarzaniem,
-    a następnie aktualizuje ich status w bazie danych.
+    za pomocą zewnętrznego narzędzia FFMPEG z sekwencyjnym przetwarzaniem,
+    aktualizując GUI po każdym przetworzonym pliku.
     """
     print("\nKrok 2: Konwertowanie plików audio do formatu gotowego do transkrypcji...")
 
@@ -72,34 +78,31 @@ def encode_audio_files():
     # Upewniamy się, że folder na przekonwertowane pliki audio istnieje.
     os.makedirs(config.AUDIO_TMP_DIR, exist_ok=True)
 
-    print(f"Rozpoczynam równoległą konwersję {len(files_to_encode)} plików...")
+    print(f"Rozpoczynam sekwencyjną konwersję {len(files_to_encode)} plików...")
 
-    # Przetwarzaj pliki równolegle - maksymalnie 4 wątki lub tyle ile plików
-    max_workers = min(4, len(files_to_encode))
     successful_conversions = []
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        # Tworzymy futures dla wszystkich plików
-        futures = []
-        for original_path in files_to_encode:
-            future = executor.submit(_convert_single_file, original_path)
-            futures.append((future, original_path))
+    # Przetwarzaj pliki sekwencyjnie
+    for i, original_path in enumerate(files_to_encode, 1):
+        print(f"Przetwarzanie pliku {i}/{len(files_to_encode)}: {os.path.basename(original_path)}")
 
-        # Oczekujemy na wyniki
-        for future, original_path in futures:
-            try:
-                result = future.result(timeout=300)  # 5 min timeout na całą operację
-                if result:
-                    successful_conversions.append(result)
-            except concurrent.futures.TimeoutError:
-                print(f"    TIMEOUT: Przetwarzanie pliku {os.path.basename(original_path)} przekroczyło limit czasu")
-            except Exception as e:
-                print(f"    BŁĄD WĄTKU: {e}")
+        result = _convert_single_file(original_path)
+        if result:
+            source_path, tmp_path = result
+            successful_conversions.append(result)
 
-    # Masowa aktualizacja bazy danych
+            # Aktualizuj bazę danych natychmiast po przetworzeniu pliku
+            database.set_files_as_loaded([source_path], [tmp_path])
+            print(f"    ✓ Przetworzono i dodano do bazy: {os.path.basename(source_path)}")
+
+            # Odśwież GUI jeśli mamy referencję do aplikacji
+            if app:
+                app.after(0, lambda: app.invalidate_cache())
+                app.after(0, lambda: app.refresh_all_views())
+        else:
+            print(f"    ✗ Nie udało się przetworzyć: {os.path.basename(original_path)}")
+
     if successful_conversions:
-        source_paths, tmp_paths = zip(*successful_conversions)
-        database.set_files_as_loaded(source_paths, tmp_paths)
         print(f"Pomyślnie przekonwertowano i oznaczono jako załadowane: {len(successful_conversions)} plików.")
 
     if len(successful_conversions) < len(files_to_encode):
