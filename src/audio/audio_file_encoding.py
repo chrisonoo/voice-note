@@ -5,11 +5,67 @@
 
 import os  # Moduł do interakcji z systemem operacyjnym, np. do operacji na ścieżkach plików.
 import subprocess  # Moduł pozwalający na uruchamianie zewnętrznych programów, w tym przypadku FFMPEG.
+import threading  # Dodane dla obsługi timeout'u z postępem w czasie rzeczywistym
 import concurrent.futures  # Dodane dla równoległego przetwarzania
 from concurrent.futures import ThreadPoolExecutor
 from src import config, database  # Importujemy własne moduły: konfigurację i operacje na bazie danych.
 from src.utils.error_handlers import with_error_handling, measure_performance  # Dekoratory
 from src.utils.file_type_helper import is_video_file  # Funkcja do wykrywania plików wideo
+
+def _run_ffmpeg_with_progress(command, timeout_sec):
+    """
+    Uruchamia FFmpeg z wyświetlaniem postępu w czasie rzeczywistym.
+    Zwraca True jeśli się udało, False przy błędzie lub timeout'cie.
+    """
+    try:
+        # Uruchamiamy FFmpeg z przekierowaniem stdout i stderr do PIPE
+        process = subprocess.Popen(
+            command,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,  # Łączymy stderr z stdout aby zobaczyć postęp
+            text=True,
+            bufsize=1,  # Line buffered
+            universal_newlines=True
+        )
+
+        # Zmienna do śledzenia czy proces nadal działa
+        process_finished = [False]
+
+        def read_output():
+            """Czyta wyjście z FFmpeg w czasie rzeczywistym."""
+            try:
+                for line in iter(process.stdout.readline, ''):
+                    if line.strip():  # Wyświetlaj tylko niepuste linie
+                        print(line.rstrip())  # Wyślij do naszego redirectora terminala
+                    if process.poll() is not None:  # Proces zakończył się
+                        break
+            except Exception as e:
+                print(f"Błąd podczas czytania wyjścia FFmpeg: {e}")
+            finally:
+                process_finished[0] = True
+
+        # Uruchamiamy wątek do czytania wyjścia
+        output_thread = threading.Thread(target=read_output, daemon=True)
+        output_thread.start()
+
+        # Czekamy na zakończenie procesu z timeout'em
+        try:
+            process.wait(timeout=timeout_sec)
+            output_thread.join(timeout=1.0)  # Daj czas wątkowi na zakończenie
+            return process.returncode == 0
+        except subprocess.TimeoutExpired:
+            print(f"    TIMEOUT: FFmpeg przekroczył limit czasu {timeout_sec} sekund")
+            process.terminate()
+            try:
+                process.wait(timeout=5)  # Daj czas na zamknięcie
+            except subprocess.TimeoutExpired:
+                process.kill()  # Wymuś zamknięcie jeśli terminate nie działa
+            return False
+
+    except Exception as e:
+        print(f"    BŁĄD podczas uruchamiania FFmpeg: {e}")
+        return False
 
 def _convert_single_file(original_path):
     """
@@ -44,17 +100,15 @@ def _convert_single_file(original_path):
         timeout_sec = max(600, int(duration_sec * 1.1) + 300)  # 10% + 5 min bufora, minimum 10 min
 
         print(f"    Timeout dla tego pliku: {timeout_sec//60} minut")
-        subprocess.run(command, shell=True, check=True, capture_output=True, text=True, timeout=timeout_sec)
 
-        return (original_path, tmp_file_path)
+        # Uruchamiamy FFmpeg z wyświetlaniem postępu w czasie rzeczywistym
+        success = _run_ffmpeg_with_progress(command, timeout_sec)
 
-    except subprocess.TimeoutExpired:
-        print(f"    TIMEOUT: Konwersja pliku {os.path.basename(original_path)} przekroczyła wyliczony limit czasu")
-        return None
-    except subprocess.CalledProcessError as e:
-        print(f"    BŁĄD FFMPEG: Nie udało się przekonwertować pliku {os.path.basename(original_path)}.")
-        print(f"    Komunikat: {e.stderr[:200]}...")  # Ogranicz długość komunikatu błędu
-        return None
+        if success:
+            return (original_path, tmp_file_path)
+        else:
+            return None
+
     except Exception as ex:
         print(f"    KRYTYCZNY BŁĄD podczas przetwarzania pliku {os.path.basename(original_path)}: {ex}")
         return None
