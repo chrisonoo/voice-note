@@ -146,6 +146,8 @@ class FilesView(ctk.CTkFrame):
         # `self.master` odnosi się do rodzica tego widżetu, czyli głównego okna aplikacji `App`.
         # Wywołujemy metodę z głównego okna, aby zaktualizować liczniki.
         self.master.update_all_counters()
+        # Aktualizujemy również stan przycisków, ponieważ zależy on od zaznaczonych plików
+        self.master.button_state_controller.update_ui_state()
 
     def on_delete_button_click(self, file_path):
         """Obsługuje kliknięcie przycisku usuwania."""
