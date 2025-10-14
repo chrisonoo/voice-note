@@ -3,14 +3,14 @@
 
 import threading  # Używany do zapewnienia bezpieczeństwa wątkowego przy tworzeniu Singletonu.
 import os  # Do sprawdzania istnienia plików
-import av  # PyAV do dekodowania audio
+import pydub  # Do ładowania audio z plików
 import sounddevice as sd  # Do odtwarzania audio przez głośniki
 import numpy as np  # Do przetwarzania tablic audio
 from src.utils.file_type_helper import is_video_file  # Do sprawdzania typu pliku
 
 class AudioPlayerWrapper:
     """
-    Prosty odtwarzacz audio używający PyAV do dekodowania i sounddevice do odtwarzania.
+    Prosty odtwarzacz audio używający pydub do ładowania i sounddevice do odtwarzania.
     Wspiera wszystkie formaty obsługiwane przez FFmpeg.
     """
 
@@ -21,38 +21,34 @@ class AudioPlayerWrapper:
         self.is_playing = False
         self.is_paused = False
 
-    def _decode_audio(self, file_path):
-        """Dekoduje cały plik audio do numpy array."""
+    def _load_audio(self, file_path):
+        """Ładuje plik audio używając pydub i konwertuje do formatu sounddevice."""
         try:
-            container = av.open(file_path)
-            if not container.streams.audio:
-                container.close()
-                return None, None
+            # Załaduj audio przez pydub
+            audio = pydub.AudioSegment.from_file(file_path)
 
-            stream = container.streams.audio[0]
-            audio_frames = []
+            # Pobierz próbki jako numpy array
+            samples = np.array(audio.get_array_of_samples())
 
-            # Dekoduj wszystkie ramki
-            for frame in container.decode(stream):
-                audio_array = frame.to_ndarray()
-                if audio_array.ndim > 1:
-                    audio_array = np.mean(audio_array, axis=0)  # Konwertuj na mono
-                audio_frames.append(audio_array.astype(np.float32))
+            # Kształtuj array - stereo lub mono
+            if audio.channels == 2:
+                samples = samples.reshape((-1, 2))
+            else:
+                samples = samples.reshape((-1, 1))
 
-            container.close()
+            # Normalizuj do float32 (-1.0 do 1.0)
+            samples = samples.astype(np.float32)
+            if audio.sample_width == 2:  # 16-bit
+                samples /= (2**15)
+            elif audio.sample_width == 1:  # 8-bit
+                samples = (samples - 128) / 128.0
+            elif audio.sample_width == 4:  # 32-bit
+                samples /= (2**31)
 
-            if audio_frames:
-                # Połącz wszystkie ramki w jedną tablicę
-                audio_data = np.concatenate(audio_frames)
-                return audio_data, stream.rate
+            return samples, audio.frame_rate
 
-            return None, None
-
-        except av.AVError as e:
-            print(f"Błąd PyAV podczas otwierania pliku {file_path}: {e}")
-            return None, None
         except Exception as e:
-            print(f"Nieoczekiwany błąd podczas otwierania pliku {file_path}: {e}")
+            print(f"Błąd podczas ładowania pliku {file_path}: {e}")
             return None, None
 
     def play_file(self, file_path, stop_first=True):
@@ -67,11 +63,11 @@ class AudioPlayerWrapper:
         if stop_first:
             self.stop()
 
-        # Dekoduj plik jeśli to nowy plik lub jeszcze nie zdekodowany
+        # Załaduj plik jeśli to nowy plik lub jeszcze nie załadowany
         if self.current_file != file_path or self.audio_data is None:
-            audio_data, sample_rate = self._decode_audio(file_path)
+            audio_data, sample_rate = self._load_audio(file_path)
             if audio_data is None or sample_rate is None:
-                print(f"Nie można zdekodować pliku: {file_path}")
+                print(f"Nie można załadować pliku: {file_path}")
                 return
 
             self.audio_data = audio_data
