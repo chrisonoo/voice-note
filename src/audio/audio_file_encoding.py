@@ -6,6 +6,7 @@
 import os  # Moduł do interakcji z systemem operacyjnym, np. do operacji na ścieżkach plików.
 import subprocess  # Moduł pozwalający na uruchamianie zewnętrznych programów, w tym przypadku FFMPEG.
 import threading  # Dodane dla obsługi timeout'u z postępem w czasie rzeczywistym
+import time  # Dodane dla kontrolowania odstępów czasowych wyświetlania postępu
 import concurrent.futures  # Dodane dla równoległego przetwarzania
 from concurrent.futures import ThreadPoolExecutor
 from src import config, database  # Importujemy własne moduły: konfigurację i operacje na bazie danych.
@@ -33,13 +34,27 @@ def _run_ffmpeg_with_progress(command, timeout_sec):
         process_finished = [False]
 
         def read_output():
-            """Czyta wyjście z FFmpeg w czasie rzeczywistym."""
+            """Czyta wyjście z FFmpeg w czasie rzeczywistym, wyświetlając postęp co 5 sekund."""
+            last_display_time = 0
+            display_interval = 5.0  # Wyświetlaj postęp co 5 sekund
             try:
-                for line in iter(process.stdout.readline, ''):
-                    if line.strip():  # Wyświetlaj tylko niepuste linie
-                        print(line.rstrip())  # Wyślij do naszego redirectora terminala
-                    if process.poll() is not None:  # Proces zakończył się
-                        break
+                while True:
+                    # Czytaj dostępne linie bez blokowania
+                    line = process.stdout.readline()
+                    if not line:  # Brak więcej danych
+                        if process.poll() is not None:  # Proces zakończył się
+                            break
+                        time.sleep(0.1)  # Krótkie czekanie przed następną próbą
+                        continue
+
+                    current_time = time.time()
+                    line_str = line.strip()
+                    if line_str:  # Wyświetlaj tylko niepuste linie
+                        # Wyświetlaj tylko jeśli minęło 5 sekund od ostatniego wyświetlenia
+                        if current_time - last_display_time >= display_interval:
+                            print(line_str)  # Wyślij do naszego redirectora terminala
+                            last_display_time = current_time
+
             except Exception as e:
                 print(f"Błąd podczas czytania wyjścia FFmpeg: {e}")
             finally:
