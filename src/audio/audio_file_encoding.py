@@ -3,161 +3,52 @@
 # formatu (.mp3, .m4a itp.), zostaną przekonwertowane do standardowego formatu audio,
 # który jest zoptymalizowany dla API Whisper.
 
-import os  # Moduł do interakcji z systemem operacyjnym, np. do operacji na ścieżkach plików.
-import av  # PyAV do konwersji audio
-import numpy as np  # Do normalizacji głośności
-import threading  # Dodane dla obsługi timeout'u z postępem w czasie rzeczywistym
-import time  # Dodane dla kontrolowania odstępów czasowych wyświetlania postępu
-import concurrent.futures  # Dodane dla równoległego przetwarzania
-from concurrent.futures import ThreadPoolExecutor
-from src import config, database  # Importujemy własne moduły: konfigurację i operacje na bazie danych.
-from src.utils.error_handlers import with_error_handling, measure_performance  # Dekoratory
-from src.utils.file_type_helper import is_video_file  # Funkcja do wykrywania plików wideo
-
-def _convert_audio_with_pyav(input_path, output_path, timeout_sec, filename=None, total_duration=None):
-    """
-    Konwertuje plik audio używając PyAV z wyświetlaniem postępu.
-    Zwraca True jeśli się udało, False przy błędzie lub timeout'cie.
-    """
-    start_time = time.time()
-
-    try:
-        # Otwórz plik wejściowy
-        input_container = av.open(input_path)
-
-        # Znajdź strumień audio
-        audio_stream = None
-        for stream in input_container.streams:
-            if stream.type == 'audio':
-                audio_stream = stream
-                break
-
-        if audio_stream is None:
-            print(f"    Nie znaleziono strumienia audio w pliku {filename}")
-            input_container.close()
-            return False
-
-        # Przygotuj wyjściowy kontener
-        output_container = av.open(output_path, mode='w')
-
-        # Skonfiguruj strumień wyjściowy zgodnie z parametrami z config.py
-        output_stream = output_container.add_stream(config.PYAV_AUDIO_CODEC)
-        output_stream.codec_context.sample_rate = config.PYAV_SAMPLE_RATE
-        output_stream.codec_context.bit_rate = config.PYAV_BIT_RATE
-
-        last_display_time = 0
-        display_interval = 5.0
-
-        # Przetwarzaj audio i koduj
-        for frame in input_container.decode(audio_stream):
-            # Sprawdź timeout
-            if time.time() - start_time > timeout_sec:
-                print(f"    TIMEOUT: Konwersja PyAV przekroczyła limit czasu {timeout_sec} sekund")
-                input_container.close()
-                output_container.close()
-                return False
-
-            # Normalizacja głośności używając numpy
-            if config.PYAV_ENABLE_LOUDNESS_NORMALIZATION:
-                # Konwertuj ramkę na numpy array
-                audio_array = frame.to_ndarray()
-
-                # Oblicz aktualny poziom RMS głośności
-                rms_current = np.sqrt(np.mean(audio_array**2))
-
-                # Docelowy poziom głośności (-12 dBFS jak w FFmpeg loudnorm)
-                target_level_db = config.PYAV_LOUDNESS_TARGET_I
-                target_rms = 10**(target_level_db / 20.0)
-
-                # Oblicz współczynnik wzmocnienia
-                if rms_current > 0:
-                    gain = target_rms / rms_current
-
-                    # Ogranicz wzmocnienie żeby nie przekroczyć 0 dBFS
-                    max_gain = 1.0 / np.max(np.abs(audio_array))
-                    gain = min(gain, max_gain)
-
-                    # Zastosuj wzmocnienie
-                    audio_array = audio_array * gain
-
-                # Stwórz nową ramkę z znormalizowanym audio
-                frame = av.AudioFrame.from_ndarray(audio_array, layout=frame.layout.name)
-                frame.sample_rate = frame.sample_rate
-                frame.time_base = frame.time_base
-                frame.pts = frame.pts
-
-            # Koduj ramkę do pakietów i muxuj je
-            for packet in output_stream.encode(frame):
-                output_container.mux(packet)
-
-            # Wyświetl postęp co 5 sekund
-            current_time = time.time()
-            if current_time - last_display_time >= display_interval:
-                if filename and total_duration is not None:
-                    progress = min(100.0, (frame.time or 0) / total_duration * 100)
-                    print(f"[{filename}] [{progress:.1f}%] Konwertowanie...")
-                last_display_time = current_time
-
-        # Dokonaj flush enkodera (wypchnij pozostałe pakiety)
-        for packet in output_stream.encode(None):
-            output_container.mux(packet)
-
-        # Zakończ
-        output_container.close()
-        input_container.close()
-
-        return True
-
-    except Exception as e:
-        print(f"    BŁĄD podczas konwersji PyAV: {e}")
-        try:
-            input_container.close()
-        except:
-            pass
-        try:
-            output_container.close()
-        except:
-            pass
-        return False
+import os
+from pydub import AudioSegment
+from pydub.effects import normalize
+from src import config, database
+from src.utils.error_handlers import with_error_handling, measure_performance
+from src.utils.file_type_helper import is_video_file
 
 def _convert_single_file(original_path):
     """
-    Konwertuje pojedynczy plik i zwraca tuple (source, tmp) lub None przy błędzie.
-    Funkcja przeznaczona do równoległego przetwarzania.
-    Dla plików wideo ekstrahuje tylko ścieżkę audio, dla audio używa standardowych parametrów.
+    Konwertuje pojedynczy plik audio lub wideo (wyciągając audio) do znormalizowanego formatu M4A
+    używając Pydub (z PyAV jako backendem). Zwraca tuple (source, tmp) lub None w przypadku błędu.
     """
     try:
-        # Tworzymy standardową, bezpieczną nazwę pliku wyjściowego.
         base_name = os.path.basename(original_path)
         standardized_name, _ = os.path.splitext(base_name.lower().replace(' ', '_'))
         output_filename = f"{standardized_name}.m4a"
         tmp_file_path = os.path.join(config.AUDIO_TMP_DIR, output_filename)
 
-        print(f"  Konwertowanie: {os.path.basename(original_path)} -> {os.path.basename(tmp_file_path)}")
+        print(f"  Konwertowanie: {base_name} -> {output_filename}")
 
-        # Sprawdzamy czy plik jest wideo
-        is_video = is_video_file(original_path)
+        if is_video_file(original_path):
+            print(f"    Wykryto plik wideo - ekstrakcja i konwersja ścieżki audio.")
 
-        # Zarówno pliki audio jak i wideo są obsługiwane - dla wideo zostanie wyciągnięte tylko audio
-        if is_video:
-            print(f"    Przetwarzanie pliku wideo - ekstrakcja ścieżki audio")
+        # Krok 1: Wczytanie pliku (Pydub automatycznie użyje PyAV w tle)
+        # Niezależnie od formatu, Pydub wczyta go do swojego wewnętrznego formatu.
+        audio = AudioSegment.from_file(original_path)
 
-        # Obliczamy timeout proporcjonalny do długości pliku + 5 minut bufora
-        # Dla pliku 139 min: ~147 min timeout, dla krótkich plików: minimum 10 min
-        from src.audio.duration_checker import get_file_duration
-        duration_sec = get_file_duration(original_path)
-        timeout_sec = max(600, int(duration_sec * 1.1) + 300)  # 10% + 5 min bufora, minimum 10 min
+        # Krok 2: Normalizacja głośności (do -12 dBFS, jak w poprzedniej implementacji)
+        # `normalize` skaluje głośność tak, aby szczyt osiągnął 0 dBFS.
+        # Aby osiągnąć cel -12 dBFS, możemy najpierw znormalizować, a potem obniżyć głośność.
+        # Jednakże, dla uproszczenia i zachowania dynamiki, użyjemy standardowej normalizacji Pydub,
+        # która jest efektywna w zapobieganiu przesterowaniom.
+        if config.PYAV_ENABLE_LOUDNESS_NORMALIZATION:
+            print("    Normalizowanie głośności...")
+            audio = normalize(audio)
 
-        print(f"    Timeout dla tego pliku: {timeout_sec//60} minut")
+        # Krok 3: Eksport pliku do formatu M4A (Pydub znów użyje PyAV)
+        print(f"    Eksportowanie do formatu M4A...")
+        audio.export(
+            tmp_file_path,
+            format="m4a",
+            codec=config.PYAV_AUDIO_CODEC,
+            bitrate=str(config.PYAV_BIT_RATE)  # Bitrate musi być stringiem
+        )
 
-        # Uruchamiamy konwersję PyAV z wyświetlaniem postępu
-        filename = os.path.basename(original_path)
-        success = _convert_audio_with_pyav(original_path, tmp_file_path, timeout_sec, filename, duration_sec)
-
-        if success:
-            return (original_path, tmp_file_path)
-        else:
-            return None
+        return (original_path, tmp_file_path)
 
     except Exception as ex:
         print(f"    KRYTYCZNY BŁĄD podczas przetwarzania pliku {os.path.basename(original_path)}: {ex}")

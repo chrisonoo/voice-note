@@ -65,10 +65,6 @@ class AudioPlayerWrapper:
     def _play_audio_thread(self):
         """Wątek odtwarzający audio z obsługą pauzy."""
         try:
-            # Znajdź domyślne urządzenie wyjściowe
-            device = sd.default.device[1]  # Output device
-            sd.default.device = (None, device)  # Ustaw domyślne urządzenie wyjściowe
-
             # Odtwarzaj audio z obsługą pauzy
             start_idx = 0
             chunk_size = self.sample_rate // 10  # 100ms chunks
