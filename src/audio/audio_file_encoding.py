@@ -13,7 +13,17 @@ from src import config, database  # Importujemy własne moduły: konfigurację i
 from src.utils.error_handlers import with_error_handling, measure_performance  # Dekoratory
 from src.utils.file_type_helper import is_video_file  # Funkcja do wykrywania plików wideo
 
-def _run_ffmpeg_with_progress(command, timeout_sec):
+def _format_duration_ffmpeg(duration_sec):
+    """
+    Formatuje czas trwania w sekundach do formatu FFmpeg (hh:mm:ss.ms).
+    """
+    hours = int(duration_sec // 3600)
+    minutes = int((duration_sec % 3600) // 60)
+    seconds = int(duration_sec % 60)
+    milliseconds = int((duration_sec % 1) * 1000)
+    return f"{hours:02d}:{minutes:02d}:{seconds:02d}.{milliseconds:03d}"
+
+def _run_ffmpeg_with_progress(command, timeout_sec, filename=None, total_duration=None):
     """
     Uruchamia FFmpeg z wyświetlaniem postępu w czasie rzeczywistym.
     Zwraca True jeśli się udało, False przy błędzie lub timeout'cie.
@@ -52,7 +62,11 @@ def _run_ffmpeg_with_progress(command, timeout_sec):
                     if line_str:  # Wyświetlaj tylko niepuste linie
                         # Wyświetlaj tylko jeśli minęło 5 sekund od ostatniego wyświetlenia
                         if current_time - last_display_time >= display_interval:
-                            print(line_str)  # Wyślij do naszego redirectora terminala
+                            if filename and total_duration is not None:
+                                formatted_duration = _format_duration_ffmpeg(total_duration)
+                                print(f"[{filename}] [{formatted_duration}] {line_str}")
+                            else:
+                                print(line_str)  # Wyślij do naszego redirectora terminala
                             last_display_time = current_time
 
             except Exception as e:
@@ -117,7 +131,8 @@ def _convert_single_file(original_path):
         print(f"    Timeout dla tego pliku: {timeout_sec//60} minut")
 
         # Uruchamiamy FFmpeg z wyświetlaniem postępu w czasie rzeczywistym
-        success = _run_ffmpeg_with_progress(command, timeout_sec)
+        filename = os.path.basename(original_path)
+        success = _run_ffmpeg_with_progress(command, timeout_sec, filename, duration_sec)
 
         if success:
             return (original_path, tmp_file_path)
