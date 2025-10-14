@@ -33,7 +33,7 @@ class TerminalRedirector:
 
     def write(self, text):
         """Metoda write zgodna z interfejsem stream - dodaje tekst do kolejki."""
-        if text.strip():  # Ignoruj puste linie
+        if text:  # Nie ignoruj pustych linii - zawierają znaki nowej linii
             self.queue.put(text)
 
     def flush(self):
