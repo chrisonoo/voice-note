@@ -341,10 +341,17 @@ class App(ctk.CTk):
             self.geometry(f"{current_width}x850")
 
     def append_to_terminal(self, text):
-        """Dodaje tekst do terminala GUI."""
+        """Dodaje tekst do terminala GUI z respektowaniem nowych linii."""
         if hasattr(self, 'terminal_text'):
             self.terminal_text.configure(state="normal")
-            self.terminal_text.insert("end", text)
+
+            # Podziel tekst na linie i dodaj każdą linię osobno
+            lines = text.split('\n')
+            for i, line in enumerate(lines):
+                if i > 0:  # Dodaj nową linię przed każdą linią oprócz pierwszej
+                    self.terminal_text.insert("end", "\n")
+                self.terminal_text.insert("end", line)
+
             self.terminal_text.configure(state="disabled")
             # Przewiń na dół
             self.terminal_text.see("end")
