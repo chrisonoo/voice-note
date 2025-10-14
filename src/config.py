@@ -54,12 +54,46 @@ VIDEO_EXTENSIONS = ['.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv', '.webm']
 
 # Wszystkie obsługiwane rozszerzenia (dla dialogu wyboru plików)
 ALL_SUPPORTED_EXTENSIONS = AUDIO_EXTENSIONS + VIDEO_EXTENSIONS
+
+# --- USTAWIENIA KONWERSJI AUDIO PRZEZ PyAV ---
+# Parametry konwersji audio używane przez PyAV (zastępuje FFMPEG_PARAMS)
+# Te ustawienia są zoptymalizowane dla API OpenAI Whisper.
+
+# Kodek audio wyjściowego
+PYAV_AUDIO_CODEC = 'aac'
+
+# Częstotliwość próbkowania wyjściowego (Hz)
+PYAV_SAMPLE_RATE = 16000
+
+# Bitrate wyjściowego audio (bps)
+PYAV_BIT_RATE = 32000
+
+# Liczba kanałów wyjściowych (1 = mono)
+PYAV_CHANNELS = 1
+
+# Czy stosować normalizację głośności (True/False)
+# Zaimplementowana prosta normalizacja używająca numpy - normalizuje do -12 dBFS.
+# Nie tak zaawansowana jak FFmpeg loudnorm, ale zapewnia stały poziom głośności.
+# Włączenie tej opcji może nieznacznie wydłużyć czas konwersji.
+PYAV_ENABLE_LOUDNESS_NORMALIZATION = True
+
+# Parametry normalizacji głośności (zarezerwowane na przyszłość)
+# Te parametry odpowiadają ustawieniom FFmpeg: I=-12:TP=-1.0:LRA=7:dual_mono=true
+# I = Integrated loudness target (-12 LUFS)
+# TP = True peak limit (-1.0 dBTP)
+# LRA = Loudness range target (7 LU)
+# Obecnie niezaimplementowane w PyAV
+PYAV_LOUDNESS_TARGET_I = -12.0
+PYAV_LOUDNESS_TARGET_TP = -1.0
+PYAV_LOUDNESS_TARGET_LRA = 7.0
+
+# Stare ustawienia FFMPEG (zachowane dla kompatybilności wstecznej)
 # Parametry dla narzędzia FFMPEG, używanego do konwersji audio.
 # `-ac 1`: Ustawia jeden kanał audio (mono).
 # `-ar 16000`: Ustawia częstotliwość próbkowania na 16000 Hz.
 # `-af loudnorm=I=-12:TP=-1.0:LRA=7:dual_mono=true`: Normalizacja głośności.
 # `-c:a aac`: Kodek AAC.
-# `-b:a 24k`: Bitrate 24kbps.
+# `-b:a 32k`: Bitrate 32kbps.
 # Te ustawienia są zoptymalizowane dla API OpenAI Whisper.
 FFMPEG_PARAMS = '-ac 1 -ar 16000 -af loudnorm=I=-12:TP=-1.0:LRA=7:dual_mono=true -c:a aac -b:a 32k'
 

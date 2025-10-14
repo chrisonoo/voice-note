@@ -1,14 +1,13 @@
 # Ten moduł zawiera funkcje do sprawdzania długości (czasu trwania) plików audio.
-# Wykorzystuje do tego celu zewnętrzne narzędzie `ffprobe`, które jest częścią pakietu FFMPEG.
+# Wykorzystuje do tego celu bibliotekę PyAV do analizy metadanych strumieni audio.
 
 import os  # Moduł do interakcji z systemem operacyjnym, np. do pobierania nazwy pliku ze ścieżki.
-import subprocess  # Moduł pozwalający na uruchamianie zewnętrznych programów, w tym `ffprobe`.
-import json  # Moduł do pracy z formatem danych JSON, w którym `ffprobe` zwraca wyniki.
+import av  # PyAV do analizy metadanych audio
 from src import config, database  # Importujemy własne moduły: konfigurację i operacje na bazie danych.
 
 def get_file_duration(file_path):
     """
-    Pobiera czas trwania pliku audio za pomocą narzędzia ffprobe z cachowaniem.
+    Pobiera czas trwania pliku audio za pomocą PyAV z cachowaniem.
 
     Najpierw sprawdza cache w bazie danych, jeśli nie ma - oblicza i zapisuje.
 
@@ -36,23 +35,30 @@ def get_file_duration(file_path):
 
 def _calculate_file_duration(file_path):
     """
-    Oblicza czas trwania pliku audio za pomocą ffprobe (bez cachowania).
+    Oblicza czas trwania pliku audio za pomocą PyAV (bez cachowania).
     """
-    command = [
-        'ffprobe',
-        '-v', 'quiet',
-        '-print_format', 'json',
-        '-show_format',
-        '-show_streams',
-        file_path
-    ]
     try:
-        result = subprocess.run(command, capture_output=True, text=True, check=True, timeout=30)
-        data = json.loads(result.stdout)
-        return float(data['format']['duration'])
-    except subprocess.TimeoutExpired:
-        print(f"TIMEOUT: Sprawdzanie długości pliku {os.path.basename(file_path)} przekroczyło limit czasu")
-        return 0.0
+        # Otwórz plik z PyAV
+        container = av.open(file_path)
+
+        # Znajdź strumień audio
+        audio_stream = None
+        for stream in container.streams:
+            if stream.type == 'audio':
+                audio_stream = stream
+                break
+
+        if audio_stream is None:
+            print(f"Nie znaleziono strumienia audio w pliku {os.path.basename(file_path)}")
+            container.close()
+            return 0.0
+
+        # Pobierz czas trwania z metadanych strumienia
+        duration = float(audio_stream.duration * audio_stream.time_base)
+
+        container.close()
+        return duration
+
     except Exception as e:
         print(f"Błąd podczas sprawdzania czasu trwania pliku {os.path.basename(file_path)}: {e}")
         return 0.0

@@ -4,7 +4,8 @@
 # który jest zoptymalizowany dla API Whisper.
 
 import os  # Moduł do interakcji z systemem operacyjnym, np. do operacji na ścieżkach plików.
-import subprocess  # Moduł pozwalający na uruchamianie zewnętrznych programów, w tym przypadku FFMPEG.
+import av  # PyAV do konwersji audio
+import numpy as np  # Do normalizacji głośności
 import threading  # Dodane dla obsługi timeout'u z postępem w czasie rzeczywistym
 import time  # Dodane dla kontrolowania odstępów czasowych wyświetlania postępu
 import concurrent.futures  # Dodane dla równoległego przetwarzania
@@ -13,94 +14,117 @@ from src import config, database  # Importujemy własne moduły: konfigurację i
 from src.utils.error_handlers import with_error_handling, measure_performance  # Dekoratory
 from src.utils.file_type_helper import is_video_file  # Funkcja do wykrywania plików wideo
 
-def _format_duration_ffmpeg(duration_sec):
+def _convert_audio_with_pyav(input_path, output_path, timeout_sec, filename=None, total_duration=None):
     """
-    Formatuje czas trwania w sekundach do formatu FFmpeg (hh:mm:ss.ms).
-    """
-    hours = int(duration_sec // 3600)
-    minutes = int((duration_sec % 3600) // 60)
-    seconds = int(duration_sec % 60)
-    milliseconds = int((duration_sec % 1) * 1000)
-    return f"{hours:02d}:{minutes:02d}:{seconds:02d}.{milliseconds:03d}"
-
-def _run_ffmpeg_with_progress(command, timeout_sec, filename=None, total_duration=None):
-    """
-    Uruchamia FFmpeg z wyświetlaniem postępu w czasie rzeczywistym.
+    Konwertuje plik audio używając PyAV z wyświetlaniem postępu.
     Zwraca True jeśli się udało, False przy błędzie lub timeout'cie.
     """
+    start_time = time.time()
+
     try:
-        # Uruchamiamy FFmpeg z przekierowaniem stdout i stderr do PIPE
-        process = subprocess.Popen(
-            command,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,  # Łączymy stderr z stdout aby zobaczyć postęp
-            text=True,
-            bufsize=1,  # Line buffered
-            universal_newlines=True
-        )
+        # Otwórz plik wejściowy
+        input_container = av.open(input_path)
 
-        # Zmienna do śledzenia czy proces nadal działa
-        process_finished = [False]
+        # Znajdź strumień audio
+        audio_stream = None
+        for stream in input_container.streams:
+            if stream.type == 'audio':
+                audio_stream = stream
+                break
 
-        def read_output():
-            """Czyta wyjście z FFmpeg w czasie rzeczywistym, wyświetlając postęp co 5 sekund."""
-            last_display_time = 0
-            display_interval = 5.0  # Wyświetlaj postęp co 5 sekund
-            try:
-                while True:
-                    # Czytaj dostępne linie bez blokowania
-                    line = process.stdout.readline()
-                    if not line:  # Brak więcej danych
-                        if process.poll() is not None:  # Proces zakończył się
-                            break
-                        time.sleep(0.1)  # Krótkie czekanie przed następną próbą
-                        continue
-
-                    current_time = time.time()
-                    line_str = line.strip()
-                    if line_str:  # Wyświetlaj tylko niepuste linie
-                        # Wyświetlaj tylko jeśli minęło 5 sekund od ostatniego wyświetlenia
-                        if current_time - last_display_time >= display_interval:
-                            if filename and total_duration is not None:
-                                formatted_duration = _format_duration_ffmpeg(total_duration)
-                                print(f"[{filename}] [{formatted_duration}] {line_str}")
-                            else:
-                                print(line_str)  # Wyślij do naszego redirectora terminala
-                            last_display_time = current_time
-
-            except Exception as e:
-                print(f"Błąd podczas czytania wyjścia FFmpeg: {e}")
-            finally:
-                process_finished[0] = True
-
-        # Uruchamiamy wątek do czytania wyjścia
-        output_thread = threading.Thread(target=read_output, daemon=True)
-        output_thread.start()
-
-        # Czekamy na zakończenie procesu z timeout'em
-        try:
-            process.wait(timeout=timeout_sec)
-            output_thread.join(timeout=1.0)  # Daj czas wątkowi na zakończenie
-            return process.returncode == 0
-        except subprocess.TimeoutExpired:
-            print(f"    TIMEOUT: FFmpeg przekroczył limit czasu {timeout_sec} sekund")
-            process.terminate()
-            try:
-                process.wait(timeout=5)  # Daj czas na zamknięcie
-            except subprocess.TimeoutExpired:
-                process.kill()  # Wymuś zamknięcie jeśli terminate nie działa
+        if audio_stream is None:
+            print(f"    Nie znaleziono strumienia audio w pliku {filename}")
+            input_container.close()
             return False
 
+        # Przygotuj wyjściowy kontener
+        output_container = av.open(output_path, mode='w')
+
+        # Skonfiguruj strumień wyjściowy zgodnie z parametrami z config.py
+        output_stream = output_container.add_stream(config.PYAV_AUDIO_CODEC)
+        output_stream.codec_context.sample_rate = config.PYAV_SAMPLE_RATE
+        output_stream.codec_context.bit_rate = config.PYAV_BIT_RATE
+
+        last_display_time = 0
+        display_interval = 5.0
+
+        # Przetwarzaj audio i koduj
+        for frame in input_container.decode(audio_stream):
+            # Sprawdź timeout
+            if time.time() - start_time > timeout_sec:
+                print(f"    TIMEOUT: Konwersja PyAV przekroczyła limit czasu {timeout_sec} sekund")
+                input_container.close()
+                output_container.close()
+                return False
+
+            # Normalizacja głośności używając numpy
+            if config.PYAV_ENABLE_LOUDNESS_NORMALIZATION:
+                # Konwertuj ramkę na numpy array
+                audio_array = frame.to_ndarray()
+
+                # Oblicz aktualny poziom RMS głośności
+                rms_current = np.sqrt(np.mean(audio_array**2))
+
+                # Docelowy poziom głośności (-12 dBFS jak w FFmpeg loudnorm)
+                target_level_db = config.PYAV_LOUDNESS_TARGET_I
+                target_rms = 10**(target_level_db / 20.0)
+
+                # Oblicz współczynnik wzmocnienia
+                if rms_current > 0:
+                    gain = target_rms / rms_current
+
+                    # Ogranicz wzmocnienie żeby nie przekroczyć 0 dBFS
+                    max_gain = 1.0 / np.max(np.abs(audio_array))
+                    gain = min(gain, max_gain)
+
+                    # Zastosuj wzmocnienie
+                    audio_array = audio_array * gain
+
+                # Stwórz nową ramkę z znormalizowanym audio
+                frame = av.AudioFrame.from_ndarray(audio_array, layout=frame.layout.name)
+                frame.sample_rate = frame.sample_rate
+                frame.time_base = frame.time_base
+                frame.pts = frame.pts
+
+            # Koduj ramkę do pakietów i muxuj je
+            for packet in output_stream.encode(frame):
+                output_container.mux(packet)
+
+            # Wyświetl postęp co 5 sekund
+            current_time = time.time()
+            if current_time - last_display_time >= display_interval:
+                if filename and total_duration is not None:
+                    progress = min(100.0, (frame.time or 0) / total_duration * 100)
+                    print(f"[{filename}] [{progress:.1f}%] Konwertowanie...")
+                last_display_time = current_time
+
+        # Dokonaj flush enkodera (wypchnij pozostałe pakiety)
+        for packet in output_stream.encode(None):
+            output_container.mux(packet)
+
+        # Zakończ
+        output_container.close()
+        input_container.close()
+
+        return True
+
     except Exception as e:
-        print(f"    BŁĄD podczas uruchamiania FFmpeg: {e}")
+        print(f"    BŁĄD podczas konwersji PyAV: {e}")
+        try:
+            input_container.close()
+        except:
+            pass
+        try:
+            output_container.close()
+        except:
+            pass
         return False
 
 def _convert_single_file(original_path):
     """
     Konwertuje pojedynczy plik i zwraca tuple (source, tmp) lub None przy błędzie.
     Funkcja przeznaczona do równoległego przetwarzania.
-    Dla plików wideo ekstrahuje tylko ścieżkę audio (-vn), dla audio używa standardowych parametrów.
+    Dla plików wideo ekstrahuje tylko ścieżkę audio, dla audio używa standardowych parametrów.
     """
     try:
         # Tworzymy standardową, bezpieczną nazwę pliku wyjściowego.
@@ -114,13 +138,9 @@ def _convert_single_file(original_path):
         # Sprawdzamy czy plik jest wideo
         is_video = is_video_file(original_path)
 
-        # Budujemy komendę FFMPEG
+        # Zarówno pliki audio jak i wideo są obsługiwane - dla wideo zostanie wyciągnięte tylko audio
         if is_video:
-            # Dla plików wideo ekstrahujemy tylko audio (-vn ignoruje strumień wideo)
-            command = f'ffmpeg -y -i "{original_path}" -vn {config.FFMPEG_PARAMS} "{tmp_file_path}"'
-        else:
-            # Dla plików audio używamy standardowych parametrów
-            command = f'ffmpeg -y -i "{original_path}" {config.FFMPEG_PARAMS} "{tmp_file_path}"'
+            print(f"    Przetwarzanie pliku wideo - ekstrakcja ścieżki audio")
 
         # Obliczamy timeout proporcjonalny do długości pliku + 5 minut bufora
         # Dla pliku 139 min: ~147 min timeout, dla krótkich plików: minimum 10 min
@@ -130,9 +150,9 @@ def _convert_single_file(original_path):
 
         print(f"    Timeout dla tego pliku: {timeout_sec//60} minut")
 
-        # Uruchamiamy FFmpeg z wyświetlaniem postępu w czasie rzeczywistym
+        # Uruchamiamy konwersję PyAV z wyświetlaniem postępu
         filename = os.path.basename(original_path)
-        success = _run_ffmpeg_with_progress(command, timeout_sec, filename, duration_sec)
+        success = _convert_audio_with_pyav(original_path, tmp_file_path, timeout_sec, filename, duration_sec)
 
         if success:
             return (original_path, tmp_file_path)
