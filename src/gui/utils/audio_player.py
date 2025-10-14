@@ -16,78 +16,57 @@ class AudioPlayerWrapper:
     """
 
     def __init__(self):
-        self.audio_data = None  # Numpy array z dekodowanym audio
+        self.container = None
         self.sample_rate = None  # Częstotliwość próbkowania
         self.current_file = None
         self.is_playing = False
         self.is_paused = False
         self.play_thread = None  # Wątek odtwarzania
-        self.stop_event = None  # Event do zatrzymania odtwarzania
-        self.pause_event = None  # Event do pauzy
+        self.stop_event = threading.Event()
+        self.pause_event = threading.Event()
 
     def _decode_audio(self, file_path):
-        """Dekoduje plik audio do numpy array używając PyAV."""
+        """Otwiera plik audio/wideo i przygotowuje do streamingu."""
         try:
             container = av.open(file_path)
-
             if not container.streams.audio:
                 container.close()
                 return None, None
-
             stream = container.streams.audio[0]
-
-            # Zbieramy wszystkie próbki audio
-            audio_frames = []
-            for frame in container.decode(stream):
-                # Konwertujemy do numpy array
-                audio_array = frame.to_ndarray()
-                # Jeśli stereo, konwertujemy do mono poprzez uśrednienie kanałów
-                if audio_array.ndim > 1:
-                    audio_array = np.mean(audio_array, axis=0)
-                audio_frames.append(audio_array)
-
-            # Łączymy wszystkie ramki w jedną tablicę
-            if audio_frames:
-                audio_data = np.concatenate(audio_frames)
-                # Konwertuj do float32 dla sounddevice
-                audio_data = audio_data.astype(np.float32)
-                sample_rate = stream.rate
-                container.close()
-                return audio_data, sample_rate
-            else:
-                container.close()
-                return None, None
-
+            return container, stream
+        except av.AVError as e:
+            print(f"Błąd PyAV podczas otwierania pliku {file_path}: {e}")
+            return None, None
         except Exception as e:
-            print(f"Błąd podczas dekodowania pliku {file_path}: {e}")
+            print(f"Nieoczekiwany błąd podczas otwierania pliku {file_path}: {e}")
             return None, None
 
-    def _play_audio_thread(self):
-        """Wątek odtwarzający audio z obsługą pauzy."""
+    def _play_audio_thread(self, container, stream):
+        """Wątek odtwarzający audio bezpośrednio ze streamu PyAV."""
         try:
-            # Odtwarzaj audio z obsługą pauzy
-            start_idx = 0
-            chunk_size = self.sample_rate // 10  # 100ms chunks
+            self.sample_rate = stream.rate
+            for frame in container.decode(stream):
+                if self.stop_event.is_set():
+                    break
 
-            while start_idx < len(self.audio_data) and not self.stop_event.is_set():
-                if not self.pause_event.is_set():
-                    # Pauza - czekaj aż zostanie wznowione
-                    self.pause_event.wait()
-                    continue
+                self.pause_event.wait()
 
-                end_idx = min(start_idx + chunk_size, len(self.audio_data))
-                chunk = self.audio_data[start_idx:end_idx]
+                audio_array = frame.to_ndarray()
+                if audio_array.ndim > 1:
+                    audio_array = np.mean(audio_array, axis=0)
 
-                # Odtwarzaj chunk
-                sd.play(chunk, self.sample_rate, blocking=True)
+                audio_data = audio_array.astype(np.float32)
 
-                start_idx = end_idx
-
+                if audio_data.size > 0:
+                    sd.play(audio_data, self.sample_rate, blocking=True)
+        except (av.AVError, sd.PortAudioError) as e:
+            print(f"Błąd biblioteki audio podczas odtwarzania: {e}")
         except Exception as e:
-            print(f"Błąd podczas odtwarzania audio: {e}")
+            print(f"Nieoczekiwany błąd podczas odtwarzania audio: {e}")
         finally:
-            self.is_playing = False
-            self.is_paused = False
+            self.stop()
+            if container:
+                container.close()
 
     def play_file(self, file_path, stop_first=True):
         """Rozpoczyna odtwarzanie pliku."""
@@ -95,79 +74,60 @@ class AudioPlayerWrapper:
             print(f"Plik nie istnieje: {file_path}")
             return
 
-        # Sprawdzamy czy to plik wideo - wyświetlamy informację, ale pozwalamy na odtwarzanie
         if is_video_file(file_path):
             print(f"Plik wideo {os.path.basename(file_path)} - odtwarzanie ścieżki audio...")
 
         if stop_first:
-            self.stop()  # Zatrzymaj ewentualne poprzednie odtwarzanie
-
-        try:
-            # Dekoduj plik audio (PyAV obsługuje zarówno audio jak i wideo - wyciąga ścieżkę audio)
-            audio_data, sample_rate = self._decode_audio(file_path)
-            if audio_data is None:
-                print(f"Nie można zdekodować pliku: {file_path}")
-                return
-
-            self.audio_data = audio_data
-            self.sample_rate = sample_rate
-            self.current_file = file_path
-
-            # Przygotuj events dla kontroli odtwarzania
-            self.stop_event = threading.Event()
-            self.pause_event = threading.Event()
-            self.pause_event.set()  # Rozpocznij bez pauzy
-
-            # Uruchom wątek odtwarzania
-            self.play_thread = threading.Thread(target=self._play_audio_thread, daemon=True)
-            self.play_thread.start()
-
-            self.is_playing = True
-            self.is_paused = False
-
-        except Exception as e:
-            print(f"Nie można odtworzyć pliku: {file_path}. Błąd: {e}")
             self.stop()
+
+        container, stream = self._decode_audio(file_path)
+        if not container or not stream:
+            print(f"Nie można zdekodować pliku: {file_path}")
+            return
+
+        self.container = container
+        self.current_file = file_path
+        self.is_playing = True
+        self.is_paused = False
+
+        self.stop_event.clear()
+        self.pause_event.set()
+
+        self.play_thread = threading.Thread(target=self._play_audio_thread, args=(container, stream), daemon=True)
+        self.play_thread.start()
 
     def pause(self):
         """Wstrzymuje odtwarzanie."""
-        if self.is_playing and not self.is_paused and self.pause_event:
-            self.pause_event.clear()  # Wyczyść event - pauza
+        if self.is_playing and not self.is_paused:
+            self.pause_event.clear()
             self.is_paused = True
 
     def unpause(self, file_path=None):
         """Wznawia odtwarzanie."""
-        if self.is_paused and self.pause_event:
-            self.pause_event.set()  # Ustaw event - wznowienie
+        if self.is_paused:
+            self.pause_event.set()
             self.is_paused = False
 
     def stop(self):
         """Zatrzymuje odtwarzanie."""
-        if self.stop_event:
-            self.stop_event.set()  # Ustaw event stop
+        self.stop_event.set()
+        self.pause_event.set()
 
-        if self.pause_event:
-            self.pause_event.set()  # Upewnij się że pauza jest zdjęta
-
-        # Zatrzymaj sounddevice jeśli coś gra
         try:
             sd.stop()
-        except:
-            pass  # Ignoruj błędy
+        except Exception as e:
+            print(f"Błąd przy zatrzymywaniu sounddevice: {e}")
 
-        # Poczekaj na zakończenie wątku
         if self.play_thread and self.play_thread.is_alive():
-            self.play_thread.join(timeout=1.0)
+            self.play_thread.join(timeout=0.5)
 
-        # Wyczyść stan
-        self.audio_data = None
-        self.sample_rate = None
+        if self.container:
+            self.container.close()
+            self.container = None
+
         self.current_file = None
         self.is_playing = False
         self.is_paused = False
-        self.play_thread = None
-        self.stop_event = None
-        self.pause_event = None
 
     def is_busy(self):
         """Sprawdza czy odtwarzacz jeszcze odtwarza."""

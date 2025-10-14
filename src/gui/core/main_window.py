@@ -313,7 +313,7 @@ class App(ctk.CTk):
 
     def _check_playback_status(self):
         """Cyklicznie sprawdza, czy odtwarzanie audio się zakończyło, aby zaktualizować UI."""
-        # Sprawdzamy czy ffplay jeszcze odtwarza plik
+        # Sprawdzamy, czy odtwarzacz audio zakończył pracę
         if self.audio_player.is_playing and not self.audio_player.is_busy():
             self.audio_player.stop()  # Aktualizujemy stan naszego odtwarzacza.
             # `hasattr` sprawdza, czy widżet został już utworzony.
