@@ -5,4 +5,3 @@ psutil==5.9.8
 av==16.0.1
 sounddevice==0.5.2
 numpy==2.3.3
-pydub==0.25.1
