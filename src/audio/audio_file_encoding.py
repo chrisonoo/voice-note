@@ -5,7 +5,7 @@
 
 import os  # Moduł do interakcji z systemem operacyjnym, np. do operacji na ścieżkach plików.
 import subprocess  # Moduł pozwalający na uruchamianie zewnętrznych programów, w tym przypadku FFMPEG.
-import threading  # Dodane dla obsługi timeout'u z postępem w czasie rzeczywistym
+import threading  # Dodane dla obsługi postępu w czasie rzeczywistym
 import time  # Dodane dla kontrolowania odstępów czasowych wyświetlania postępu
 import concurrent.futures  # Dodane dla równoległego przetwarzania
 from concurrent.futures import ThreadPoolExecutor
@@ -23,10 +23,10 @@ def _format_duration_ffmpeg(duration_sec):
     milliseconds = int((duration_sec % 1) * 1000)
     return f"{hours:02d}:{minutes:02d}:{seconds:02d}.{milliseconds:03d}"
 
-def _run_ffmpeg_with_progress(command, timeout_sec, filename=None, total_duration=None):
+def _run_ffmpeg_with_progress(command, filename=None, total_duration=None):
     """
     Uruchamia FFmpeg z wyświetlaniem postępu w czasie rzeczywistym.
-    Zwraca True jeśli się udało, False przy błędzie lub timeout'cie.
+    Zwraca True jeśli się udało, False przy błędzie.
     """
     try:
         # Uruchamiamy FFmpeg z przekierowaniem stdout i stderr do PIPE
@@ -78,13 +78,13 @@ def _run_ffmpeg_with_progress(command, timeout_sec, filename=None, total_duratio
         output_thread = threading.Thread(target=read_output, daemon=True)
         output_thread.start()
 
-        # Czekamy na zakończenie procesu z timeout'em
+        # Czekamy na zakończenie procesu
         try:
-            process.wait(timeout=timeout_sec)
+            process.wait()
             output_thread.join(timeout=1.0)  # Daj czas wątkowi na zakończenie
             return process.returncode == 0
-        except subprocess.TimeoutExpired:
-            print(f"    TIMEOUT: FFmpeg przekroczył limit czasu {timeout_sec} sekund")
+        except Exception:
+            print(f"    BŁĄD: FFmpeg napotkał błąd podczas przetwarzania")
             process.terminate()
             try:
                 process.wait(timeout=5)  # Daj czas na zamknięcie
@@ -122,17 +122,10 @@ def _convert_single_file(original_path):
             # Dla plików audio używamy standardowych parametrów
             command = f'ffmpeg -y -i "{original_path}" {config.FFMPEG_PARAMS} "{tmp_file_path}"'
 
-        # Obliczamy timeout proporcjonalny do długości pliku + 5 minut bufora
-        # Dla pliku 139 min: ~147 min timeout, dla krótkich plików: minimum 10 min
-        from src.audio.duration_checker import get_file_duration
-        duration_sec = get_file_duration(original_path)
-        timeout_sec = max(600, int(duration_sec * 1.1) + 300)  # 10% + 5 min bufora, minimum 10 min
-
-        print(f"    Timeout dla tego pliku: {timeout_sec//60} minut")
 
         # Uruchamiamy FFmpeg z wyświetlaniem postępu w czasie rzeczywistym
         filename = os.path.basename(original_path)
-        success = _run_ffmpeg_with_progress(command, timeout_sec, filename, duration_sec)
+        success = _run_ffmpeg_with_progress(command, filename)
 
         if success:
             return (original_path, tmp_file_path)
