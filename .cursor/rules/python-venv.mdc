@@ -1,0 +1,41 @@
+---
+alwaysApply: true
+---
+# Zasada ogólna dla projektu Python z .venv
+
+Cel
+- Cały projekt musi być uruchamiany, testowany, instalowany i utrzymywany wyłącznie w kontekście lokalnego środowiska `.venv` znajdującego się w katalogu głównym repozytorium.
+
+Zakres
+- Zasada dotyczy każdej operacji wykonywanej przez agenta lub użytkownika z poziomu edytora, w tym uruchamiania aplikacji, instalacji i aktualizacji zależności, uruchamiania testów, narzędzi deweloperskich, skryptów, migracji, zadań, notebooków i procesów budowania.
+
+Wykrywanie środowiska
+- Jeśli w katalogu głównym istnieje folder `.venv`, uznaj go za jedyne poprawne środowisko wykonawcze projektu.
+- Jeśli `.venv` nie istnieje, przerwij pracę i najpierw utwórz oraz skonfiguruj środowisko zgodnie z dokumentacją modułu `venv`. Dopiero potem kontynuuj.
+
+Aktywacja
+- Przed każdą operacją aktywuj środowisko `.venv` właściwą metodą dla aktualnego systemu operacyjnego.
+- Jeśli operacja wykonywana jest w nowej sesji, w nieinteraktywnym terminalu, w zadaniu edytora lub debugerze, zapewnij aktywację w tej samej sesji, w której będzie wykonana właściwa operacja.
+- Nie wykonuj żadnej operacji poza aktywnym środowiskiem `.venv`.
+
+Instalacje i modyfikacje systemu
+- Zakaz jakichkolwiek instalacji globalnych.
+- Nie zmieniaj globalnego interpretera, globalnych pakietów ani konfiguracji poza katalogiem `.venv`.
+- Instalacje i aktualizacje zależności wykonuj wyłącznie wewnątrz aktywnego środowiska projektowego.
+
+Weryfikacja poprawności środowiska
+- Przed wykonaniem merytorycznych działań zweryfikuj, że interpreter pochodzi z `.venv` poleceniem:
+  - `python -c "import sys; print(sys.executable)"`
+- Jeśli wynik nie wskazuje na ścieżkę wewnątrz `.venv`, aktywuj właściwe środowisko i powtórz weryfikację. Do czasu pozytywnej weryfikacji nie kontynuuj.
+
+Pliki konfiguracyjne i standardy projektu
+- Jeżeli projekt posiada pliki deklarujące zależności, używaj ich wyłącznie w aktywnym `.venv`.
+- Jeśli projekt udostępnia cele w narzędziach automatyzujących, uruchamiaj je wyłącznie w kontekście aktywnego `.venv`.
+
+Diagnostyka i samonaprawa
+- W razie błędów środowiskowych przerwij bieżącą operację, poinformuj o problemie i zaproponuj odbudowanie `.venv` zgodnie z dokumentacją narzędzi używanych w projekcie.
+- Po naprawie ponownie przeprowadź weryfikację interpretera i dopiero wtedy kontynuuj.
+
+Priorytety
+- Priorytet ma zawsze spójność z `.venv` nad szybkością wykonania.
+- Nie podejmuj działań, które omijają aktywację środowiska, nawet jeśli wydają się szybsze.

@@ -6,8 +6,8 @@ Ta aplikacja służy do automatycznej transkrypcji plików audio przy użyciu AP
 
 *   **Dwa tryby pracy:** Interaktywny interfejs graficzny (GUI) lub szybki tryb wiersza poleceń (CLI).
 *   **Zarządzanie stanem:** Aplikacja używa bazy danych SQLite do zapisywania stanu plików, co pozwala na wstrzymywanie i wznawianie pracy.
-*   **Konwersja w locie:** Automatycznie konwertuje różne formaty audio (np. `.mp3`, `.m4a`) do formatu `.wav` za pomocą `ffmpeg`.
-*   **Przetwarzanie w tle:** W trybie GUI wszystkie operochłonne zadania (konwersja, transkrypcja) są wykonywane w osobnych wątkach, co zapobiega "zamrażaniu" interfejsu.
+*   **Konwersja w locie:** Automatycznie konwertuje różne formaty audio (np. `.mp3`, `.m4a`) do zoptymalizowanego formatu audio za pomocą `ffmpeg`.
+*   **Przetwarzanie w tle:** W trybie GUI wszystkie zasobochłonne zadania (konwersja, transkrypcja) są wykonywane w osobnych wątkach, co zapobiega "zamrażaniu" interfejsu.
 
 ## Wymagania
 
@@ -68,7 +68,7 @@ Tryb graficzny zapewnia interaktywną obsługę i wizualizację całego procesu.
 2.  **Postępuj zgodnie z instrukcjami** na ekranie:
     *   Kliknij "Wybierz pliki", aby dodać pliki audio.
     *   Zaznacz pliki, które chcesz przetworzyć.
-    *   Kliknij "Wczytaj Pliki", aby przekonwertować je do formatu WAV.
+    *   Kliknij "Wczytaj Pliki", aby przekonwertować je do formatu audio gotowego do transkrypcji.
     *   Kliknij "Start", aby rozpocząć proces transkrypcji.
 
 #### Ułatwione uruchamianie w Windows
@@ -109,9 +109,9 @@ erDiagram
     files {
         INTEGER id PK "Klucz główny"
         TEXT source_file_path UK "Ścieżka do oryginalnego pliku"
-        TEXT tmp_file_path "Ścieżka do pliku .wav w folderze tmp"
+        TEXT tmp_file_path "Ścieżka do przetworzonego pliku audio w folderze tmp"
         BOOLEAN is_selected "Czy plik jest zaznaczony w GUI"
-        BOOLEAN is_loaded "Czy plik został przekonwertowany do .wav"
+        BOOLEAN is_loaded "Czy plik został skonwertowany do formatu audio gotowego do transkrypcji"
         BOOLEAN is_processed "Czy plik ma już transkrypcję"
         TEXT transcription "Wynik transkrypcji"
         INTEGER duration_ms "Czas trwania pliku w milisekundach"
@@ -262,4 +262,143 @@ Aby upewnić się, że korzystasz z najnowszych wersji bibliotek, możesz okreso
         *   `controllers/`: Klasy zarządzające logiką GUI (np. stanem przycisków, obsługą plików).
         *   `widgets/`: Niestandardowe komponenty GUI (np. panele list plików).
         *   `utils/`: Narzędzia pomocnicze dla GUI (np. odtwarzacz audio).
-*   `tmp/`: Folder na wszystkie pliki robocze (baza danych, przekonwertowane pliki .wav).
+*   `tmp/`: Folder na wszystkie pliki robocze (baza danych, przetworzone pliki audio).
+*   
+
+
+## Uwagi techniczne
+
+- Próbowałem przejść na bibliotekę  pydub oraz PyAV, aby uniezależnić się od instalacji ffmpeg w systemie ale były ciągłe problemy i jest to gałąź martwa, ale zostawiłem.
+- Jest też ponoć jakaś biblioteka ffmpeg, która jest statyczna i można ją całą zaimportować do projektu i dzięki temu nie trzeba nic instalować w systemie i waży ok. 50 MB
+- Teraz jak rozumiem pydub wykorzystujemy jako wrapper dla ffmpeg i ffplay?
+- Maksymalna wersja Python to 3.12 ponieważ to ostatnia wersja z audioop, w 3.13 nie ma tego modułu i trzeba instalować audioop-lts
+
+## Architektura Audio - Decyzje Techniczne
+
+### Obecne Rozwiązanie (subprocess + FFmpeg/ffplay)
+
+**Stan na dzień:** bezpośrednie wywoływanie `ffmpeg` i `ffplay` przez `subprocess` bez wrapperów.
+
+**Zalety obecnego podejścia:**
+- ✅ Proste i niezawodne - działa stabilnie od dłuższego czasu
+- ✅ Pełna kontrola nad parametrami FFmpeg/ffplay (opóźnienie, formaty, optymalizacje)
+- ✅ Brak dodatkowych zależności Python - tylko zewnętrzny FFmpeg w systemie
+- ✅ Łatwe debugowanie - widoczne są dokładne komendy wywoływane w logach
+
+**Wady obecnego podejścia:**
+- ❌ Zależność od systemu - wymaga zainstalowanego FFmpeg w PATH
+- ❌ Brak abstrakcji - kod związany z składnią komend tekstowych
+- ❌ Ograniczone bezpieczeństwo - użycie `shell=True` w subprocess
+- ❌ Własna obsługa błędów, timeout'ów i stanów procesów
+- ❌ Brak prawdziwej pauzy w odtwarzaczu (tylko stop/play)
+
+**Decyzja:** Pozostajemy przy obecnym rozwiązaniu, ponieważ:
+- Narzędzie działa stabilnie i spełnia wszystkie wymagania
+- Zespół jest mały (1 osoba), więc złożoność wrapperów nie jest potrzebna
+- Zmiana wiązałaby się z ryzykiem wprowadzenia błędów
+- Obecne rozwiązanie jest wystarczająco wydajne dla potrzeb aplikacji
+
+### Przyszłe Opcje Wrapperów - Analiza
+
+#### 1. **ffmpeg-python** (dla konwersji audio)
+```python
+# Zamiast: subprocess.run(f'ffmpeg -i input.mp3 output.wav')
+ffmpeg.input('input.mp3').output('output.wav').run()
+```
+
+**Zalety:**
+- Pythonowe API zamiast stringów komend
+- Lepsza obsługa błędów i walidacja parametrów
+- Łatwiejsze testowanie i debugowanie
+- Możliwość programistycznego budowania złożonych komend
+
+**Wady:**
+- Wymaga zewnętrznego FFmpeg (jak obecnie)
+- Dodatkowa zależność Python
+- Krzywa nauki dla złożonych operacji
+
+**Rekomendacja:** Najlepsza opcja jeśli zdecydujemy się na zmianę konwersji audio.
+
+#### 2. **ffpyplayer** (dla odtwarzania audio)
+```python
+# Zamiast subprocess.Popen(['ffplay', ...])
+from ffpyplayer.player import MediaPlayer
+player = MediaPlayer(file_path)
+player.toggle_pause()  # prawdziwa pauza!
+```
+
+**Zalety:**
+- Bezpośredni wrapper dla ffplay - zachowuje wszystkie optymalizacje
+- Dodaje prawdziwą pauzę (brak w obecnym rozwiązaniu)
+- Lepsza kontrola głośności, pozycji, stanów
+- Pythonowe API dla wszystkich parametrów ffplay
+
+**Wady:**
+- Wymaga zewnętrznego FFmpeg
+- Mniej popularne, mniej przykładów i wsparcia
+- Złożone API (wymaga zrozumienia pętli odtwarzania)
+
+**Rekomendacja:** Najlepsza opcja jeśli potrzebna będzie prawdziwa pauza lub lepsze zarządzanie odtwarzaniem.
+
+#### 3. **PyAV (AvPy)** (kompletny zamiennik FFmpeg)
+```python
+# Bezpośredni dostęp do funkcji FFmpeg bez zewnętrznych narzędzi
+import av
+container = av.open(file_path)
+# Pełna kontrola nad dekodowaniem i konwersją
+```
+
+**Zalety:**
+- Może działać bez zewnętrznego FFmpeg (statyczna kompilacja ~50MB)
+- Największa kontrola i wydajność
+- Uniezależnienie od systemu
+
+**Wady:**
+- Bardzo złożone API - stroma krzywa nauki
+- Problemy z kompilacją na różnych systemach
+- Wymaga głębokiej wiedzy o multimedia
+
+**Rekomendacja:** Dla przyszłego rozwoju jeśli aplikacja urośnie i będzie potrzebna niezależność od systemu.
+
+#### 4. **Pydub + playsound** (proste rozwiązanie)
+```python
+from pydub import AudioSegment
+from playsound import playsound
+
+# Konwersja
+sound = AudioSegment.from_file('input.mp3')
+sound.export('output.wav')
+
+# Odtwarzanie  
+playsound('output.wav', block=False)
+```
+
+**Zalety:**
+- Bardzo proste API
+- Brak zależności od FFmpeg dla odtwarzania
+- Łatwe do prototypowania
+
+**Wady:**
+- Mniej formatów audio niż FFmpeg
+- Brak kontroli nad parametrami odtwarzania (opóźnienie, buforowanie)
+- Wolniejsze dla dużych plików
+
+**Rekomendacja:** Dla prostych zastosowań lub prototypów, nie dla produkcyjnego użycia z wieloma formatami.
+
+### Plan na Przyszłość
+
+**Kiedy rozważyć zmianę:**
+- Gdy aplikacja będzie miała wielu użytkowników (łatwiejsza instalacja bez FFmpeg)
+- Gdy potrzebna będzie prawdziwa pauza w odtwarzaczu
+- Gdy zespół się powiększy (łatwiejsze utrzymanie kodu z wrapperami)
+- Gdy pojawią się problemy z bezpieczeństwem subprocess
+
+**Priorytet zmian:**
+1. **ffpyplayer** dla odtwarzania (prawdziwa pauza, lepsze API)
+2. **ffmpeg-python** dla konwersji (czytelniejszy kod)
+3. **PyAV** dla niezależności od systemu (długoterminowo)
+
+**Migracja stopniowa:**
+- Zacząć od odtwarzania (ffpyplayer) - mniejsze ryzyko
+- Potem konwersja (ffmpeg-python) - większa korzyść dla czytelności
+- Na końcu rozważyć PyAV jeśli potrzebne uniezależnienie

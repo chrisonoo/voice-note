@@ -84,30 +84,3 @@ def validate_file_access(func):
         return func(*args, **kwargs)
     return wrapper
 
-def retry_on_failure(max_retries=3, delay=1.0):
-    """
-    Dekorator implementujący ponowne próby wykonania funkcji przy niepowodzeniu.
-
-    Argumenty:
-        max_retries (int): Maksymalna liczba ponownych prób.
-        delay (float): Opóźnienie między próbami w sekundach.
-    """
-    def decorator(func):
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs):
-            last_exception = None
-
-            for attempt in range(max_retries + 1):
-                try:
-                    return func(*args, **kwargs)
-                except Exception as e:
-                    last_exception = e
-                    if attempt < max_retries:
-                        print(f"Próba {attempt + 1}/{max_retries + 1} nie powiodła się: {e}")
-                        time.sleep(delay)
-                    else:
-                        print(f"Wszystkie {max_retries + 1} prób nie powiodły się")
-
-            raise last_exception
-        return wrapper
-    return decorator

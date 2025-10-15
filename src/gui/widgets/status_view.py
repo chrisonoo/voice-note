@@ -4,6 +4,7 @@
 
 import customtkinter as ctk
 import os
+from src import config
 
 class StatusView(ctk.CTkFrame):
     """
@@ -38,11 +39,28 @@ class StatusView(ctk.CTkFrame):
             self,
             wrap="word",  # Zawijanie wierszy, jeśli nazwa pliku jest za długa.
             state="disabled",  # Domyślnie wyłączone, aby użytkownik nie mógł edytować tekstu.
-            width=150,  # Stała szerokość.
+            width=config.PANEL_STATUS_WIDTH,  # Stała szerokość z konfiguracji.
             padx=8,  # Wewnętrzne marginesy.
             pady=8
         )
         self.text.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+
+    def _truncate_filename(self, filename, max_length=None):
+        """
+        Skraca nazwę pliku do określonej długości i dodaje '...' jeśli jest za długa.
+        
+        Argumenty:
+            filename (str): Oryginalna nazwa pliku
+            max_length (int): Maksymalna długość nazwy (domyślnie z config)
+            
+        Zwraca:
+            str: Skrócona nazwa pliku z '...' jeśli potrzeba
+        """
+        if max_length is None:
+            max_length = config.MAX_FILENAME_LENGTH_STATUS
+        if len(filename) <= max_length:
+            return filename
+        return filename[:max_length-3] + "..."
 
     def update_from_list(self, file_paths):
         """Wypełnia pole tekstowe listą nazw plików."""
@@ -53,7 +71,7 @@ class StatusView(ctk.CTkFrame):
         try:
             # Konwertujemy pełne ścieżki na same nazwy plików za pomocą `os.path.basename`.
             # Sprawdzamy `if path`, aby uniknąć błędów dla pustych wpisów.
-            file_names = [os.path.basename(path) for path in file_paths if path]
+            file_names = [self._truncate_filename(os.path.basename(path)) for path in file_paths if path]
             # Łączymy nazwy plików w jeden ciąg znaków, oddzielając je znakiem nowej linii.
             # `insert("end", ...)` wstawia tekst na końcu pola tekstowego.
             self.text.insert("end", '\n'.join(file_names))

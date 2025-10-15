@@ -1,19 +1,94 @@
 # Ten moduł zawiera klasę `AudioPlayer`, która jest klasą pomocniczą
 # odpowiedzialną za odtwarzanie próbek audio bezpośrednio w interfejsie.
 
-import pygame  # Główna biblioteka do obsługi multimediów, w tym dźwięku.
 import threading  # Używany do zapewnienia bezpieczeństwa wątkowego przy tworzeniu Singletonu.
-from pydub import AudioSegment  # Potężna biblioteka do manipulacji plikami audio.
-import io  # Moduł do obsługi operacji I/O w pamięci (traktowania danych binarnych jak pliku).
+import subprocess  # Do uruchamiania ffplay.
+import psutil  # Do zarządzania procesami systemowymi
+
+class FFplayAudioPlayer:
+    """
+    Odtwarzacz audio używający ffplay (część ffmpeg) do obsługi wszystkich formatów audio.
+    Wspiera WMA, M4A, MP4 i inne formaty bez konwersji.
+    Używa tylko play/stop - pauza nie jest wspierana dla uproszczenia.
+    """
+
+    def __init__(self):
+        self.process = None
+        self.current_file = None
+        self.is_playing = False
+
+    def play_file(self, file_path, stop_first=True):
+        """Rozpoczyna odtwarzanie pliku."""
+        if stop_first:
+            self.stop()  # Zatrzymaj ewentualne poprzednie odtwarzanie
+
+        try:
+            # Uruchamiamy ffplay z parametrami do cichego odtwarzania z minimalnym opóźnieniem
+            self.process = subprocess.Popen([
+                'ffplay',
+                '-nodisp',  # Bez okna graficznego
+                '-autoexit',  # Zamknij po zakończeniu odtwarzania
+                '-loglevel', 'quiet',  # Bez logów
+                '-fflags', 'nobuffer',  # Wyłącz buforowanie dla natychmiastowego odtwarzania
+                '-probesize', '32',  # Minimalny rozmiar próby dla szybszej analizy
+                '-analyzeduration', '0',  # Wyłącz analizę długości dla szybszego startu
+                '-bufsize', '512',  # Jeszcze mniejszy bufor dla zmniejszenia opóźnienia
+                '-sync', 'audio',  # Synchronizuj tylko audio (bez wideo)
+                '-framedrop',  # Upuszczaj opóźnione ramki dla płynniejszego odtwarzania
+                '-af', 'volume=1',  # Wymuś przetwarzanie audio dla lepszego buforowania
+                file_path
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+            self.current_file = file_path
+            self.is_playing = True
+
+        except Exception as e:
+            print(f"Nie można odtworzyć pliku przez ffplay: {file_path}. Błąd: {e}")
+            self.stop()
+
+    def pause(self):
+        """Wstrzymuje odtwarzanie - uproszczone do stop."""
+        self.stop()
+
+    def unpause(self, file_path):
+        """Wznawia odtwarzanie - uproszczone do ponownego play."""
+        if file_path:
+            self.play_file(file_path, stop_first=False)
+
+    def stop(self):
+        """Zatrzymuje odtwarzanie."""
+        # Zabijamy wszystkie procesy ffplay w systemie
+        try:
+            for proc in psutil.process_iter(['pid', 'name']):
+                if proc.info['name'] == 'ffplay.exe':
+                    proc.kill()
+        except:
+            pass
+
+        self.process = None
+        self.current_file = None
+        self.is_playing = False
+
+    def is_busy(self):
+        """Sprawdza czy ffplay jeszcze odtwarza."""
+        if self.process:
+            return self.process.poll() is None  # None oznacza, że proces jeszcze działa
+        return False
+
+    def get_state(self, file_path):
+        """Zwraca stan odtwarzania dla danego pliku."""
+        if self.current_file == file_path and self.is_playing:
+            return 'playing'
+        return 'stopped'
 
 class AudioPlayer:
     """
-    Zarządza odtwarzaniem plików audio przy użyciu `pygame.mixer`.
+    Zarządza odtwarzaniem plików audio przy użyciu `ffplay`.
     Zapewnia, że w danym momencie odtwarzany jest tylko jeden plik.
     Została zaimplementowana jako Singleton, aby zagwarantować istnienie
     tylko jednej, globalnej instancji odtwarzacza w całej aplikacji.
-    Konwertuje pliki do formatu WAV w pamięci RAM przed odtworzeniem,
-    dzięki czemu nie trzeba tworzyć tymczasowych plików na dysku.
+
+    Używa ffplay dla wszystkich formatów audio bez konwersji.
     """
     # Wzorzec Singleton - implementacja
     # `_instance` przechowuje jedyną instancję klasy.
@@ -35,7 +110,7 @@ class AudioPlayer:
         # (np. `AudioPlayer()`), ale właściwa inicjalizacja stanu (pygame, zmienne)
         # odbywa się tylko raz, dzięki fladze `self.initialized`.
         if not hasattr(self, 'initialized'):
-            pygame.mixer.init()  # Inicjalizujemy mikser pygame.
+            self.ffplay_player = FFplayAudioPlayer()  # Player dla wszystkich formatów
             self.current_file = None  # Ścieżka do aktualnie odtwarzanego pliku.
             self.is_playing = False  # Flaga, czy coś jest aktywnie odtwarzane.
             self.is_paused = False  # Flaga, czy odtwarzanie jest wstrzymane.
@@ -46,45 +121,29 @@ class AudioPlayer:
         Przełącza stan odtwarzania dla danego pliku (play/pauza/wznów).
 
         Logika działania:
-        - Jeśli kliknięto na plik, który jest już odtwarzany -> pauzuje go.
-        - Jeśli kliknięto na plik, który jest spauzowany -> wznawia go.
-        - Jeśli kliknięto na nowy plik (a inny jest odtwarzany) -> zatrzymuje stary i odtwarza nowy.
+        - Jeśli kliknięto na plik, który jest już odtwarzany -> pauzuje go (stop).
+        - Jeśli kliknięto na plik, który jest spauzowany -> wznawia go (play od nowa).
+        - Jeśli kliknięto na nowy plik -> zatrzymuje stary i odtwarza nowy.
         - Jeśli nic nie jest odtwarzane -> odtwarza kliknięty plik.
         """
         # Scenariusz 1: Kliknięto przycisk "pauza" dla aktualnie odtwarzanego pliku.
         if self.is_playing and self.current_file == file_path:
-            pygame.mixer.music.pause()
+            self.ffplay_player.pause()
             self.is_playing = False
             self.is_paused = True
         # Scenariusz 2: Kliknięto przycisk "play" dla wstrzymanego pliku.
         elif self.is_paused and self.current_file == file_path:
-            pygame.mixer.music.unpause()
+            self.ffplay_player.unpause(file_path)
             self.is_playing = True
             self.is_paused = False
         # Scenariusz 3: Kliknięto "play" na nowym pliku (lub gdy nic nie gra).
         else:
             try:
                 # Zatrzymujemy cokolwiek, co mogło być odtwarzane wcześniej.
-                pygame.mixer.music.stop()
+                self.stop()
 
-                # --- Konwersja w locie (on-the-fly) do formatu WAV w pamięci RAM ---
-                # 1. Ładujemy plik w dowolnym formacie (np. mp3, m4a) za pomocą biblioteki pydub.
-                audio_segment = AudioSegment.from_file(file_path)
-
-                # 2. Tworzymy w pamięci obiekt, który zachowuje się jak plik binarny (bufor).
-                wav_io = io.BytesIO()
-
-                # 3. Eksportujemy załadowany segment audio do formatu WAV, ale zamiast zapisywać go
-                #    na dysku, zapisujemy go do naszego bufora w pamięci.
-                audio_segment.export(wav_io, format="wav")
-
-                # 4. Po zapisie, "wskaźnik" w buforze jest na końcu. Musimy go przewinąć na początek,
-                #    aby pygame mógł odczytać dane od początku.
-                wav_io.seek(0)
-
-                # 5. Ładujemy dane audio w formacie WAV bezpośrednio z bufora w pamięci do pygame.
-                pygame.mixer.music.load(wav_io)
-                pygame.mixer.music.play()
+                # Używamy ffplay dla wszystkich formatów
+                self.ffplay_player.play_file(file_path)
 
                 # Aktualizujemy stan odtwarzacza.
                 self.current_file = file_path
@@ -96,15 +155,15 @@ class AudioPlayer:
 
     def stop(self):
         """Zatrzymuje odtwarzanie i całkowicie resetuje stan odtwarzacza."""
-        pygame.mixer.music.stop()
-        try:
-            # `unload` zwalnia zasoby załadowanego pliku. Może rzucić błąd, jeśli nic nie jest załadowane.
-            pygame.mixer.music.unload()
-        except pygame.error:
-            pass
+        self.ffplay_player.stop()
+
         self.current_file = None
         self.is_playing = False
         self.is_paused = False
+
+    def is_busy(self):
+        """Sprawdza czy ffplay jeszcze odtwarza."""
+        return self.ffplay_player.is_busy()
 
     def get_state(self, file_path):
         """
@@ -116,6 +175,7 @@ class AudioPlayer:
         """
         if self.current_file != file_path:
             return 'stopped'
+
         if self.is_playing:
             return 'playing'
         if self.is_paused:

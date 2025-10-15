@@ -5,7 +5,7 @@
 import threading  # Moduł do pracy z wątkami, niezbędny do uruchamiania operacji w tle.
 from tkinter import filedialog, messagebox  # Moduły Tkinter do okien dialogowych.
 from src import config, database  # Nasze własne moduły.
-from src.audio import encode_audio_files  # Funkcja do konwersji plików.
+from src.utils.audio import encode_audio_files  # Funkcja do konwersji plików.
 from src.metadata import process_and_update_all_metadata
 
 class FileHandler:
@@ -35,9 +35,9 @@ class FileHandler:
             
         # `filedialog.askopenfilenames` otwiera natywne okno systemowe do wyboru jednego lub wielu plików.
         paths = filedialog.askopenfilenames(
-            title="Wybierz pliki audio", 
+            title="Wybierz pliki audio i wideo", 
             # `filetypes` filtruje wyświetlane pliki. Tworzymy listę typów na podstawie rozszerzeń z pliku konfiguracyjnego.
-            filetypes=[("Pliki audio", " ".join(config.AUDIO_EXTENSIONS))]
+            filetypes=[("Pliki audio i wideo", " ".join(config.ALL_SUPPORTED_EXTENSIONS))]
         )
         # Jeśli użytkownik zamknie okno bez wybierania plików, `paths` będzie puste.
         if not paths:
@@ -61,7 +61,7 @@ class FileHandler:
 
     def load_selected_files(self):
         """
-        Uruchamia w osobnym wątku konwersję zaznaczonych plików do formatu WAV.
+        Uruchamia w osobnym wątku konwersję zaznaczonych plików do formatu audio gotowego do transkrypcji.
         Pliki do konwersji są identyfikowane na podstawie flagi 'is_selected' w bazie danych.
         """
         # Natychmiast wyłączamy przycisk, aby zapobiec wielokrotnemu kliknięciu.
@@ -89,7 +89,8 @@ class FileHandler:
         """
         try:
             # Wywołujemy funkcję, która wykonuje całą logikę konwersji FFMPEG.
-            encode_audio_files()
+            # Przekazujemy referencję do aplikacji, aby móc aktualizować GUI w trakcie przetwarzania.
+            encode_audio_files(app=self.app)
             
             # WAŻNE: Bezpośrednia modyfikacja widżetów Tkinter z innego wątku niż główny jest niebezpieczna.
             # `self.app.after(0, ...)` to bezpieczny sposób na zaplanowanie wykonania funkcji

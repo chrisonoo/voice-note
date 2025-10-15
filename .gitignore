@@ -3,6 +3,9 @@ tmp/
 .env
 _backlog.md
 voice_note.db
+.cursor/*
+!.cursor/rules/
+!.cursor/README.md
 
 # Created by https://www.toptal.com/developers/gitignore/api/visualstudiocode,python
 # Edit at https://www.toptal.com/developers/gitignore?templates=visualstudiocode,python

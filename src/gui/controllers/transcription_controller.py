@@ -6,7 +6,7 @@
 import threading
 from tkinter import messagebox
 from src import database
-from src.transcribe.transcription_processor import TranscriptionProcessor
+from src.services.transcription_service import TranscriptionService
 
 class TranscriptionController:
     """
@@ -33,6 +33,9 @@ class TranscriptionController:
             messagebox.showwarning("Brak plików", "Brak plików wczytanych do przetworzenia.")
             return
 
+        # Ustawiamy flagę, że transkrypcja została rozpoczęta
+        self.app.transcription_started = True
+
         # Aktualizujemy stan przycisków (np. wyłączamy "Start"), aby zapobiec ponownemu kliknięciu.
         self.app.button_state_controller.update_ui_state()
         # Odświeżamy widoki, aby pokazać, które pliki trafiły do kolejki.
@@ -49,15 +52,10 @@ class TranscriptionController:
         # Ponownie aktualizujemy stan przycisków, tym razem aby pokazać, że proces jest aktywny (np. włączając przycisk "Pauza").
         self.app.button_state_controller.update_ui_state()
 
-    def pause_transcription(self):
-        """Wysyła żądanie pauzy do wątku przetwarzającego poprzez ustawienie flagi `Event`."""
+    def stop_transcription(self):
+        """Wysyła żądanie zatrzymania do wątku przetwarzającego poprzez ustawienie flagi `Event`."""
         self.app.pause_request_event.set()
-        # Aktualizujemy UI, aby np. zmienić przycisk "Pauza" na "Wznów".
-        self.app.button_state_controller.update_ui_state()
-
-    def resume_transcription(self):
-        """Wycofuje żądanie pauzy, czyszcząc flagę `Event`. Wątek roboczy wznowi pracę."""
-        self.app.pause_request_event.clear()
+        # Aktualizujemy UI - przyciski zostaną zaktualizowane po zakończeniu wątku.
         self.app.button_state_controller.update_ui_state()
 
     def resume_interrupted_process(self):
@@ -88,12 +86,14 @@ class TranscriptionController:
 
             # Tworzymy instancję procesora, przekazując mu obiekt Event do obsługi pauzy
             # oraz naszą funkcję zwrotną do raportowania postępu.
-            processor = TranscriptionProcessor(
+            processor = TranscriptionService(
                 pause_requested_event=self.app.pause_request_event,
                 on_progress_callback=progress_callback
             )
             # Uruchamiamy pętlę przetwarzania w procesorze.
-            processor.process_transcriptions()
+            # W trybie GUI zakładamy, że użytkownik świadomie wybrał pliki,
+            # więc `allow_long=True` jest ustawione na stałe.
+            processor.process_transcriptions(allow_long=True)
         except Exception as e:
             # Jeśli w wątku wystąpi krytyczny błąd, bezpiecznie wyświetlamy go w GUI.
             self.app.after(0, lambda e=e: messagebox.showerror("Błąd krytyczny", f"Wystąpił błąd: {e}"))

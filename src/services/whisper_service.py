@@ -1,4 +1,4 @@
-# Ten moduł zawiera klasę `Whisper`, która jest "opakowaniem" (wrapperem)
+# Ten moduł zawiera klasę `WhisperService`, która jest "opakowaniem" (wrapperem)
 # dla API Audio Transcriptions od OpenAI. Jej zadaniem jest uproszczenie
 # procesu wysyłania pliku audio i otrzymywania transkrypcji, ukrywając
 # szczegóły implementacyjne komunikacji z API.
@@ -15,9 +15,9 @@ from src import config  # Importujemy nasz plik konfiguracyjny.
 load_dotenv()
 
 
-class Whisper:
+class WhisperService:
     """
-    Klasa dedykowana do interakcji z API OpenAI Whisper.
+    Serwis dedykowany do interakcji z API OpenAI Whisper.
     Każdy obiekt tej klasy jest odpowiedzialny za transkrypcję jednego pliku audio.
     """
     def __init__(self, audio_path):
