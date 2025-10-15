@@ -24,6 +24,7 @@ from ..controllers.transcription_controller import TranscriptionController
 from ..controllers.panel_manager import PanelManager
 from ..utils.audio_player import AudioPlayer
 from ..utils.terminal_redirector import TerminalRedirector
+from src.utils.temp_file_manager import cleanup_all_temp_files
 
 class App(ctk.CTk):
     """
@@ -268,6 +269,8 @@ class App(ctk.CTk):
 
                 # Resetujemy tabelę files i czyścimy pliki audio.
                 database.reset_files_table()
+                # Czyścimy wszystkie pliki tymczasowe
+                cleanup_all_temp_files()
                 # Optymalizujemy bazę danych po wyczyszczeniu
                 database.optimize_database()
                 # Unieważniamy cache ponieważ dane zostały wyczyszczone
