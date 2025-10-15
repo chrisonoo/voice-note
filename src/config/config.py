@@ -14,8 +14,8 @@ APP_NAME = "Voice Note"
 # `__file__` to ścieżka do bieżącego pliku (config.py).
 # `os.path.abspath` tworzy z tego pełną, absolutną ścieżkę.
 # `os.path.dirname` usuwa ostatni komponent ścieżki (nazwę pliku), dając nam katalog `src`.
-# Używamy `os.path.dirname` po raz drugi, aby "wyjść" z folderu `src` i znaleźć się w głównym katalogu projektu.
-APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# Używamy `os.path.dirname` po raz trzeci, aby wyjść z folderu `src` i znaleźć się w głównym katalogu projektu.
+APP_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # --- KATALOGI ROBOCZE ---
 # Definiujemy stałe ścieżki do folderów tymczasowych.

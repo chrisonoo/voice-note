@@ -34,7 +34,6 @@ class PanelManager:
             # Jeśli nie otrzymaliśmy gotowych danych, pobieramy je z bazy.
             all_files = data if data is not None else database.get_all_files()
 
-
             # Odświeżamy poszczególne panele, przekazując im już przygotowane i aktualne dane.
             self._refresh_selected_files_view(all_files)
             self._refresh_status_views(all_files)
