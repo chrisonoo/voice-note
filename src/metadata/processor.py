@@ -4,7 +4,7 @@ import os
 from datetime import datetime, timedelta
 from .formatter import _create_file_tag
 from src import database, config
-from src.audio.duration_checker import get_file_duration
+from src.utils.audio.duration_checker import get_file_duration
 from src.utils.error_handlers import with_error_handling, measure_performance
 
 @with_error_handling("Przetwarzanie metadanych")
