@@ -5,7 +5,6 @@
 import customtkinter as ctk  # Biblioteka do tworzenia nowoczesnego interfejsu graficznego.
 from tkinter import messagebox  # Standardowy moduł Tkinter do wyświetlania okien dialogowych (np. z potwierdzeniem).
 import threading  # Moduł do pracy z wątkami, kluczowy do wykonywania długich operacji (jak transkrypcja) w tle.
-import pygame  # Biblioteka używana tutaj do odtwarzania dźwięku (próbek audio).
 import time  # Dodane dla cachowania danych
 from src import config, database  # Importujemy nasze własne moduły: konfigurację i bazę danych.
 
@@ -17,12 +16,15 @@ from src import config, database  # Importujemy nasze własne moduły: konfigura
 # - `TranscriptionController`: Zarządza procesem transkrypcji w tle.
 # - `PanelManager`: Odświeża zawartość paneli z listami plików.
 # - `AudioPlayer`: Kontroluje odtwarzanie próbek audio.
+# - `TerminalRedirector`: Przekierowuje stdout/stderr do GUI.
 from .interface_builder import InterfaceBuilder
 from ..controllers.button_state_controller import ButtonStateController
 from ..controllers.file_handler import FileHandler
 from ..controllers.transcription_controller import TranscriptionController
 from ..controllers.panel_manager import PanelManager
 from ..utils.audio_player import AudioPlayer
+from ..utils.terminal_redirector import TerminalRedirector
+from src.utils.temp_file_manager import cleanup_all_temp_files
 
 class App(ctk.CTk):
     """
@@ -47,10 +49,16 @@ class App(ctk.CTk):
         self._cache_timestamp = 0
         self._cache_timeout = 2.0  # sekundy
 
+        # Inicjalizujemy stan terminala (domyślnie rozwinięty)
+        self.terminal_expanded = True
+
+        # Inicjalizujemy flagę wskazującą czy transkrypcja została już rozpoczęta
+        self.transcription_started = False
+
         # Ustawiamy tytuł okna, pobierając go z pliku konfiguracyjnego.
         self.title(config.APP_NAME)
         # Ustawiamy minimalny rozmiar okna.
-        self.minsize(1110, 600)
+        self.minsize(1110, 850)
         # `protocol` pozwala przechwycić zdarzenia systemowe okna. "WM_DELETE_WINDOW" to kliknięcie przycisku "X".
         # Zamiast domyślnego zamknięcia, wywołujemy naszą własną metodę `on_closing`.
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -65,6 +73,7 @@ class App(ctk.CTk):
         # Wiersz 1 (z głównymi panelami) ma `weight=1`, więc będzie się rozciągał w pionie.
         self.grid_rowconfigure(1, weight=1)
         self.grid_rowconfigure(2, weight=0)
+        self.grid_rowconfigure(3, weight=0)
 
         # Tworzymy instancje naszych klas pomocniczych (kontrolerów i menedżerów).
         # Przekazujemy `self` (czyli instancję `App`), aby miały one dostęp do głównego okna i jego komponentów.
@@ -77,6 +86,10 @@ class App(ctk.CTk):
 
         # Wywołujemy metodę, która fizycznie tworzy i umieszcza wszystkie widżety w oknie.
         self.interface_builder.create_widgets()
+
+        # Inicjalizujemy przekierowanie terminala
+        self.terminal_redirector = TerminalRedirector(self.append_to_terminal)
+        self.terminal_redirector.start_redirect()
 
         # Ustawiamy początkowy stan przycisków i odświeżamy widoki.
         self.button_state_controller.update_ui_state()
@@ -158,19 +171,17 @@ class App(ctk.CTk):
         except Exception as e:
             print(f"Błąd podczas pełnego odświeżania: {e}")
 
-    def pause_transcription(self):
-        """Deleguje zadanie pauzy do kontrolera transkrypcji."""
-        self.transcription_controller.pause_transcription()
-
-    def resume_transcription(self):
-        """Deleguje zadanie wznowienia do kontrolera transkrypcji."""
-        self.transcription_controller.resume_transcription()
+    def stop_transcription(self):
+        """Deleguje zadanie zatrzymania do kontrolera transkrypcji."""
+        self.transcription_controller.stop_transcription()
 
     def on_processing_finished(self):
         """
         Obsługuje zakończenie procesu transkrypcji.
         Ta metoda jest wywoływana z kontrolera transkrypcji, gdy pętla przetwarzania się zakończy.
         """
+        # Resetujemy flagę rozpoczęcia transkrypcji, aby użytkownik mógł ponownie wybrać pliki
+        self.transcription_started = False
         # Finalizuje stan w kontrolerze (np. zmienia stan przycisków).
         self.transcription_controller.on_processing_finished()
 
@@ -184,14 +195,14 @@ class App(ctk.CTk):
 
     def refresh_transcription_display(self):
         """
-        Odświeża wyświetlanie transkrypcji z uwzględnieniem ustawień checkboxa
-        (czy pokazywać tagi czy tylko czysty tekst).
+        Odświeża wyświetlanie transkrypcji z uwzględnieniem ustawień checkboxów
+        (czy pokazywać numerację i/lub tagi).
         """
         try:
             # Pobieramy wszystkie pliki z bazy danych
             all_files = database.get_all_files()
 
-            # Filtrujemy tylko przetworzone pliki z zaznaczonymi plikami
+            # Filtrujemy tylko przetworzone pliki z zaznaczonymi plikami, które mają transkrypcję
             processed_files = [
                 f for f in all_files
                 if f['is_processed'] and f['is_selected'] and f['transcription']
@@ -201,31 +212,37 @@ class App(ctk.CTk):
                 self.transcription_output_panel.update_text("")
                 return
 
-            # Sprawdzamy ustawienie checkboxa
+            # Sprawdzamy ustawienia checkboxów
+            show_numbering = self.transcription_output_panel.should_show_numbering()
             show_tags = self.transcription_output_panel.should_show_tags()
 
-            if show_tags:
-                # Pokazujemy transkrypcje z tagami: "tag transcription"
-                processed_transcriptions = []
-                for f in processed_files:
+            processed_transcriptions = []
+            # Użyj enumerate do dynamicznego generowania numeracji
+            for i, f in enumerate(processed_files, 1):
+                parts = []
+                transcription = f['transcription'] or ''
+
+                # Dodaj numerację, jeśli zaznaczone
+                if show_numbering:
+                    parts.append(f"**{i}:**")
+
+                # Dodaj tag, jeśli zaznaczone i istnieje
+                if show_tags:
                     tag = f['tag'] or ''
-                    transcription = f['transcription'] or ''
-                    if tag and transcription:
-                        full_text = f"{tag} {transcription}"
-                    elif transcription:
-                        # Jeśli nie ma tagu, pokazujemy tylko transkrypcję
-                        full_text = transcription
-                    else:
-                        full_text = ""
-                    processed_transcriptions.append(full_text)
-            else:
-                # Pokazujemy tylko czyste transkrypcje bez tagów
-                processed_transcriptions = [f['transcription'] for f in processed_files]
+                    if tag:
+                        parts.append(tag)
+
+                # Dodaj właściwą transkrypcję
+                parts.append(transcription)
+
+                # Połącz wszystkie części w jeden tekst
+                full_text = " ".join(parts)
+                processed_transcriptions.append(full_text)
 
             # Łączymy transkrypcje w jeden tekst
-            full_text = "\n\n".join(processed_transcriptions)
+            final_text = "\n\n".join(processed_transcriptions)
             # Aktualizujemy główny panel wyjściowy
-            self.transcription_output_panel.update_text(full_text)
+            self.transcription_output_panel.update_text(final_text)
 
         except Exception as e:
             print(f"Błąd podczas odświeżania wyświetlania transkrypcji: {e}")
@@ -252,10 +269,14 @@ class App(ctk.CTk):
 
                 # Resetujemy tabelę files i czyścimy pliki audio.
                 database.reset_files_table()
+                # Czyścimy wszystkie pliki tymczasowe
+                cleanup_all_temp_files()
                 # Optymalizujemy bazę danych po wyczyszczeniu
                 database.optimize_database()
                 # Unieważniamy cache ponieważ dane zostały wyczyszczone
                 self.invalidate_cache()
+                # Resetujemy flagę rozpoczęcia transkrypcji
+                self.transcription_started = False
                 # Odświeżamy wszystkie widoki, aby odzwierciedliły pusty stan.
                 self.refresh_all_views()
                 # Czyścimy również główny panel z transkrypcją.
@@ -295,8 +316,8 @@ class App(ctk.CTk):
 
     def _check_playback_status(self):
         """Cyklicznie sprawdza, czy odtwarzanie audio się zakończyło, aby zaktualizować UI."""
-        # `pygame.mixer.music.get_busy()` zwraca `True`, jeśli dźwięk jest odtwarzany.
-        if self.audio_player.is_playing and not pygame.mixer.music.get_busy():
+        # Sprawdzamy czy ffplay jeszcze odtwarza plik
+        if self.audio_player.is_playing and not self.audio_player.is_busy():
             self.audio_player.stop()  # Aktualizujemy stan naszego odtwarzacza.
             # `hasattr` sprawdza, czy widżet został już utworzony.
             if hasattr(self, 'file_selection_panel'):
@@ -306,10 +327,56 @@ class App(ctk.CTk):
         # Wywołując samą siebie, tworzymy pętlę, która działa w tle bez blokowania GUI.
         self.after(100, self._check_playback_status)
 
+    def toggle_terminal(self):
+        """Zwijanie/rozwijanie panelu terminala."""
+        if self.terminal_expanded:
+            # Zwijamy terminal
+            self.terminal_frame.grid_remove()
+            self.terminal_toggle_button.configure(text="▼ Terminal")
+            self.terminal_expanded = False
+            # Dostosuj rozmiar okna po zwinięciu
+            current_width = self.winfo_width()
+            self.geometry(f"{current_width}x600")
+        else:
+            # Rozwijamy terminal
+            self.terminal_frame.grid()
+            self.terminal_toggle_button.configure(text="▲ Terminal")
+            self.terminal_expanded = True
+            # Dostosuj rozmiar okna po rozwinięciu
+            current_width = self.winfo_width()
+            self.geometry(f"{current_width}x850")
+
+    def append_to_terminal(self, text):
+        """Dodaje tekst do terminala GUI z respektowaniem nowych linii."""
+        if hasattr(self, 'terminal_text'):
+            self.terminal_text.configure(state="normal")
+
+            # Podziel tekst na linie i dodaj każdą linię osobno
+            lines = text.split('\n')
+            for i, line in enumerate(lines):
+                if i > 0:  # Dodaj nową linię przed każdą linią oprócz pierwszej
+                    self.terminal_text.insert("end", "\n")
+                self.terminal_text.insert("end", line)
+
+            self.terminal_text.configure(state="disabled")
+            # Przewiń na dół
+            self.terminal_text.see("end")
+
+    def clear_terminal(self):
+        """Czyści zawartość terminala GUI."""
+        if hasattr(self, 'terminal_text'):
+            self.terminal_text.configure(state="normal")
+            self.terminal_text.delete("1.0", "end")
+            self.terminal_text.configure(state="disabled")
+
     def on_closing(self):
         """Obsługuje zdarzenie zamknięcia okna."""
         self.audio_player.stop()
-        pygame.quit()  # Zamykamy system pygame.
+
+        # Zatrzymaj przekierowanie terminala
+        if hasattr(self, 'terminal_redirector'):
+            self.terminal_redirector.stop_redirect()
+
         # Sprawdzamy, czy wątek przetwarzający wciąż działa.
         if self.processing_thread and self.processing_thread.is_alive():
             # Jeśli tak, pytamy użytkownika, czy na pewno chce zamknąć aplikację.

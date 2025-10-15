@@ -58,15 +58,32 @@ class InterfaceBuilder:
         # `padx, pady`: Dodaje marginesy (w pikselach) na zewnątrz widżetu.
         self.app.file_selector_button.grid(row=0, column=0, sticky="ew", padx=(10, 5), pady=(10, 0))
 
+        # --- Ramka dla przycisków w prawym dolnym rogu ---
+        self.app.button_frame = ctk.CTkFrame(self.app, fg_color="transparent")
+        self.app.button_frame.grid(row=2, column=4, sticky="ew", padx=(5, 10), pady=(5, 10))
+
+        # Konfiguracja siatki dla ramki przycisków
+        self.app.button_frame.grid_columnconfigure(0, weight=1)  # Przycisk Resetuj rozciąga się
+        self.app.button_frame.grid_columnconfigure(1, weight=0)  # Przycisk Terminal ma stałą szerokość
+
         # --- Przycisk resetowania ---
         self.app.reset_button = ctk.CTkButton(
-            self.app,
+            self.app.button_frame,
             text="Resetuj",
             command=self.app.reset_application,
             fg_color="darkred",  # Kolor przycisku.
             hover_color="red"  # Kolor po najechaniu myszką.
         )
-        self.app.reset_button.grid(row=2, column=4, sticky="ew", padx=(5, 10), pady=(5, 10))
+        self.app.reset_button.grid(row=0, column=0, sticky="ew", padx=(0, 5), pady=0)
+
+        # --- Przycisk zwijania/rozwijania terminala ---
+        self.app.terminal_toggle_button = ctk.CTkButton(
+            self.app.button_frame,
+            text="▲ Terminal",
+            command=self.app.toggle_terminal,
+            width=100  # Zwiększona szerokość dla lepszej czytelności
+        )
+        self.app.terminal_toggle_button.grid(row=0, column=1, sticky="e", padx=(5, 0), pady=0)
 
         # --- Kolumna 1: Przycisk wczytywania (konwersji) plików ---
         self.app.convert_files_button = ctk.CTkButton(
@@ -88,7 +105,7 @@ class InterfaceBuilder:
         self.app.transcription_control_button = ctk.CTkButton(
             self.app,
             text="Pauza",
-            command=self.app.transcription_controller.pause_transcription
+            command=self.app.stop_transcription
         )
         self.app.transcription_control_button.grid(row=0, column=3, sticky="ew", padx=5, pady=(10, 0))
 
@@ -132,6 +149,9 @@ class InterfaceBuilder:
         # --- Kolumna 4: Panel wyjściowy z transkrypcją ---
         self.app.transcription_output_panel = TranscriptionView(self.app, text="Transkrypcja")
         self.app.transcription_output_panel.grid(row=1, column=4, sticky="nsew", padx=(5, 10), pady=5)
+
+        # --- Panel terminala na dole ---
+        self._create_terminal_panel()
     
     def _create_counter_labels(self):
         """Tworzy etykiety liczników do dynamicznego podsumowania stanu."""
@@ -154,3 +174,50 @@ class InterfaceBuilder:
         # --- Kolumna 3: Licznik plików przetworzonych ---
         self.app.processed_counter_label = ctk.CTkLabel(self.app, text="", anchor="center")
         self.app.processed_counter_label.grid(row=2, column=3, sticky="ew", padx=5, pady=(5, 10))
+
+    def _create_terminal_panel(self):
+        """Tworzy panel terminala z przewijaniem na dole okna."""
+        # Główna ramka dla terminala
+        self.app.terminal_frame = ctk.CTkFrame(self.app)
+        self.app.terminal_frame.grid(row=3, column=0, columnspan=5, sticky="ew", padx=10, pady=(5, 10))
+
+        # Konfiguracja siatki dla ramki terminala
+        self.app.terminal_frame.grid_columnconfigure(0, weight=1)
+        self.app.terminal_frame.grid_rowconfigure(0, weight=1)
+
+        # Ramka dla nagłówka z etykietą i przyciskiem czyszczenia
+        header_frame = ctk.CTkFrame(self.app.terminal_frame, fg_color="transparent")
+        header_frame.grid(row=0, column=0, sticky="ew", padx=10, pady=(5, 0))
+
+        # Konfiguracja siatki dla nagłówka
+        header_frame.grid_columnconfigure(0, weight=1)  # Etykieta rozciąga się
+        header_frame.grid_columnconfigure(1, weight=0)  # Przycisk ma stałą szerokość
+
+        # Etykieta nagłówka
+        terminal_label = ctk.CTkLabel(header_frame, text="Terminal", font=ctk.CTkFont(size=12, weight="bold"))
+        terminal_label.grid(row=0, column=0, sticky="w")
+
+        # Mały przycisk do czyszczenia terminala
+        self.app.clear_terminal_button = ctk.CTkButton(
+            header_frame,
+            text="Clear",
+            command=self.app.clear_terminal,
+            width=25,
+            height=20,
+            font=ctk.CTkFont(size=10)
+        )
+        self.app.clear_terminal_button.grid(row=0, column=1, sticky="e", padx=(5, 0))
+
+        # Pole tekstowe z przewijaniem dla terminala
+        self.app.terminal_text = ctk.CTkTextbox(
+            self.app.terminal_frame,
+            wrap="word",
+            font=ctk.CTkFont(family="Courier", size=12)  # Font monospace dla terminala - zwiększony rozmiar
+        )
+        self.app.terminal_text.grid(row=1, column=0, sticky="nsew", padx=10, pady=(5, 10))
+
+        # Ustaw wysokość na około 10 linii tekstu
+        self.app.terminal_text.configure(height=200)  # około 10 linii po 20px każda
+
+        # Ustawienie jako tylko do odczytu
+        self.app.terminal_text.configure(state="disabled")

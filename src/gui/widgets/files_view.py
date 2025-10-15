@@ -4,6 +4,7 @@
 import customtkinter as ctk
 import os
 from src import config, database
+from src.utils.file_type_helper import get_file_type
 from ..utils.audio_player import AudioPlayer
 from tkinter.messagebox import askyesno
 
@@ -16,7 +17,7 @@ class FilesView(ctk.CTkFrame):
     """
     def __init__(self, parent, audio_player: AudioPlayer, title="Wybrane", **kwargs):
         # Wywołujemy konstruktor klasy nadrzędnej `ctk.CTkFrame`.
-        super().__init__(parent, width=400, **kwargs)
+        super().__init__(parent, width=config.PANEL_SELECTED_WIDTH, **kwargs)
         # `grid_propagate(False)` zapobiega automatycznemu dopasowywaniu się rozmiaru ramki
         # do jej zawartości, co pozwala nam utrzymać stałą szerokość.
         self.grid_propagate(False)
@@ -33,24 +34,39 @@ class FilesView(ctk.CTkFrame):
         self.label.grid(row=0, column=0, sticky="ew", pady=(0, 5))
 
         # Tworzymy przewijalną ramkę, w której będą umieszczane wpisy plików.
-        self.scrollable_frame = ctk.CTkScrollableFrame(self, width=384)
+        self.scrollable_frame = ctk.CTkScrollableFrame(self, width=config.SCROLLABLE_FRAME_WIDTH)
         self.scrollable_frame.grid(row=1, column=0, sticky="nsew", padx=8, pady=8)
 
         # Tworzymy nagłówki kolumn, aby użytkownik wiedział, co oznaczają dane kolumny.
-        header_checkbox = ctk.CTkLabel(self.scrollable_frame, text="", width=35)
+        header_checkbox = ctk.CTkLabel(self.scrollable_frame, text="", width=config.COLUMN_CHECKBOX_WIDTH)
         header_checkbox.grid(row=0, column=0, padx=(5,0), pady=2)
-        header_filename = ctk.CTkLabel(self.scrollable_frame, text="Nazwa", width=150, anchor="w")
-        header_filename.grid(row=0, column=1, padx=5, pady=2)
-        header_duration = ctk.CTkLabel(self.scrollable_frame, text="Czas", width=50, anchor="center")
-        header_duration.grid(row=0, column=2, padx=5, pady=2)
+        header_type = ctk.CTkLabel(self.scrollable_frame, text="", width=config.COLUMN_TYPE_WIDTH, anchor="center")
+        header_type.grid(row=0, column=1, padx=5, pady=2)
+        header_filename = ctk.CTkLabel(self.scrollable_frame, text="Nazwa", width=config.COLUMN_FILENAME_WIDTH, anchor="w")
+        header_filename.grid(row=0, column=2, padx=5, pady=2)
+        header_duration = ctk.CTkLabel(self.scrollable_frame, text="Czas", width=config.COLUMN_DURATION_WIDTH, anchor="center")
+        header_duration.grid(row=0, column=3, padx=5, pady=2)
 
         # Lista do przechowywania referencji do widżetów dla każdego pliku.
         # Jest to potrzebne, aby móc później np. aktualizować ikony przycisków play/pauza.
         self.file_widgets = []
 
-
-
-
+    def _truncate_filename(self, filename, max_length=None):
+        """
+        Skraca nazwę pliku do określonej długości i dodaje '...' jeśli jest za długa.
+        
+        Argumenty:
+            filename (str): Oryginalna nazwa pliku
+            max_length (int): Maksymalna długość nazwy (domyślnie z config)
+            
+        Zwraca:
+            str: Skrócona nazwa pliku z '...' jeśli potrzeba
+        """
+        if max_length is None:
+            max_length = config.MAX_FILENAME_LENGTH_SELECTED
+        if len(filename) <= max_length:
+            return filename
+        return filename[:max_length-3] + "..."
 
     def populate_files(self, files_data):
         """
@@ -79,26 +95,33 @@ class FilesView(ctk.CTkFrame):
             duration_str = f"{int(duration_sec // 60):02d}:{int(duration_sec % 60):02d}"
             # Sprawdzamy, czy plik jest dłuższy niż limit z konfiguracji.
             is_long = duration_sec > config.MAX_FILE_DURATION_SECONDS
+            
+            # Określamy typ pliku i ikonkę
+            file_type = get_file_type(file_path)
+            type_icon = "🎵" if file_type == 'audio' else "🎬"
 
             # Tworzymy widżety dla każdego pliku.
             checkbox_var = ctk.BooleanVar(value=is_selected)
             checkbox = ctk.CTkCheckBox(
-                self.scrollable_frame, text="", width=35, variable=checkbox_var,
+                self.scrollable_frame, text="", width=config.COLUMN_CHECKBOX_WIDTH, variable=checkbox_var,
                 command=lambda fp=file_path, var=checkbox_var: self.on_checkbox_toggle(fp, var)
             )
             checkbox.grid(row=i, column=0, padx=(5,0), pady=2)
 
-            filename_label = ctk.CTkLabel(self.scrollable_frame, text=filename, width=150, anchor="w")
-            filename_label.grid(row=i, column=1, padx=5, pady=2)
+            type_label = ctk.CTkLabel(self.scrollable_frame, text=type_icon, width=config.COLUMN_TYPE_WIDTH, anchor="center")
+            type_label.grid(row=i, column=1, padx=5, pady=2)
 
-            duration_label = ctk.CTkLabel(self.scrollable_frame, text=duration_str, width=50, anchor="center")
-            duration_label.grid(row=i, column=2, padx=5, pady=2)
+            filename_label = ctk.CTkLabel(self.scrollable_frame, text=self._truncate_filename(filename), width=config.COLUMN_FILENAME_WIDTH, anchor="w")
+            filename_label.grid(row=i, column=2, padx=5, pady=2)
 
-            play_button = ctk.CTkButton(self.scrollable_frame, text="▶", width=30, command=lambda fp=file_path: self.on_play_button_click(fp))
-            play_button.grid(row=i, column=3, padx=5, pady=2)
+            duration_label = ctk.CTkLabel(self.scrollable_frame, text=duration_str, width=config.COLUMN_DURATION_WIDTH, anchor="center")
+            duration_label.grid(row=i, column=3, padx=5, pady=2)
 
-            delete_button = ctk.CTkButton(self.scrollable_frame, text="X", width=30, command=lambda fp=file_path: self.on_delete_button_click(fp))
-            delete_button.grid(row=i, column=4, padx=5, pady=2)
+            play_button = ctk.CTkButton(self.scrollable_frame, text="▶", width=config.COLUMN_PLAY_WIDTH, height=25, command=lambda fp=file_path: self.on_play_button_click(fp))
+            play_button.grid(row=i, column=4, padx=5, pady=2)
+
+            delete_button = ctk.CTkButton(self.scrollable_frame, text="X", width=config.COLUMN_DELETE_WIDTH, command=lambda fp=file_path: self.on_delete_button_click(fp))
+            delete_button.grid(row=i, column=5, padx=5, pady=2)
 
             # Jeśli plik jest za długi, kolorujemy jego etykiety na czerwono.
             if is_long:
@@ -106,7 +129,7 @@ class FilesView(ctk.CTkFrame):
                 duration_label.configure(text_color="red")
 
             # Zapisujemy referencje do stworzonych widżetów.
-            self.file_widgets.append((checkbox, file_path, duration_ms, play_button, delete_button))
+            self.file_widgets.append((checkbox, file_path, duration_ms, play_button, delete_button, type_label))
 
         # Po dodaniu plików, aktualizujemy stan przycisków play/pauza.
         self.update_play_buttons()
@@ -118,9 +141,13 @@ class FilesView(ctk.CTkFrame):
         Aktualizuje stan zaznaczenia w bazie danych.
         """
         database.set_file_selected(file_path, var.get())
+        # Unieważniamy cache ponieważ dane zostały zmienione
+        self.master.invalidate_cache()
         # `self.master` odnosi się do rodzica tego widżetu, czyli głównego okna aplikacji `App`.
         # Wywołujemy metodę z głównego okna, aby zaktualizować liczniki.
         self.master.update_all_counters()
+        # Aktualizujemy również stan przycisków, ponieważ zależy on od zaznaczonych plików
+        self.master.button_state_controller.update_ui_state()
 
     def on_delete_button_click(self, file_path):
         """Obsługuje kliknięcie przycisku usuwania."""
@@ -147,10 +174,15 @@ class FilesView(ctk.CTkFrame):
         if not self.file_widgets:
             return
         # Iterujemy przez zapisane referencje do widżetów.
-        for _, file_path, _, button, _ in self.file_widgets:
+        for _, file_path, _, button, _, _ in self.file_widgets:
             state = self.audio_player.get_state(file_path)
             # Ustawiamy odpowiednią ikonę (w formie tekstu) w zależności od stanu.
-            button.configure(text="⏸" if state == 'playing' else "▶")
+            if state == 'playing':
+                button.configure(text="⏸")
+            elif state == 'paused':
+                button.configure(text="▶")
+            else:
+                button.configure(text="▶")
 
     def clear_view(self):
         """

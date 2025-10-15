@@ -24,3 +24,10 @@ if not exist "%PYTHON_EXE%" (
 REM Uruchomienie aplikacji za pomocą pełnej ścieżki do interpretera
 echo Uruchamianie Voice Note...
 "%PYTHON_EXE%" "%MAIN_PY%" --gui
+
+REM Jeśli wystąpił błąd, zatrzymaj okno terminala
+if errorlevel 1 (
+    echo.
+    echo Wystapil blad podczas uruchamiania aplikacji.
+    pause
+)

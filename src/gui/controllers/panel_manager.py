@@ -6,7 +6,7 @@
 import os
 from tkinter import messagebox
 from src import database
-from src.audio import get_file_duration
+from src.utils.audio import get_file_duration
 
 class PanelManager:
     """
@@ -34,7 +34,6 @@ class PanelManager:
             # Jeśli nie otrzymaliśmy gotowych danych, pobieramy je z bazy.
             all_files = data if data is not None else database.get_all_files()
 
-
             # Odświeżamy poszczególne panele, przekazując im już przygotowane i aktualne dane.
             self._refresh_selected_files_view(all_files)
             self._refresh_status_views(all_files)
@@ -53,7 +52,7 @@ class PanelManager:
         Odświeża wszystkie panele statusu (Wczytane, Kolejka, Gotowe) oraz panel z transkrypcją,
         używając tych samych, raz pobranych danych.
         """
-        # Filtrujemy pliki dla panelu "Wczytane". Są to pliki, które zostały już przekonwertowane na .wav.
+        # Filtrujemy pliki dla panelu "Wczytane". Są to pliki, które zostały już skonwertowane do formatu audio gotowego do transkrypcji.
         files_to_load = [
             os.path.basename(row['tmp_file_path']) for row in all_files
             if row['is_loaded']
