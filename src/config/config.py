@@ -36,6 +36,10 @@ DATABASE_LOGGING = False
 
 # --- PARAMETRY TRANSKRYPCJI WHISPER ---
 # Ustawienia przekazywane bezpośrednio do API OpenAI Whisper.
+# `model`: ID modelu do użycia. Obecnie dostępny tylko "whisper-1".
+WHISPER_API_MODEL = "whisper-1"
+# `language`: Język wejściowego audio w formacie ISO-639-1. Poprawia dokładność i szybkość transkrypcji.
+WHISPER_API_LANGUAGE = "pl"
 # `response_format`: Określa format, w jakim chcemy otrzymać odpowiedź. "json" jest łatwy do przetwarzania.
 WHISPER_API_RESPONSE_FORMAT = "json"
 # `temperature`: Parametr kontrolujący "kreatywność" modelu. Wartość 0 oznacza najbardziej deterministyczne i powtarzalne wyniki.
@@ -43,6 +47,10 @@ WHISPER_API_TEMPERATURE = 0
 # `prompt`: Opcjonalny tekst, który można przekazać modelowi, aby poprawić jakość transkrypcji,
 # np. podając specyficzne terminy lub imiona.
 WHISPER_API_PROMPT = ""
+# `timestamp_granularities`: Granularności znaczników czasu dla transkrypcji.
+# Wymaga response_format ustawionego na "verbose_json".
+# Możliwe wartości: "word", "segment". Pozostaw pustą listę jeśli nie używasz verbose_json.
+WHISPER_API_TIMESTAMP_GRANULARITIES = []
 
 
 # --- USTAWIENIA KODOWANIA AUDIO ---

@@ -29,11 +29,6 @@ class WhisperService:
         """
         # Przechowujemy ścieżkę do pliku audio wewnątrz obiektu, aby była dostępna w innych metodach.
         self.audio_path = audio_path
-        # Definiujemy, jakiego modelu AI chcemy użyć. "whisper-1" to główny i najdokładniejszy model transkrypcji.
-        self.model = "whisper-1"
-        # Jawne określenie języka na "pl" (polski) znacząco poprawia dokładność transkrypcji
-        # dla nagrań w tym języku, ponieważ model nie musi go sam wykrywać.
-        self.language = "pl"
         # `os.getenv` odczytuje zmienną środowiskową. W tym przypadku szuka klucza API,
         # który został wczytany z pliku .env przez `load_dotenv()`.
         self.api_key = os.getenv("API_KEY_WHISPER")
@@ -58,17 +53,23 @@ class WhisperService:
             # Najważniejszą zaletą `with` jest to, że plik zostanie automatycznie i bezpiecznie zamknięty
             # po zakończeniu bloku, nawet jeśli w środku wystąpi błąd.
             with open(self.audio_path, "rb") as audio_file:
+                # Przygotowujemy parametry dla wywołania API - wszystkie ustawienia pobieramy z konfiguracji
+                api_params = {
+                    "model": config.WHISPER_API_MODEL,  # Wskazujemy, którego modelu użyć.
+                    "file": audio_file,  # Przekazujemy otwarty plik binarny.
+                    "language": config.WHISPER_API_LANGUAGE,  # Wskazujemy język nagrania.
+                    "prompt": config.WHISPER_API_PROMPT,
+                    "temperature": config.WHISPER_API_TEMPERATURE,
+                    "response_format": config.WHISPER_API_RESPONSE_FORMAT
+                }
+
+                # Dodajemy timestamp_granularities tylko jeśli lista nie jest pusta
+                if config.WHISPER_API_TIMESTAMP_GRANULARITIES:
+                    api_params["timestamp_granularities"] = config.WHISPER_API_TIMESTAMP_GRANULARITIES
+
                 # Wywołujemy metodę `transcriptions.create` na naszym kliencie OpenAI.
                 # Jest to właściwe zapytanie do API o wykonanie transkrypcji.
-                transcript = self.client.audio.transcriptions.create(
-                    model=self.model,  # Wskazujemy, którego modelu użyć.
-                    file=audio_file,  # Przekazujemy otwarty plik binarny.
-                    language=self.language,  # Wskazujemy język nagrania.
-                    # Przekazujemy dodatkowe parametry z naszego pliku konfiguracyjnego.
-                    prompt=config.WHISPER_API_PROMPT,
-                    temperature=config.WHISPER_API_TEMPERATURE,
-                    response_format=config.WHISPER_API_RESPONSE_FORMAT
-                )
+                transcript = self.client.audio.transcriptions.create(**api_params)
             # Jeśli zapytanie do API się powiodło, zwracamy otrzymany obiekt transkrypcji.
             return transcript
         except FileNotFoundError:
