@@ -23,6 +23,206 @@ def _format_duration_ffmpeg(duration_sec):
     milliseconds = int((duration_sec % 1) * 1000)
     return f"{hours:02d}:{minutes:02d}:{seconds:02d}.{milliseconds:03d}"
 
+def _analyze_silence_points(audio_path):
+    """
+    Analizuje plik audio i zwraca listę punktów ciszy dłuższej niż 2 sekundy.
+
+    Argumenty:
+        audio_path (str): Ścieżka do pliku audio do analizy
+
+    Zwraca:
+        list: Lista słowników z punktami ciszy zawierającymi 'start', 'end', 'duration'
+    """
+    import re
+
+    command = [
+        'ffmpeg', '-i', audio_path,
+        '-af', 'silencedetect=noise=-30dB:d=2.0',
+        '-f', 'null', '-'
+    ]
+
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=300)
+
+        silence_periods = []
+        current_silence = None
+
+        # Parsowanie wyjścia FFmpeg - szukamy linii z silence_start i silence_end
+        for line in result.stderr.split('\n'):
+            if 'silence_start:' in line:
+                # Wyciągnij timestamp początku ciszy
+                match = re.search(r'silence_start:\s*([0-9.]+)', line)
+                if match:
+                    start_time = float(match.group(1))
+                    current_silence = {'start': start_time}
+
+            elif 'silence_end:' in line and current_silence is not None:
+                # Wyciągnij timestamp końca ciszy i czas trwania
+                match = re.search(r'silence_end:\s*([0-9.]+).*silence_duration:\s*([0-9.]+)', line)
+                if match:
+                    end_time = float(match.group(1))
+                    duration = float(match.group(2))
+                    current_silence.update({
+                        'end': end_time,
+                        'duration': duration
+                    })
+                    silence_periods.append(current_silence)
+                    current_silence = None
+
+        print(f"    Znaleziono {len(silence_periods)} okresów ciszy w pliku {os.path.basename(audio_path)}")
+        return silence_periods
+
+    except subprocess.TimeoutExpired:
+        print(f"    TIMEOUT: Analiza ciszy dla pliku {os.path.basename(audio_path)} przekroczyła limit czasu")
+        return []
+    except Exception as e:
+        print(f"    Błąd podczas analizy ciszy dla pliku {os.path.basename(audio_path)}: {e}")
+        return []
+
+def _calculate_split_points(total_duration, silence_periods, chunk_duration=config.MAX_FILE_DURATION_SECONDS):
+    """
+    Oblicza optymalne punkty podziału pliku audio na podstawie punktów ciszy.
+
+    Argumenty:
+        total_duration (float): Całkowity czas trwania pliku w sekundach
+        silence_periods (list): Lista słowników z punktami ciszy
+        chunk_duration (int): Docelowa długość chunk'a w sekundach (domyślnie 600s = 10min)
+
+    Zwraca:
+        list: Lista punktów podziału (timestampy w sekundach), zawierająca początek i koniec
+    """
+    if not silence_periods:
+        # Jeśli nie ma punktów ciszy, dziel na równe części co chunk_duration sekund
+        split_points = [0.0]
+        current_time = chunk_duration
+        while current_time < total_duration:
+            split_points.append(current_time)
+            current_time += chunk_duration
+        split_points.append(total_duration)
+        return split_points
+
+    # Przygotuj listę wszystkich timestampów ciszy
+    silence_timestamps = []
+    for silence in silence_periods:
+        # Użyj środka okresu ciszy jako punktu podziału
+        silence_timestamps.append((silence['start'] + silence['end']) / 2)
+
+    split_points = [0.0]  # Zawsze zaczynaj od początku
+    current_time = chunk_duration
+
+    while current_time < total_duration:
+        # Znajdź najbliższą ciszę w promieniu ±60 sekund od current_time
+        best_silence = None
+        min_distance = float('inf')
+
+        for silence_time in silence_timestamps:
+            if current_time - 60 <= silence_time <= current_time + 60:
+                distance = abs(silence_time - current_time)
+                if distance < min_distance:
+                    min_distance = distance
+                    best_silence = silence_time
+
+        if best_silence is not None:
+            # Znaleziono ciszę w akceptowalnym zakresie
+            split_points.append(best_silence)
+            current_time = best_silence + chunk_duration
+        else:
+            # Nie znaleziono ciszy, użyj dokładnego punktu
+            split_points.append(current_time)
+            current_time += chunk_duration
+
+    # Dodaj koniec pliku jeśli nie jest już dodany
+    if split_points[-1] < total_duration - 1:  # -1 dla tolerancji
+        split_points.append(total_duration)
+
+    print(f"    Obliczono {len(split_points)-1} punktów podziału dla pliku trwającego {total_duration:.1f}s")
+    return split_points
+
+def _split_audio_file(audio_path, split_points, output_prefix):
+    """
+    Dzieli plik audio na chunk'y używając obliczonych punktów podziału.
+
+    Argumenty:
+        audio_path (str): Ścieżka do oryginalnego pliku audio
+        split_points (list): Lista punktów podziału (timestampy w sekundach)
+        output_prefix (str): Prefix nazwy pliku wyjściowego (bez rozszerzenia)
+
+    Zwraca:
+        list: Lista ścieżek do utworzonych chunków, lub None przy błędzie
+    """
+    chunk_paths = []
+
+    try:
+        # Sprawdź czy mamy co najmniej 2 punkty (początek i koniec)
+        if len(split_points) < 2:
+            print(f"    Błąd: Za mało punktów podziału ({len(split_points)})")
+            return None
+
+        # Iteruj przez pary punktów podziału
+        for i in range(len(split_points) - 1):
+            start_time = split_points[i]
+            end_time = split_points[i + 1]
+            duration = end_time - start_time
+
+            # Pomiń segmenty krótsze niż 1 sekunda
+            if duration < 1.0:
+                print(f"    Pomijanie segmentu {i+1}: zbyt krótki ({duration:.1f}s)")
+                continue
+
+            # Utwórz nazwę pliku wyjściowego
+            chunk_number = i + 1
+            output_filename = f"{output_prefix}_{chunk_number:03d}.m4a"
+            output_path = os.path.join(config.AUDIO_TMP_DIR, output_filename)
+
+            # Przygotuj komendę FFmpeg do wycięcia segmentu
+            start_formatted = _format_duration_ffmpeg(start_time)
+            duration_formatted = _format_duration_ffmpeg(duration)
+
+            command = [
+                'ffmpeg', '-y',
+                '-i', audio_path,
+                '-ss', start_formatted,  # Start time
+                '-t', duration_formatted, # Duration
+                '-acodec', 'aac',        # Audio codec
+                '-b:a', '32k',           # Bitrate
+                '-ac', '1',              # Mono
+                '-ar', '16000',          # Sample rate
+                '-af', 'loudnorm=I=-12:TP=-1.0:LRA=7:dual_mono=true',  # Normalization
+                output_path
+            ]
+
+            print(f"  Tworzenie chunk {chunk_number}: {start_formatted} - {_format_duration_ffmpeg(end_time)} ({duration:.1f}s)")
+
+            # Uruchom FFmpeg
+            result = subprocess.run(command, capture_output=True, text=True, timeout=300)
+
+            if result.returncode == 0:
+                chunk_paths.append(output_path)
+                print(f"    ✓ Utworzono chunk: {os.path.basename(output_path)}")
+            else:
+                print(f"    ✗ Błąd podczas tworzenia chunk {chunk_number}: {result.stderr}")
+                # Spróbuj usunąć niekompletny plik jeśli istnieje
+                if os.path.exists(output_path):
+                    try:
+                        os.remove(output_path)
+                    except:
+                        pass
+                return None
+
+        if chunk_paths:
+            print(f"    ✓ Utworzono {len(chunk_paths)} chunków z pliku {os.path.basename(audio_path)}")
+            return chunk_paths
+        else:
+            print(f"    ✗ Nie udało się utworzyć żadnego chunk'a z pliku {os.path.basename(audio_path)}")
+            return None
+
+    except subprocess.TimeoutExpired:
+        print(f"    TIMEOUT: Dzielenie pliku {os.path.basename(audio_path)} przekroczyło limit czasu")
+        return None
+    except Exception as e:
+        print(f"    Błąd podczas dzielenia pliku {os.path.basename(audio_path)}: {e}")
+        return None
+
 def _run_ffmpeg_with_progress(command, filename=None, total_duration=None):
     """
     Uruchamia FFmpeg z wyświetlaniem postępu w czasie rzeczywistym.
@@ -98,9 +298,60 @@ def _run_ffmpeg_with_progress(command, filename=None, total_duration=None):
 
 def _convert_single_file(original_path):
     """
-    Konwertuje pojedynczy plik i zwraca tuple (source, tmp) lub None przy błędzie.
+    Konwertuje pojedynczy plik i zwraca listę tupli (source, tmp) lub None przy błędzie.
+    Dla plików dłuższych niż MAX_FILE_DURATION_SECONDS dzieli je na chunk'y.
     Funkcja przeznaczona do równoległego przetwarzania.
-    Dla plików wideo ekstrahuje tylko ścieżkę audio (-vn), dla audio używa standardowych parametrów.
+    """
+    try:
+        # Najpierw sprawdzamy długość pliku
+        from src.utils.audio.duration_checker import get_file_duration
+        duration_sec = get_file_duration(original_path)
+
+        if duration_sec <= 0:
+            print(f"    Błąd: Nie można określić długości pliku {os.path.basename(original_path)}")
+            return None
+
+        # Tworzymy standardową, bezpieczną nazwę pliku wyjściowego.
+        base_name = os.path.basename(original_path)
+        standardized_name, _ = os.path.splitext(base_name.lower().replace(' ', '_'))
+
+        # Sprawdzamy czy plik jest dłuższy niż limit
+        if duration_sec > config.MAX_FILE_DURATION_SECONDS:
+            print(f"  Długi plik wykryty: {os.path.basename(original_path)} ({duration_sec:.1f}s)")
+
+            # Analizujemy punkty ciszy
+            silence_periods = _analyze_silence_points(original_path)
+            if silence_periods is None:
+                print(f"    Błąd podczas analizy ciszy, używam standardowej konwersji")
+                # Fallback do standardowej konwersji jeśli analiza ciszy się nie powiedzie
+                return _convert_single_file_standard(original_path)
+
+            # Obliczamy punkty podziału
+            split_points = _calculate_split_points(duration_sec, silence_periods)
+
+            # Dzielimy plik na chunk'y
+            chunk_paths = _split_audio_file(original_path, split_points, standardized_name)
+
+            if chunk_paths and len(chunk_paths) > 0:
+                # Zwracamy listę tupli (source_path, chunk_path) dla każdego chunk'a
+                return [(original_path, chunk_path) for chunk_path in chunk_paths]
+            else:
+                print(f"    Błąd podczas dzielenia pliku, używam standardowej konwersji")
+                # Fallback do standardowej konwersji
+                return _convert_single_file_standard(original_path)
+        else:
+            # Plik jest odpowiednio krótki - standardowa konwersja
+            result = _convert_single_file_standard(original_path)
+            return [result] if result else None
+
+    except Exception as ex:
+        print(f"    KRYTYCZNY BŁĄD podczas przetwarzania pliku {os.path.basename(original_path)}: {ex}")
+        return None
+
+def _convert_single_file_standard(original_path):
+    """
+    Standardowa konwersja pojedynczego pliku (bez dzielenia na chunk'y).
+    Zwraca tuple (source, tmp) lub None przy błędzie.
     """
     try:
         # Tworzymy standardową, bezpieczną nazwę pliku wyjściowego.
@@ -121,7 +372,6 @@ def _convert_single_file(original_path):
         else:
             # Dla plików audio używamy standardowych parametrów
             command = f'ffmpeg -y -i "{original_path}" {config.FFMPEG_PARAMS} "{tmp_file_path}"'
-
 
         # Uruchamiamy FFmpeg z wyświetlaniem postępu w czasie rzeczywistym
         filename = os.path.basename(original_path)
@@ -164,13 +414,25 @@ def encode_audio_files(app=None):
         print(f"Przetwarzanie pliku {i}/{len(files_to_encode)}: {os.path.basename(original_path)}")
 
         result = _convert_single_file(original_path)
-        if result:
-            source_path, tmp_path = result
-            successful_conversions.append(result)
+        if result and len(result) > 0:
+            # result może być listą tupli (source, tmp) dla chunków lub pojedynczą tuplą
+            if isinstance(result[0], list):
+                # Wielokrotne wyniki (chunk'y)
+                for source_path, tmp_path in result:
+                    successful_conversions.append((source_path, tmp_path))
+                    print(f"    ✓ Przetworzono chunk: {os.path.basename(tmp_path)}")
+            else:
+                # Pojedynczy wynik
+                source_path, tmp_path = result[0]
+                successful_conversions.append((source_path, tmp_path))
+                print(f"    ✓ Przetworzono i dodano do bazy: {os.path.basename(source_path)}")
 
-            # Aktualizuj bazę danych natychmiast po przetworzeniu pliku
-            database.set_files_as_loaded([source_path], [tmp_path])
-            print(f"    ✓ Przetworzono i dodano do bazy: {os.path.basename(source_path)}")
+            # Zbierz wszystkie ścieżki źródłowe i tymczasowe do aktualizacji bazy
+            source_paths = [r[0] for r in result]
+            tmp_paths = [r[1] for r in result]
+
+            # Aktualizuj bazę danych natychmiast po przetworzeniu pliku/chunków
+            database.set_files_as_loaded(source_paths, tmp_paths)
 
             # Odśwież GUI jeśli mamy referencję do aplikacji
             if app:

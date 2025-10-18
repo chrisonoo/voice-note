@@ -21,8 +21,8 @@ APP_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file
 # Definiujemy stałe ścieżki do folderów tymczasowych.
 # Aplikacja będzie w nich przechowywać pliki pośrednie, np. przekonwertowane audio.
 # Foldery te zostaną utworzone automatycznie w trakcie działania programu, jeśli nie istnieją.
-TMP_DIR = os.path.join(APP_DIR, 'tmp')
-AUDIO_TMP_DIR = os.path.join(APP_DIR, 'tmp', 'audio')
+TMP_DIR = os.path.join(APP_DIR, "tmp")
+AUDIO_TMP_DIR = os.path.join(APP_DIR, "tmp", "audio")
 
 # --- BAZA DANYCH ---
 # Używamy lekkiej bazy danych SQLite do przechowywania informacji o plikach i ich stanie.
@@ -55,10 +55,10 @@ WHISPER_API_TIMESTAMP_GRANULARITIES = []
 
 # --- USTAWIENIA KODOWANIA AUDIO ---
 # Lista rozszerzeń plików audio
-AUDIO_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.wma']
+AUDIO_EXTENSIONS = [".mp3", ".wav", ".m4a", ".wma"]
 
 # Lista rozszerzeń plików wideo (z możliwością ekstrakcji audio)
-VIDEO_EXTENSIONS = ['.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv', '.webm']
+VIDEO_EXTENSIONS = [".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm"]
 
 # Wszystkie obsługiwane rozszerzenia (dla dialogu wyboru plików)
 ALL_SUPPORTED_EXTENSIONS = AUDIO_EXTENSIONS + VIDEO_EXTENSIONS
@@ -69,31 +69,33 @@ ALL_SUPPORTED_EXTENSIONS = AUDIO_EXTENSIONS + VIDEO_EXTENSIONS
 # `-c:a aac`: Kodek AAC.
 # `-b:a 24k`: Bitrate 24kbps.
 # Te ustawienia są zoptymalizowane dla API OpenAI Whisper.
-FFMPEG_PARAMS = '-ac 1 -ar 16000 -af loudnorm=I=-12:TP=-1.0:LRA=7:dual_mono=true -c:a aac -b:a 32k'
+FFMPEG_PARAMS = (
+    "-ac 1 -ar 16000 -af loudnorm=I=-12:TP=-1.0:LRA=7:dual_mono=true -c:a aac -b:a 32k"
+)
 
 # --- USTAWIENIA INTERFEJSU GRAFICZNEGO (GUI) ---
 # Maksymalna dopuszczalna długość pliku w sekundach.
 # Pliki dłuższe niż ta wartość zostaną specjalnie oznaczone w interfejsie.
-# Domyślnie ustawione na 5 minut (5 * 60 = 300 sekund).
-MAX_FILE_DURATION_SECONDS = 300
+# Domyślnie ustawione na 10 minut (10 * 60 = 600 sekund).
+MAX_FILE_DURATION_SECONDS = 600
 
 # --- SZEROKOŚCI PANELI I KOLUMN ---
 # Szerokości paneli głównych
-PANEL_SELECTED_WIDTH = 450          # Panel "Wybrane" (FilesView)
-PANEL_STATUS_WIDTH = 180            # Panele statusu (Wczytane, Do przetworzenia, Przetworzone)
-PANEL_TRANSCRIPTION_WIDTH = 350     # Panel "Transkrypcja"
+PANEL_SELECTED_WIDTH = 450  # Panel "Wybrane" (FilesView)
+PANEL_STATUS_WIDTH = 180  # Panele statusu (Wczytane, Do przetworzenia, Przetworzone)
+PANEL_TRANSCRIPTION_WIDTH = 350  # Panel "Transkrypcja"
 
 # Szerokości kolumn w panelu "Wybrane"
-COLUMN_CHECKBOX_WIDTH = 30          # Kolumna checkboxów
-COLUMN_TYPE_WIDTH = 25              # Kolumna typu pliku (ikona)
-COLUMN_FILENAME_WIDTH = 180         # Kolumna nazwy pliku
-COLUMN_DURATION_WIDTH = 50          # Kolumna czasu trwania
-COLUMN_PLAY_WIDTH = 35              # Kolumna przycisku play
-COLUMN_DELETE_WIDTH = 30            # Kolumna przycisku usuwania
+COLUMN_CHECKBOX_WIDTH = 30  # Kolumna checkboxów
+COLUMN_TYPE_WIDTH = 25  # Kolumna typu pliku (ikona)
+COLUMN_FILENAME_WIDTH = 180  # Kolumna nazwy pliku
+COLUMN_DURATION_WIDTH = 50  # Kolumna czasu trwania
+COLUMN_PLAY_WIDTH = 35  # Kolumna przycisku play
+COLUMN_DELETE_WIDTH = 30  # Kolumna przycisku usuwania
 
 # Szerokość przewijalnej ramki w panelu "Wybrane"
-SCROLLABLE_FRAME_WIDTH = 484        # Szerokość wewnętrznej ramki przewijalnej
+SCROLLABLE_FRAME_WIDTH = 484  # Szerokość wewnętrznej ramki przewijalnej
 
 # Maksymalne długości nazw plików (dla ellipsis)
-MAX_FILENAME_LENGTH_SELECTED = 30   # W panelu "Wybrane"
-MAX_FILENAME_LENGTH_STATUS = 40     # W panelach statusu
+MAX_FILENAME_LENGTH_SELECTED = 30  # W panelu "Wybrane"
+MAX_FILENAME_LENGTH_STATUS = 40  # W panelach statusu
