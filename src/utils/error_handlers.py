@@ -1,23 +1,30 @@
 # Moduł zawierający dekoratory do obsługi błędów i monitoringu wydajności
 
 import functools
-import time
 import logging
 import os
-from tkinter import messagebox
+import time
+from typing import Any, Callable, TypeVar
+
+F = TypeVar("F", bound=Callable[..., Any])
 
 # Skonfiguruj logging dla błędów
-logging.basicConfig(filename='voice_note_errors.log', level=logging.ERROR,
-                   format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    filename="voice_note_errors.log",
+    level=logging.ERROR,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
 
-def with_error_handling(operation_name):
+
+def with_error_handling(operation_name: str) -> Callable[[F], F]:
     """
     Dekorator do bezpiecznego wykonywania operacji z obsługą błędów.
 
     Argumenty:
         operation_name (str): Nazwa operacji dla logowania błędów.
     """
-    def decorator(func):
+
+    def decorator(func: F) -> F:
         @functools.wraps(func)
         def wrapper(*args, **kwargs):
             try:
@@ -28,21 +35,25 @@ def with_error_handling(operation_name):
                 logging.error(f"{operation_name}: {e}", exc_info=True)
 
                 # Jeśli mamy dostęp do GUI, pokaż błąd użytkownikowi
-                if hasattr(args[0] if args else None, 'show_error'):
+                if hasattr(args[0] if args else None, "show_error"):
                     try:
                         args[0].show_error(f"Błąd w {operation_name}: {str(e)}")
                     except:
                         pass  # Jeśli GUI nie jest dostępne, pomiń
 
                 return None
+
         return wrapper
+
     return decorator
 
-def measure_performance(func):
+
+def measure_performance(func: F) -> F:
     """
     Dekorator do mierzenia czasu wykonania funkcji.
     Loguje tylko operacje dłuższe niż 1 sekundę.
     """
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         start_time = time.time()
@@ -54,12 +65,15 @@ def measure_performance(func):
             print(f"[PERF] {func.__name__} wykonał się w {execution_time:.2f}s")
 
         return result
+
     return wrapper
+
 
 def validate_file_access(func):
     """
     Dekorator sprawdzający dostępność plików przed przetworzeniem.
     """
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         from src import database
@@ -67,7 +81,10 @@ def validate_file_access(func):
         # Znajdź argumenty zawierające ścieżki plików
         file_paths = []
         for arg in args:
-            if isinstance(arg, str) and (arg.endswith(('.mp3', '.wav', '.m4a', '.mp4', '.wma')) or os.path.isfile(arg)):
+            if isinstance(arg, str) and (
+                arg.endswith((".mp3", ".wav", ".m4a", ".mp4", ".wma"))
+                or os.path.isfile(arg)
+            ):
                 file_paths.append(arg)
 
         # Sprawdź dostępność plików
@@ -78,9 +95,13 @@ def validate_file_access(func):
                 invalid_files.append((path, error_msg))
 
         if invalid_files:
-            error_details = "\n".join([f"{os.path.basename(path)}: {msg}" for path, msg in invalid_files])
-            raise FileNotFoundError(f"Następujące pliki są niedostępne:\n{error_details}")
+            error_details = "\n".join(
+                [f"{os.path.basename(path)}: {msg}" for path, msg in invalid_files]
+            )
+            raise FileNotFoundError(
+                f"Następujące pliki są niedostępne:\n{error_details}"
+            )
 
         return func(*args, **kwargs)
-    return wrapper
 
+    return wrapper
