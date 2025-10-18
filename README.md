@@ -41,9 +41,9 @@ Ta aplikacja służy do automatycznej transkrypcji plików audio przy użyciu AP
         .venv\Scripts\activate
         ```
 
-3.  **Zainstaluj zależności:**
+3.  **Zainstaluj aplikację:**
     ```bash
-    pip install -r requirements.txt
+    pip install -e .
     ```
 
 4.  **Skonfiguruj klucz API:**
@@ -61,9 +61,9 @@ Aplikację można uruchomić w dwóch trybach.
 
 Tryb graficzny zapewnia interaktywną obsługę i wizualizację całego procesu.
 
-1.  **Uruchom aplikację** z flagą `--gui`:
+1.  **Uruchom aplikację** w trybie GUI:
     ```bash
-    python main.py --gui
+    vnote --gui
     ```
 2.  **Postępuj zgodnie z instrukcjami** na ekranie:
     *   Kliknij "Wybierz pliki", aby dodać pliki audio.
@@ -85,13 +85,13 @@ Tryb CLI służy do szybkiego przetwarzania plików z jednego folderu.
 
 1.  **Uruchom aplikację**, podając ścieżkę do folderu z plikami audio za pomocą flagi `--input-dir`:
     ```bash
-    python main.py --input-dir /sciezka/do/twoich/plikow
+    vnote --input-dir /sciezka/do/twoich/plikow
     ```
     *Aplikacja rekursywnie przeszuka cały podany folder i jego podfoldery.*
 
 2.  **Opcjonalnie**, jeśli chcesz przetwarzać pliki dłuższe niż 5 minut, dodaj flagę `-l` lub `--allow-long`:
     ```bash
-    python main.py --input-dir /sciezka/do/plikow --allow-long
+    vnote --input-dir /sciezka/do/plikow --allow-long
     ```
 
 3.  **Gotowe!** Po zakończeniu procesu, wszystkie transkrypcje zostaną zapisane w bazie danych w folderze `tmp/`.
@@ -239,14 +239,11 @@ Aby upewnić się, że korzystasz z najnowszych wersji bibliotek, możesz okreso
 
 2.  **Zaktualizuj biblioteki:**
     ```bash
-    pip install --upgrade -r requirements.txt
+    pip install --upgrade openai python-dotenv customtkinter psutil
     ```
 
-3.  **Zapisz nowe wersje w pliku:**
-    Po aktualizacji, wygeneruj nowy plik `requirements.txt`, aby zapisać zmiany.
-    ```bash
-    pip freeze > requirements.txt
-    ```
+3.  **Zaktualizuj plik pyproject.toml:**
+    Po aktualizacji, zaktualizuj wersje w pliku `pyproject.toml` w sekcji `[project].dependencies`.
 
 ## Struktura projektu
 

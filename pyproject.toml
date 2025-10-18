@@ -42,6 +42,9 @@ known-first-party = ["src"]
 where = ["."]
 include = ["src*"]
 
+[project.scripts]
+vnote = "src.__main__:main"
+
 [tool.mypy]
 python_version = "3.12"
 ignore_missing_imports = true
