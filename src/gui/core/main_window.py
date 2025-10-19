@@ -8,7 +8,7 @@ from tkinter import (
     messagebox,  # Standardowy moduł Tkinter do wyświetlania okien dialogowych (np. z potwierdzeniem).
 )
 
-import customtkinter as ctk  # Biblioteka do tworzenia nowoczesnego interfejsu graficznego.
+import customtkinter as ctk  # type: ignore  # Biblioteka do tworzenia nowoczesnego interfejsu graficznego.
 
 from src import config, database  # Importujemy nasze własne moduły: konfigurację i bazę danych.
 from src.utils.temp_file_manager import cleanup_all_temp_files
@@ -19,6 +19,9 @@ from ..controllers.panel_manager import PanelManager
 from ..controllers.transcription_controller import TranscriptionController
 from ..utils.audio_player import AudioPlayer
 from ..utils.terminal_redirector import TerminalRedirector
+from ..widgets.files_view import FilesView
+from ..widgets.status_view import StatusView
+from ..widgets.transcription_view import TranscriptionView
 
 # Importujemy wszystkie komponenty i kontrolery, które będą używane w głównym oknie.
 # Taka struktura (podobna do wzorca MVC - Model-View-Controller) porządkuje kod:
@@ -43,23 +46,32 @@ class App(ctk.CTk):
         super().__init__()
 
         # Initialize UI component attributes (will be created in interface_builder)
-        self.file_selector_button: ctk.CTkButton = None  # type: ignore
-        self.convert_files_button: ctk.CTkButton = None  # type: ignore
-        self.start_transcription_button: ctk.CTkButton = None  # type: ignore
-        self.transcription_control_button: ctk.CTkButton = None  # type: ignore
-        self.resume_button: ctk.CTkButton = None  # type: ignore
-        self.copy_transcription_button: ctk.CTkButton = None  # type: ignore
-        self.reset_button: ctk.CTkButton = None  # type: ignore
-        self.terminal_toggle_button: ctk.CTkButton = None  # type: ignore
-        self.clear_terminal_button: ctk.CTkButton = None  # type: ignore
-        self.button_frame: ctk.CTkFrame = None  # type: ignore
+        self.file_selector_button: ctk.CTkButton | None = None
+        self.convert_files_button: ctk.CTkButton | None = None
+        self.start_transcription_button: ctk.CTkButton | None = None
+        self.transcription_control_button: ctk.CTkButton | None = None
+        self.resume_button: ctk.CTkButton | None = None
+        self.copy_transcription_button: ctk.CTkButton | None = None
+        self.reset_button: ctk.CTkButton | None = None
+        self.terminal_toggle_button: ctk.CTkButton | None = None
+        self.clear_terminal_button: ctk.CTkButton | None = None
+        self.button_frame: ctk.CTkFrame | None = None
+
+        # Initialize panel attributes with proper types
+        self.file_selection_panel: FilesView | None = None
+        self.conversion_status_panel: StatusView | None = None
+        self.transcription_queue_panel: StatusView | None = None
+        self.completed_files_panel: StatusView | None = None
+        self.transcription_output_panel: TranscriptionView | None = None
 
         # Ustawiamy wygląd aplikacji (System - jasny/ciemny jak w systemie, "blue" - kolor akcentu).
         ctk.set_appearance_mode("System")
         ctk.set_default_color_theme("blue")
 
         # Inicjalizujemy atrybuty związane z przetwarzaniem w tle.
-        self.processing_thread = None  # Będzie przechowywać referencję do wątku roboczego.
+        self.processing_thread: threading.Thread | None = (
+            None  # Będzie przechowywać referencję do wątku roboczego.
+        )
         # `threading.Event` to prosty mechanizm do komunikacji między wątkami. Używamy go do sygnalizowania pauzy.
         self.pause_request_event = threading.Event()
 

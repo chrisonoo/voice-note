@@ -5,6 +5,7 @@
 import threading  # Moduł do pracy z wątkami, niezbędny do uruchamiania operacji w tle.
 from tkinter import filedialog, messagebox  # Moduły Tkinter do okien dialogowych.
 
+from gui.core.main_window import App
 from src import config, database  # Nasze własne moduły.
 from src.metadata.processor import process_and_update_all_metadata
 from src.utils.audio import encode_audio_files  # Funkcja do konwersji plików.
@@ -16,7 +17,7 @@ class FileHandler:
     wybieranie plików z dysku i inicjowanie ich ładowania (konwersji).
     """
 
-    def __init__(self, app):
+    def __init__(self, app: App):
         """
         Inicjalizuje kontroler plików.
 
@@ -67,13 +68,13 @@ class FileHandler:
         Pliki do konwersji są identyfikowane na podstawie flagi 'is_selected' w bazie danych.
         """
         # Natychmiast wyłączamy przycisk, aby zapobiec wielokrotnemu kliknięciu.
-        self.app.convert_files_button.configure(state="disabled")
+        self.app.convert_files_button.configure(state="disabled")  # type: ignore
         # `update_idletasks()` wymusza natychmiastowe przerysowanie interfejsu, dzięki czemu zmiana stanu przycisku jest od razu widoczna.
         self.app.update_idletasks()
 
         # Sprawdzamy, czy są jakiekolwiek pliki do załadowania.
         if not database.get_files_to_load():
-            messagebox.showwarning("Brak plików", "Nie zaznaczono żadnych plików do wczytania.")
+            messagebox.showwarning("Brak plików", "Nie zaznaczono żadnych plików do wczytania.")  # type: ignore
             # Jeśli nie, ponownie aktywujemy przyciski.
             self.app.button_state_controller.update_ui_state()
             return
@@ -102,7 +103,8 @@ class FileHandler:
         except Exception as e:
             # Jeśli w wątku roboczym wystąpi błąd, łapiemy go i bezpiecznie wyświetlamy komunikat w GUI.
             self.app.after(
-                0, lambda e=e: messagebox.showerror("Błąd konwersji", f"Wystąpił błąd: {e}")
+                0,
+                lambda e=e: messagebox.showerror("Błąd konwersji", f"Wystąpił błąd: {e}"),  # type: ignore
             )
             # Nawet po błędzie, musimy zaktualizować stan przycisków.
             self.app.after(0, self.app.button_state_controller.update_ui_state)

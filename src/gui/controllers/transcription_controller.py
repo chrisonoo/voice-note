@@ -7,6 +7,7 @@ import threading
 from tkinter import messagebox
 
 from src import database
+from src.gui.core.main_window import App
 from src.services.transcription_service import TranscriptionService
 
 
@@ -15,8 +16,8 @@ class TranscriptionController:
     Zarządza procesem transkrypcji, uruchamiając go w osobnym wątku
     i obsługując komunikację (pauza/wznów) z głównym wątkiem GUI.
     """
-    
-    def __init__(self, app):
+
+    def __init__(self, app: App):
         """
         Inicjalizuje kontroler transkrypcji.
 
@@ -24,7 +25,7 @@ class TranscriptionController:
             app: Referencja do głównego obiektu aplikacji (`App`).
         """
         self.app = app
-    
+
     def start_transcription_process(self):
         """
         Rozpoczyna proces transkrypcji dla wszystkich plików, które są
@@ -32,7 +33,7 @@ class TranscriptionController:
         """
         # Sprawdzamy, czy w ogóle są pliki do przetworzenia.
         if not database.get_files_to_process():
-            messagebox.showwarning("Brak plików", "Brak plików wczytanych do przetworzenia.")
+            messagebox.showwarning("Brak plików", "Brak plików wczytanych do przetworzenia.")  # type: ignore
             return
 
         # Ustawiamy flagę, że transkrypcja została rozpoczęta
@@ -48,9 +49,11 @@ class TranscriptionController:
         # `clear()` czyści flagę pauzy. To ważne, aby nowy proces nie startował od razu w stanie pauzy.
         self.app.pause_request_event.clear()
         # Tworzymy nowy wątek roboczy.
-        self.app.processing_thread = threading.Thread(target=self._transcription_thread_worker, daemon=True)
+        self.app.processing_thread = threading.Thread(
+            target=self._transcription_thread_worker, daemon=True
+        )  # type: ignore
         # Uruchamiamy wątek. Od tego momentu funkcja `_transcription_thread_worker` działa w tle.
-        self.app.processing_thread.start()
+        self.app.processing_thread.start()  # type: ignore
         # Ponownie aktualizujemy stan przycisków, tym razem aby pokazać, że proces jest aktywny (np. włączając przycisk "Pauza").
         self.app.button_state_controller.update_ui_state()
 
@@ -68,7 +71,7 @@ class TranscriptionController:
         od plików, które nie są jeszcze przetworzone.
         """
         if not database.get_files_to_process():
-            messagebox.showinfo("Informacja", "Brak plików w kolejce do wznowienia.")
+            messagebox.showinfo("Informacja", "Brak plików w kolejce do wznowienia.")  # type: ignore
             self.app.button_state_controller.update_ui_state()
             return
 
@@ -90,7 +93,7 @@ class TranscriptionController:
             # oraz naszą funkcję zwrotną do raportowania postępu.
             processor = TranscriptionService(
                 pause_requested_event=self.app.pause_request_event,
-                on_progress_callback=progress_callback
+                on_progress_callback=progress_callback,
             )
             # Uruchamiamy pętlę przetwarzania w procesorze.
             # W trybie GUI zakładamy, że użytkownik świadomie wybrał pliki,
@@ -98,7 +101,10 @@ class TranscriptionController:
             processor.process_transcriptions(allow_long=True)
         except Exception as e:
             # Jeśli w wątku wystąpi krytyczny błąd, bezpiecznie wyświetlamy go w GUI.
-            self.app.after(0, lambda e=e: messagebox.showerror("Błąd krytyczny", f"Wystąpił błąd: {e}"))
+            self.app.after(
+                0,
+                lambda e=e: messagebox.showerror("Błąd krytyczny", f"Wystąpił błąd: {e}"),  # type: ignore
+            )
         finally:
             # Blok `finally` wykona się zawsze, niezależnie od tego, czy wystąpił błąd, czy nie.
             # Planujemy wykonanie metody `on_processing_finished` w głównym wątku, aby posprzątać po zakończeniu pracy.
@@ -116,6 +122,7 @@ class TranscriptionController:
         self.app.invalidate_cache()
         # Optymalizujemy bazę danych po zakończeniu przetwarzania
         from src import database
+
         database.optimize_database()
         # Aktualizujemy finalny stan interfejsu.
         self.app.button_state_controller.update_ui_state()

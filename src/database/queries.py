@@ -1,37 +1,45 @@
 # Database queries module - data retrieval and bulk operations
 
-from .connection import execute_query, get_db_connection, log_db_operation
+from typing import Any, cast
+
+from .connection import RowType, execute_query, get_db_connection, log_db_operation
 
 
 @log_db_operation
-def get_files_to_load():
+def get_files_to_load() -> list[str]:
     """Pobiera listę ścieżek do plików, które są zaznaczone i nie zostały jeszcze wczytane/przekonwertowane."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        rows = execute_query(
-            cursor,
-            "SELECT source_file_path FROM files WHERE is_selected = 1 AND is_loaded = 0 ORDER BY start_datetime",
-            fetch="all",
+        rows = cast(
+            list[RowType],
+            execute_query(
+                cursor,
+                "SELECT source_file_path FROM files WHERE is_selected = 1 AND is_loaded = 0 ORDER BY start_datetime",
+                fetch="all",
+            ),
         )
         # Zwracamy listę ścieżek, a nie całe obiekty wierszy.
         return [row["source_file_path"] for row in rows]
 
 
 @log_db_operation
-def get_files_to_process():
+def get_files_to_process() -> list[str]:
     """Pobiera listę ścieżek do plików, które zostały wczytane (przekonwertowane), ale nie mają jeszcze transkrypcji."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        rows = execute_query(
-            cursor,
-            "SELECT source_file_path FROM files WHERE is_loaded = 1 AND is_processed = 0 ORDER BY start_datetime",
-            fetch="all",
+        rows = cast(
+            list[RowType],
+            execute_query(
+                cursor,
+                "SELECT source_file_path FROM files WHERE is_loaded = 1 AND is_processed = 0 ORDER BY start_datetime",
+                fetch="all",
+            ),
         )
         return [row["source_file_path"] for row in rows]
 
 
 @log_db_operation
-def set_files_as_loaded(file_paths, tmp_file_paths):
+def set_files_as_loaded(file_paths: list[str], tmp_file_paths: list[str]) -> None:
     """
     Oznacza listę plików jako wczytane (skonwertowane) i zapisuje ścieżki do ich przetworzonych wersji audio.
     Dla plików które mają różne source_path i tmp_file_path traktuje je jako chunk'y.
@@ -42,8 +50,8 @@ def set_files_as_loaded(file_paths, tmp_file_paths):
         cursor = conn.cursor()
 
         # Rozdzielamy na zwykłe pliki i chunk'y
-        regular_files = []
-        chunk_files = []
+        regular_files: list[tuple[str, str]] = []
+        chunk_files: list[tuple[str, str]] = []
 
         for source_path, tmp_path in zip(file_paths, tmp_file_paths, strict=False):
             if source_path == tmp_path:
@@ -76,27 +84,33 @@ def set_files_as_loaded(file_paths, tmp_file_paths):
 
 
 @log_db_operation
-def get_all_files():
+def get_all_files() -> list[RowType]:
     """Pobiera wszystkie pliki z bazy danych, posortowane chronologicznie."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        return execute_query(cursor, "SELECT * FROM files ORDER BY start_datetime", fetch="all")
-
-
-@log_db_operation
-def get_files_needing_metadata():
-    """Pobiera pliki, które nie mają jeszcze przetworzonych metadanych (start_datetime jest NULL)."""
-    with get_db_connection() as conn:
-        cursor = conn.cursor()
-        return execute_query(
-            cursor,
-            "SELECT id, source_file_path FROM files WHERE start_datetime IS NULL",
-            fetch="all",
+        return cast(
+            list[RowType],
+            execute_query(cursor, "SELECT * FROM files ORDER BY start_datetime", fetch="all"),
         )
 
 
 @log_db_operation
-def update_all_metadata_bulk(metadata_list):
+def get_files_needing_metadata() -> list[RowType]:
+    """Pobiera pliki, które nie mają jeszcze przetworzonych metadanych (start_datetime jest NULL)."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        return cast(
+            list[RowType],
+            execute_query(
+                cursor,
+                "SELECT id, source_file_path FROM files WHERE start_datetime IS NULL",
+                fetch="all",
+            ),
+        )
+
+
+@log_db_operation
+def update_all_metadata_bulk(metadata_list: list[dict[str, Any]]) -> None:
     """Masowo aktualizuje wszystkie obliczone metadane dla listy plików."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
@@ -125,26 +139,32 @@ def update_all_metadata_bulk(metadata_list):
 
 
 @log_db_operation
-def get_file_metadata(source_file_path):
+def get_file_metadata(source_file_path: str) -> RowType | None:
     """Pobiera metadane dla pojedynczego pliku."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        return execute_query(
-            cursor,
-            "SELECT tmp_file_path, start_datetime, end_datetime, duration_ms, previous_ms, transcription, tag FROM files WHERE source_file_path = ?",
-            (source_file_path,),
-            fetch="one",
+        return cast(
+            RowType | None,
+            execute_query(
+                cursor,
+                "SELECT tmp_file_path, start_datetime, end_datetime, duration_ms, previous_ms, transcription, tag FROM files WHERE source_file_path = ?",
+                (source_file_path,),
+                fetch="one",
+            ),
         )
 
 
 @log_db_operation
-def get_cached_duration(file_path):
+def get_cached_duration(file_path: str) -> RowType | None:
     """Pobiera zcache'owaną długość pliku z bazy danych."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        return execute_query(
-            cursor,
-            "SELECT duration_ms FROM files WHERE source_file_path = ? AND duration_ms IS NOT NULL",
-            (file_path,),
-            fetch="one",
+        return cast(
+            RowType | None,
+            execute_query(
+                cursor,
+                "SELECT duration_ms FROM files WHERE source_file_path = ? AND duration_ms IS NOT NULL",
+                (file_path,),
+                fetch="one",
+            ),
         )

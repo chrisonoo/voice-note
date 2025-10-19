@@ -4,21 +4,20 @@ import functools  # Używane do tworzenia dekoratorów, które "owijają" inne f
 import os  # Biblioteka do interakcji z systemem operacyjnym, np. operacje na plikach i folderach.
 import sqlite3  # Standardowa biblioteka Pythona do obsługi baz danych SQLite.
 import time  # Dodane dla optymalizacji wydajności
-from collections.abc import Callable
-from typing import Any, TypeVar, cast
+from typing import Any, cast
 
 from src import config  # Importujemy nasz plik konfiguracyjny.
+
+# Typ alias for sqlite3.Row so type checkers know the element type inside lists/returns
+RowType = sqlite3.Row
+
 
 # Singleton dla połączenia z bazą danych
 _db_connection = None
 _db_connection_lock = time.thread_time_ns()  # Prosty lock dla bezpieczeństwa wątkowego
 
-# TypeVar for preserving return type through decorator
-F = TypeVar("F", bound=Callable[..., Any])
-R = TypeVar("R")
 
-
-def _format_row(row: sqlite3.Row | None):
+def _format_row(row: RowType | None) -> str:
     """Formatuje obiekt sqlite3.Row do czytelnego ciągu znaków, np. 'id: 1, name: test'."""
     # Jeśli wiersz jest pusty (None), zwracamy informację.
     if not row:
@@ -28,12 +27,12 @@ def _format_row(row: sqlite3.Row | None):
     return ", ".join(f"{key}: {row[key]}" for key in row)
 
 
-def log_db_operation(func: Callable[..., R]) -> Callable[..., R]:
+def log_db_operation(func: Any) -> Any:
     """Dekorator do logowania operacji na bazie danych, jeśli DATABASE_LOGGING ma wartość True."""
 
     # @functools.wraps(func) zachowuje metadane oryginalnej funkcji (np. jej nazwę), co jest dobrą praktyką.
     @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> R:
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         # Sprawdzamy flagę w konfiguracji. Jeśli jest False, po prostu wywołujemy oryginalną funkcję bez logowania.
         if not config.DATABASE_LOGGING:
             return func(*args, **kwargs)
@@ -46,12 +45,12 @@ def log_db_operation(func: Callable[..., R]) -> Callable[..., R]:
 
         try:
             # Wywołujemy oryginalną funkcję i przechowujemy jej wynik.
-            result: R = func(*args, **kwargs)
+            result = func(*args, **kwargs)
             # Sprawdzamy typ wyniku, aby go ładnie sformatować w logach.
             if isinstance(result, list):
                 result_list = cast(list[Any], result)
                 if all(isinstance(r, sqlite3.Row) for r in result_list):
-                    result_rows: list[sqlite3.Row] = cast(list[sqlite3.Row], result_list)
+                    result_rows: list[RowType] = [cast(RowType, r) for r in result_list]
                     print(f"--- DB LOG: {func.__name__} zwróciła {len(result_rows)} wierszy:")
                     for row in result_rows:
                         print(f"  - {_format_row(row)}")
@@ -61,7 +60,7 @@ def log_db_operation(func: Callable[..., R]) -> Callable[..., R]:
                 print(f"--- DB LOG: {func.__name__} zwróciła: {_format_row(result)}")
             else:
                 print(f"--- DB LOG: {func.__name__} zwróciła: {result!r}")
-            return cast(R, result)
+            return result  # type: ignore
         except Exception as e:
             # Jeśli funkcja rzuci wyjątek, logujemy go.
             print(f"--- DB LOG: {func.__name__} rzuciła wyjątek: {e!r}")
@@ -75,7 +74,7 @@ def execute_query(
     query: str,
     params: tuple[Any, ...] | None = None,
     fetch: str | None = None,
-) -> sqlite3.Row | list[sqlite3.Row] | None:
+) -> RowType | list[RowType] | None:
     """
     Pomocnicza funkcja do wykonywania zapytań SQL, która integruje logowanie.
 
@@ -93,15 +92,16 @@ def execute_query(
 
     # Wykonujemy zapytanie. Użycie `params` jest bezpieczniejsze niż formatowanie stringów.
     if params:
-        cursor.execute(query, params)
+        # sqlite3 accepts any sequence (tuple/list) for parameters; typing as Sequence[Any]
+        cursor.execute(query, tuple(params))
     else:
         cursor.execute(query)
 
     # Zwracamy wyniki w zależności od wartości argumentu `fetch`.
     if fetch == "one":
-        return cursor.fetchone()
+        return cast(RowType | None, cursor.fetchone())
     if fetch == "all":
-        return cursor.fetchall()
+        return cast(list[RowType], cursor.fetchall())
 
 
 @log_db_operation

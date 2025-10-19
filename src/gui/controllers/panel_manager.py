@@ -6,7 +6,9 @@
 import os
 from tkinter import messagebox
 
+from gui.core.main_window import App
 from src import database
+from src.database.connection import RowType
 
 
 class PanelManager:
@@ -15,7 +17,7 @@ class PanelManager:
     pobierając i filtrując dane bezpośrednio z bazy danych.
     """
 
-    def __init__(self, app):
+    def __init__(self, app: App):
         """
         Inicjalizuje menedżera paneli.
 
@@ -25,7 +27,7 @@ class PanelManager:
         """
         self.app = app
 
-    def refresh_all_views(self, data=None):
+    def refresh_all_views(self, data: list[RowType] | None = None):
         """
         Odświeża wszystkie widoki w aplikacji. Jeśli dane (`data`) nie są dostarczone,
         pobiera je z bazy. W przeciwnym razie używa dostarczonych danych, co jest
@@ -42,51 +44,50 @@ class PanelManager:
         except Exception as e:
             # Obsługa błędów, na wypadek problemów z bazą danych lub odświeżaniem.
             print(f"Krytyczny błąd podczas odświeżania widoków: {e}")
-            messagebox.showerror("Błąd Bazy Danych", f"Nie można odświeżyć widoków: {e}")
+            messagebox.showerror("Błąd Bazy Danych", f"Nie można odświeżyć widoków: {e}")  # type: ignore
 
-    def _refresh_selected_files_view(self, all_files):
+    def _refresh_selected_files_view(self, all_files: list[RowType]):
         """Odświeża panel z listą plików do wyboru (z checkboxami), używając dostarczonych danych."""
-        self.app.file_selection_panel.populate_files(all_files)
+        self.app.file_selection_panel.populate_files(all_files)  # type: ignore
 
-    def _refresh_status_views(self, all_files):
+    def _refresh_status_views(self, all_files: list[RowType]):
         """
         Odświeża wszystkie panele statusu (Wczytane, Kolejka, Gotowe) oraz panel z transkrypcją,
         używając tych samych, raz pobranych danych.
         """
         # Filtrujemy pliki dla panelu "Wczytane". Są to pliki, które zostały już skonwertowane do formatu audio gotowego do transkrypcji.
         files_to_load = [
-            os.path.basename(row['tmp_file_path']) for row in all_files
-            if row['is_loaded']
+            os.path.basename(row["tmp_file_path"]) for row in all_files if row["is_loaded"]
         ]
 
         # Filtrujemy pliki dla panelu "Do przetworzenia" (Kolejka).
         # Są to pliki, które są wczytane, ale nie mają jeszcze transkrypcji.
         files_in_queue = [
-            os.path.basename(row['tmp_file_path']) for row in all_files
-            if row['is_loaded'] and not row['is_processed']
+            os.path.basename(row["tmp_file_path"])
+            for row in all_files
+            if row["is_loaded"] and not row["is_processed"]
         ]
 
         # Filtrujemy pliki dla panelu "Przetworzone".
         processed_files = [
-            os.path.basename(row['tmp_file_path']) for row in all_files
-            if row['is_processed']
+            os.path.basename(row["tmp_file_path"]) for row in all_files if row["is_processed"]
         ]
 
         # Zbieramy gotowe transkrypcje, aby wyświetlić je w głównym panelu tekstowym.
         transcriptions = [
-            row['transcription']
+            row["transcription"]
             for row in all_files
-            if row['is_processed'] and row['transcription']
+            if row["is_processed"] and row["transcription"]
         ]
 
         # Wywołujemy metody `update` na odpowiednich panelach, przekazując im przefiltrowane listy.
-        self.app.conversion_status_panel.update_from_list(files_to_load)
-        self.app.transcription_queue_panel.update_from_list(files_in_queue)
-        self.app.completed_files_panel.update_from_list(processed_files)
+        self.app.conversion_status_panel.update_from_list(files_to_load)  # type: ignore
+        self.app.transcription_queue_panel.update_from_list(files_in_queue)  # type: ignore
+        self.app.completed_files_panel.update_from_list(processed_files)  # type: ignore
         # Łączymy wszystkie transkrypcje w jeden tekst i aktualizujemy panel wyjściowy.
-        self.app.transcription_output_panel.update_text("\n\n".join(transcriptions))
+        self.app.transcription_output_panel.update_text("\n\n".join(transcriptions))  # type: ignore
 
-    def refresh_transcription_progress_views(self, data=None):
+    def refresh_transcription_progress_views(self, data: list[RowType] | None = None):
         """
         Odświeża tylko te widoki, które są związane z postępem transkrypcji.
         Jest to lżejsza wersja `refresh_all_views`, używana w pętli postępu,
