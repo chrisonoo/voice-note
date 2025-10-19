@@ -1,9 +1,11 @@
 # Ten moduł zawiera klasę `AudioPlayer`, która jest klasą pomocniczą
 # odpowiedzialną za odtwarzanie próbek audio bezpośrednio w interfejsie.
 
-import threading  # Używany do zapewnienia bezpieczeństwa wątkowego przy tworzeniu Singletonu.
 import subprocess  # Do uruchamiania ffplay.
+import threading  # Używany do zapewnienia bezpieczeństwa wątkowego przy tworzeniu Singletonu.
+
 import psutil  # Do zarządzania procesami systemowymi
+
 
 class FFplayAudioPlayer:
     """

@@ -7,11 +7,15 @@ import os  # Moduł do interakcji z systemem operacyjnym, np. do operacji na śc
 import subprocess  # Moduł pozwalający na uruchamianie zewnętrznych programów, w tym przypadku FFMPEG.
 import threading  # Dodane dla obsługi postępu w czasie rzeczywistym
 import time  # Dodane dla kontrolowania odstępów czasowych wyświetlania postępu
+from typing import TYPE_CHECKING
 
 from src import (  # Importujemy własne moduły: konfigurację i operacje na bazie danych.
     config,
     database,
 )
+
+if TYPE_CHECKING:
+    from src.gui.core.main_window import App
 from src.utils.error_handlers import (  # Dekoratory
     measure_performance,
     with_error_handling,
@@ -72,9 +76,7 @@ def _analyze_silence_points(audio_path):
 
             elif "silence_end:" in line and current_silence is not None:
                 # Wyciągnij timestamp końca ciszy i czas trwania
-                match = re.search(
-                    r"silence_end:\s*([0-9.]+).*silence_duration:\s*([0-9.]+)", line
-                )
+                match = re.search(r"silence_end:\s*([0-9.]+).*silence_duration:\s*([0-9.]+)", line)
                 if match:
                     end_time = float(match.group(1))
                     duration = float(match.group(2))
@@ -102,9 +104,7 @@ def _analyze_silence_points(audio_path):
         )
         return []
     except Exception as e:
-        print(
-            f"    Błąd podczas analizy ciszy dla pliku {os.path.basename(audio_path)}: {e}"
-        )
+        print(f"    Błąd podczas analizy ciszy dla pliku {os.path.basename(audio_path)}: {e}")
         return []
 
 
@@ -243,17 +243,13 @@ def _split_audio_file(audio_path, split_points, output_prefix):
                 900, int(duration * 1.5)
             )  # co najmniej 15 minut lub 1.5x długości chunk'a
             print(f"      Timeout dla tego chunk'a: {chunk_timeout}s")
-            result = subprocess.run(
-                command, capture_output=True, text=True, timeout=chunk_timeout
-            )
+            result = subprocess.run(command, capture_output=True, text=True, timeout=chunk_timeout)
 
             if result.returncode == 0:
                 chunk_paths.append(output_path)
                 print(f"    ✓ Utworzono chunk: {os.path.basename(output_path)}")
             else:
-                print(
-                    f"    ✗ Błąd podczas tworzenia chunk {chunk_number}: {result.stderr}"
-                )
+                print(f"    ✗ Błąd podczas tworzenia chunk {chunk_number}: {result.stderr}")
                 # Spróbuj usunąć niekompletny plik jeśli istnieje
                 if os.path.exists(output_path):
                     try:
@@ -323,14 +319,10 @@ def _run_ffmpeg_with_progress(command, filename=None, total_duration=None):
                         # Wyświetlaj tylko jeśli minęło 5 sekund od ostatniego wyświetlenia
                         if current_time - last_display_time >= display_interval:
                             if filename and total_duration is not None:
-                                formatted_duration = _format_duration_ffmpeg(
-                                    total_duration
-                                )
+                                formatted_duration = _format_duration_ffmpeg(total_duration)
                                 print(f"[{filename}] [{formatted_duration}] {line_str}")
                             else:
-                                print(
-                                    line_str
-                                )  # Wyślij do naszego redirectora terminala
+                                print(line_str)  # Wyślij do naszego redirectora terminala
                             last_display_time = current_time
 
             except Exception as e:
@@ -374,9 +366,7 @@ def _convert_single_file(original_path):
         duration_sec = get_file_duration(original_path)
 
         if duration_sec <= 0:
-            print(
-                f"    Błąd: Nie można określić długości pliku {os.path.basename(original_path)}"
-            )
+            print(f"    Błąd: Nie można określić długości pliku {os.path.basename(original_path)}")
             return None
 
         # Tworzymy standardową, bezpieczną nazwę pliku wyjściowego.
@@ -385,26 +375,20 @@ def _convert_single_file(original_path):
 
         # Sprawdzamy czy plik jest dłuższy niż limit
         if duration_sec > config.MAX_FILE_DURATION_SECONDS:
-            print(
-                f"  Długi plik wykryty: {os.path.basename(original_path)} ({duration_sec:.1f}s)"
-            )
+            print(f"  Długi plik wykryty: {os.path.basename(original_path)} ({duration_sec:.1f}s)")
 
             # Używamy optymalizowanej metody: najpierw konwertuj, potem dziel
             result = _convert_and_split_file(original_path)
             if result and len(result) > 0:
                 return result
             else:
-                print(
-                    "    Błąd podczas optymalizowanej konwersji, fallback do starej metody"
-                )
+                print("    Błąd podczas optymalizowanej konwersji, fallback do starej metody")
                 # Fallback do starej metody jeśli nowa się nie powiedzie
 
                 # Analizujemy punkty ciszy w oryginalnym pliku
                 silence_periods = _analyze_silence_points(original_path)
                 if silence_periods is None:
-                    print(
-                        "    Błąd podczas analizy ciszy, używam standardowej konwersji"
-                    )
+                    print("    Błąd podczas analizy ciszy, używam standardowej konwersji")
                     # Fallback do standardowej konwersji jeśli analiza ciszy się nie powiedzie
                     return _convert_single_file_standard(original_path)
 
@@ -412,17 +396,13 @@ def _convert_single_file(original_path):
                 split_points = _calculate_split_points(duration_sec, silence_periods)
 
                 # Dzielimy plik na chunk'y
-                chunk_paths = _split_audio_file(
-                    original_path, split_points, standardized_name
-                )
+                chunk_paths = _split_audio_file(original_path, split_points, standardized_name)
 
                 if chunk_paths and len(chunk_paths) > 0:
                     # Zwracamy listę tupli (source_path, chunk_path) dla każdego chunk'a
                     return [(original_path, chunk_path) for chunk_path in chunk_paths]
                 else:
-                    print(
-                        "    Błąd podczas dzielenia pliku, używam standardowej konwersji"
-                    )
+                    print("    Błąd podczas dzielenia pliku, używam standardowej konwersji")
                     # Fallback do standardowej konwersji
                     return _convert_single_file_standard(original_path)
         else:
@@ -455,9 +435,7 @@ def _convert_and_split_file(original_path):
         duration_sec = get_file_duration(original_path)
 
         if duration_sec <= 0:
-            print(
-                f"    Błąd: Nie można określić długości pliku {os.path.basename(original_path)}"
-            )
+            print(f"    Błąd: Nie można określić długości pliku {os.path.basename(original_path)}")
             return None
 
         # Tworzymy standardową nazwę dla pełnego pliku tymczasowego
@@ -466,9 +444,7 @@ def _convert_and_split_file(original_path):
         full_tmp_filename = f"{standardized_name}_full.m4a"
         full_tmp_path = os.path.join(config.AUDIO_TMP_DIR, full_tmp_filename)
 
-        print(
-            f"  Długi plik wykryty: {os.path.basename(original_path)} ({duration_sec:.1f}s)"
-        )
+        print(f"  Długi plik wykryty: {os.path.basename(original_path)} ({duration_sec:.1f}s)")
         print("  Strategia: najpierw konwertuj cały plik, potem dziel na chunk'y")
 
         # KROK 1: Konwertuj cały plik do jednego dużego pliku tymczasowego
@@ -509,9 +485,7 @@ def _convert_and_split_file(original_path):
             # Usuń tymczasowy pełny plik - już niepotrzebny
             try:
                 os.remove(full_tmp_path)
-                print(
-                    f"    ✓ Usunięto tymczasowy plik pełny: {os.path.basename(full_tmp_path)}"
-                )
+                print(f"    ✓ Usunięto tymczasowy plik pełny: {os.path.basename(full_tmp_path)}")
             except:
                 pass
 
@@ -532,9 +506,7 @@ def _convert_and_split_file(original_path):
         return None
 
 
-def _split_from_converted_file(
-    converted_file_path, split_points, output_prefix, original_path
-):
+def _split_from_converted_file(converted_file_path, split_points, output_prefix, original_path):
     """
     Dzieli już skonwertowany plik audio na chunk'y. Znacznie szybsze niż wycinanie z oryginału.
 
@@ -602,20 +574,14 @@ def _split_from_converted_file(
             )
 
             # Krótszy timeout dla dzielenia skonwertowanego pliku
-            chunk_timeout = max(
-                60, int(duration * 0.5)
-            )  # co najmniej 1 minuta lub 0.5x długości
-            result = subprocess.run(
-                command, capture_output=True, text=True, timeout=chunk_timeout
-            )
+            chunk_timeout = max(60, int(duration * 0.5))  # co najmniej 1 minuta lub 0.5x długości
+            result = subprocess.run(command, capture_output=True, text=True, timeout=chunk_timeout)
 
             if result.returncode == 0:
                 chunk_paths.append(output_path)
                 print(f"      ✓ Chunk {chunk_number} utworzony")
             else:
-                print(
-                    f"      ✗ Błąd podczas tworzenia chunk {chunk_number}: {result.stderr}"
-                )
+                print(f"      ✗ Błąd podczas tworzenia chunk {chunk_number}: {result.stderr}")
                 if os.path.exists(output_path):
                     try:
                         os.remove(output_path)
@@ -631,9 +597,7 @@ def _split_from_converted_file(
         )
         return None
     except Exception as e:
-        print(
-            f"    Błąd podczas dzielenia pliku {os.path.basename(converted_file_path)}: {e}"
-        )
+        print(f"    Błąd podczas dzielenia pliku {os.path.basename(converted_file_path)}: {e}")
         return None
 
 
@@ -682,7 +646,7 @@ def _convert_single_file_standard(original_path):
 
 @with_error_handling("Konwersja plików audio")
 @measure_performance
-def encode_audio_files(app=None):
+def encode_audio_files(app: "App | None" = None):
     """
     Pobiera z bazy danych listę plików do przetworzenia, konwertuje je do formatu audio gotowego do transkrypcji
     za pomocą zewnętrznego narzędzia FFMPEG z sekwencyjnym przetwarzaniem,
@@ -705,9 +669,7 @@ def encode_audio_files(app=None):
 
     # Przetwarzaj pliki sekwencyjnie
     for i, original_path in enumerate(files_to_encode, 1):
-        print(
-            f"Przetwarzanie pliku {i}/{len(files_to_encode)}: {os.path.basename(original_path)}"
-        )
+        print(f"Przetwarzanie pliku {i}/{len(files_to_encode)}: {os.path.basename(original_path)}")
 
         result = _convert_single_file(original_path)
         if result and len(result) > 0:
@@ -721,9 +683,7 @@ def encode_audio_files(app=None):
                 # Pojedynczy wynik
                 source_path, tmp_path = result[0]
                 successful_conversions.append((source_path, tmp_path))
-                print(
-                    f"    ✓ Przetworzono i dodano do bazy: {os.path.basename(source_path)}"
-                )
+                print(f"    ✓ Przetworzono i dodano do bazy: {os.path.basename(source_path)}")
 
             # Zbierz wszystkie ścieżki źródłowe i tymczasowe do aktualizacji bazy
             source_paths = [r[0] for r in result]
@@ -735,9 +695,7 @@ def encode_audio_files(app=None):
             # Odśwież GUI jeśli mamy referencję do aplikacji
             if app:
                 app.after(0, lambda: app.invalidate_cache())
-                app.after(
-                    0, lambda: app.panel_manager.refresh_transcription_progress_views()
-                )
+                app.after(0, lambda: app.panel_manager.refresh_transcription_progress_views())
                 app.after(0, lambda: app.update_all_counters())
         else:
             print(f"    ✗ Nie udało się przetworzyć: {os.path.basename(original_path)}")

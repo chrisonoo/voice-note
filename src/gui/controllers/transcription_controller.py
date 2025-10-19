@@ -5,8 +5,10 @@
 
 import threading
 from tkinter import messagebox
+
 from src import database
 from src.services.transcription_service import TranscriptionService
+
 
 class TranscriptionController:
     """

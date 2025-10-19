@@ -2,11 +2,23 @@
 # Jest to centralny punkt trybu graficznego (GUI), który inicjalizuje i zarządza
 # wszystkimi elementami interfejsu, kontrolerami logiki oraz stanem aplikacji.
 
-import customtkinter as ctk  # Biblioteka do tworzenia nowoczesnego interfejsu graficznego.
-from tkinter import messagebox  # Standardowy moduł Tkinter do wyświetlania okien dialogowych (np. z potwierdzeniem).
 import threading  # Moduł do pracy z wątkami, kluczowy do wykonywania długich operacji (jak transkrypcja) w tle.
 import time  # Dodane dla cachowania danych
+from tkinter import (
+    messagebox,  # Standardowy moduł Tkinter do wyświetlania okien dialogowych (np. z potwierdzeniem).
+)
+
+import customtkinter as ctk  # Biblioteka do tworzenia nowoczesnego interfejsu graficznego.
+
 from src import config, database  # Importujemy nasze własne moduły: konfigurację i bazę danych.
+from src.utils.temp_file_manager import cleanup_all_temp_files
+
+from ..controllers.button_state_controller import ButtonStateController
+from ..controllers.file_handler import FileHandler
+from ..controllers.panel_manager import PanelManager
+from ..controllers.transcription_controller import TranscriptionController
+from ..utils.audio_player import AudioPlayer
+from ..utils.terminal_redirector import TerminalRedirector
 
 # Importujemy wszystkie komponenty i kontrolery, które będą używane w głównym oknie.
 # Taka struktura (podobna do wzorca MVC - Model-View-Controller) porządkuje kod:
@@ -18,13 +30,7 @@ from src import config, database  # Importujemy nasze własne moduły: konfigura
 # - `AudioPlayer`: Kontroluje odtwarzanie próbek audio.
 # - `TerminalRedirector`: Przekierowuje stdout/stderr do GUI.
 from .interface_builder import InterfaceBuilder
-from ..controllers.button_state_controller import ButtonStateController
-from ..controllers.file_handler import FileHandler
-from ..controllers.transcription_controller import TranscriptionController
-from ..controllers.panel_manager import PanelManager
-from ..utils.audio_player import AudioPlayer
-from ..utils.terminal_redirector import TerminalRedirector
-from src.utils.temp_file_manager import cleanup_all_temp_files
+
 
 class App(ctk.CTk):
     """

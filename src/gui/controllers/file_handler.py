@@ -4,16 +4,18 @@
 
 import threading  # Moduł do pracy z wątkami, niezbędny do uruchamiania operacji w tle.
 from tkinter import filedialog, messagebox  # Moduły Tkinter do okien dialogowych.
+
 from src import config, database  # Nasze własne moduły.
-from src.utils.audio import encode_audio_files  # Funkcja do konwersji plików.
 from src.metadata import process_and_update_all_metadata
+from src.utils.audio import encode_audio_files  # Funkcja do konwersji plików.
+
 
 class FileHandler:
     """
     Zarządza operacjami na plikach w interfejsie graficznym, takimi jak
     wybieranie plików z dysku i inicjowanie ich ładowania (konwersji).
     """
-    
+
     def __init__(self, app):
         """
         Inicjalizuje kontroler plików.
@@ -23,7 +25,7 @@ class FileHandler:
                  do komponentów interfejsu i innych kontrolerów.
         """
         self.app = app
-    
+
     def select_source_files(self):
         """Otwiera systemowe okno dialogowe do wyboru plików i dodaje wybrane pliki do bazy danych."""
         # Zabezpieczenie: nie pozwól na dodawanie plików, gdy proces transkrypcji jest w toku.
@@ -32,12 +34,12 @@ class FileHandler:
 
         # Upewnij się, że tabela files istnieje (może być usunięta przez reset)
         database.ensure_files_table_exists()
-            
+
         # `filedialog.askopenfilenames` otwiera natywne okno systemowe do wyboru jednego lub wielu plików.
         paths = filedialog.askopenfilenames(
-            title="Wybierz pliki audio i wideo", 
+            title="Wybierz pliki audio i wideo",
             # `filetypes` filtruje wyświetlane pliki. Tworzymy listę typów na podstawie rozszerzeń z pliku konfiguracyjnego.
-            filetypes=[("Pliki audio i wideo", " ".join(config.ALL_SUPPORTED_EXTENSIONS))]
+            filetypes=[("Pliki audio i wideo", " ".join(config.ALL_SUPPORTED_EXTENSIONS))],
         )
         # Jeśli użytkownik zamknie okno bez wybierania plików, `paths` będzie puste.
         if not paths:
@@ -91,7 +93,7 @@ class FileHandler:
             # Wywołujemy funkcję, która wykonuje całą logikę konwersji FFMPEG.
             # Przekazujemy referencję do aplikacji, aby móc aktualizować GUI w trakcie przetwarzania.
             encode_audio_files(app=self.app)
-            
+
             # WAŻNE: Bezpośrednia modyfikacja widżetów Tkinter z innego wątku niż główny jest niebezpieczna.
             # `self.app.after(0, ...)` to bezpieczny sposób na zaplanowanie wykonania funkcji
             # w głównej pętli zdarzeń GUI tak szybko, jak to możliwe.
@@ -99,6 +101,8 @@ class FileHandler:
             self.app.after(0, self.app.refresh_all_views)
         except Exception as e:
             # Jeśli w wątku roboczym wystąpi błąd, łapiemy go i bezpiecznie wyświetlamy komunikat w GUI.
-            self.app.after(0, lambda: messagebox.showerror("Błąd konwersji", f"Wystąpił błąd: {e}"))
+            self.app.after(
+                0, lambda e=e: messagebox.showerror("Błąd konwersji", f"Wystąpił błąd: {e}")
+            )
             # Nawet po błędzie, musimy zaktualizować stan przycisków.
             self.app.after(0, self.app.button_state_controller.update_ui_state)

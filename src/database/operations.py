@@ -1,8 +1,10 @@
 # Database operations module - CRUD operations
 
-import sqlite3
 import os
-from .connection import get_db_connection, _execute_query, log_db_operation
+import sqlite3
+
+from .connection import _execute_query, get_db_connection, log_db_operation
+
 
 @log_db_operation
 def add_file(file_path):
@@ -149,5 +151,5 @@ def validate_file_access(file_path):
         with open(file_path, 'rb') as f:
             f.read(1024)
         return True, None
-    except (OSError, IOError) as e:
+    except OSError as e:
         return False, f"Błąd dostępu do pliku: {e}"

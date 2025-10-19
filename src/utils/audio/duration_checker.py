@@ -1,10 +1,14 @@
 # Ten moduł zawiera funkcje do sprawdzania długości (czasu trwania) plików audio.
 # Wykorzystuje do tego celu zewnętrzne narzędzie `ffprobe`, które jest częścią pakietu FFMPEG.
 
+import json  # Moduł do pracy z formatem danych JSON, w którym `ffprobe` zwraca wyniki.
 import os  # Moduł do interakcji z systemem operacyjnym, np. do pobierania nazwy pliku ze ścieżki.
 import subprocess  # Moduł pozwalający na uruchamianie zewnętrznych programów, w tym `ffprobe`.
-import json  # Moduł do pracy z formatem danych JSON, w którym `ffprobe` zwraca wyniki.
-from src import config, database  # Importujemy własne moduły: konfigurację i operacje na bazie danych.
+
+from src import (  # Importujemy własne moduły: konfigurację i operacje na bazie danych.
+    database,
+)
+
 
 def get_file_duration(file_path):
     """
@@ -18,7 +22,6 @@ def get_file_duration(file_path):
     Zwraca:
         float: Czas trwania pliku w sekundach. Jeśli wystąpi błąd, zwraca 0.0.
     """
-    from src import database
 
     # Najpierw sprawdź cache w bazie danych
     cached_result = database.get_cached_duration(file_path)

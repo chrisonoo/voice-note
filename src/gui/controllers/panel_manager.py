@@ -5,8 +5,9 @@
 
 import os
 from tkinter import messagebox
+
 from src import database
-from src.utils.audio import get_file_duration
+
 
 class PanelManager:
     """

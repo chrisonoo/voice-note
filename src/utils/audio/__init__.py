@@ -6,5 +6,6 @@
 # To upraszcza importy w innych częściach kodu.
 
 from .audio_file_encoding import encode_audio_files
-from .duration_checker import get_file_duration
 from .audio_file_list_cli import get_audio_file_list_cli
+
+__all__ = ["encode_audio_files", "get_audio_file_list_cli"]

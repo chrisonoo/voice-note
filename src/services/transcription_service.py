@@ -5,10 +5,13 @@
 
 import os  # Moduł do operacji na ścieżkach plików, np. do wyciągania nazwy pliku.
 import threading  # Moduł do pracy z wątkami, używany tutaj do obsługi pauzy w trybie GUI.
-from src.services.whisper_service import WhisperService  # Importujemy nasz serwis Whisper.
+
 from src import database  # Importujemy moduł do operacji na bazie danych.
+from src.services.whisper_service import WhisperService  # Importujemy nasz serwis Whisper.
+
 # format_transcription_header usunięty - tag jest teraz tworzony wcześniej w metadanych
-from src.utils.error_handlers import with_error_handling, measure_performance  # Dekoratory
+from src.utils.error_handlers import measure_performance, with_error_handling  # Dekoratory
+
 
 class TranscriptionService:
     """
@@ -120,7 +123,7 @@ class TranscriptionService:
 
                 # Zapisujemy tylko czystą transkrypcję w bazie danych (tag jest już w osobnej kolumnie)
                 database.update_file_transcription(source_path, transcription.text)
-                print(f"    Sukces: Transkrypcja z tagiem zapisana w bazie danych.")
+                print("    Sukces: Transkrypcja z tagiem zapisana w bazie danych.")
 
                 # Jeśli do serwisu została przekazana funkcja zwrotna (w trybie GUI)...
                 if self.on_progress_callback:

@@ -1,9 +1,10 @@
 # Moduł do zarządzania plikami tymczasowymi
 
-import os
-import time
 import glob
+import os
+
 from src import config
+
 
 def cleanup_all_temp_files():
     """

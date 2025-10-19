@@ -1,14 +1,17 @@
 # CLI main module - command line interface logic
 
 import argparse  # Standardowa biblioteka Pythona do parsowania argumentów wiersza poleceń.
-import sys  # Moduł dający dostęp do funkcji systemowych, np. `sys.exit` do zamykania programu.
 import os  # Moduł do interakcji z systemem operacyjnym, np. sprawdzania ścieżek.
-from src.utils.audio import encode_audio_files  # Funkcje do obsługi plików audio.
-from src.services.transcription_service import TranscriptionService  # Główna klasa zarządzająca procesem transkrypcji.
-from src import database  # Moduł do obsługi bazy danych.
-from src.metadata import process_and_update_all_metadata  # Moduł do obsługi metadanych.
+import sys  # Moduł dający dostęp do funkcji systemowych, np. `sys.exit` do zamykania programu.
 
-def main_cli(args):
+from src.metadata import process_and_update_all_metadata  # Moduł do obsługi metadanych.
+from src.services.transcription_service import (
+    TranscriptionService,
+)  # Główna klasa zarządzająca procesem transkrypcji.
+from src.utils.audio import encode_audio_files  # Funkcje do obsługi plików audio.
+
+
+def main_cli(args: argparse.Namespace):
     """
     Główna funkcja orkiestrująca całym procesem transkrypcji w trybie wiersza poleceń (CLI).
     Jest wywoływana, gdy aplikacja jest uruchamiana bez flagi --gui.
@@ -40,6 +43,7 @@ def main_cli(args):
     # Używamy dedykowanej funkcji do wyszukania plików audio w podanym folderze i dodania ich do bazy.
     # Importujemy ją tutaj, wewnątrz funkcji, ponieważ jest używana tylko w trybie CLI.
     from src.utils.audio import get_audio_file_list_cli
+
     get_audio_file_list_cli(input_dir)
 
     # === KROK 1.5: Przetwarzanie metadanych i walidacja ===

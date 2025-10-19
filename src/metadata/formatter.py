@@ -2,6 +2,7 @@
 
 from datetime import datetime, timedelta
 
+
 def _format_timedelta_to_hms(td: timedelta):
     """Formatuje obiekt timedelta do czytelnego formatu HH:MM:SS."""
     if not isinstance(td, timedelta):

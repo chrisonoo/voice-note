@@ -1,12 +1,16 @@
 # Ten moduł definiuje `FilesView`, niestandardowy widżet (komponent GUI),
 # który jest odpowiedzialny za wyświetlanie listy plików audio z interaktywnymi elementami.
 
-import customtkinter as ctk
 import os
+from tkinter.messagebox import askyesno
+
+import customtkinter as ctk
+
 from src import config, database
 from src.utils.file_type_helper import get_file_type
+
 from ..utils.audio_player import AudioPlayer
-from tkinter.messagebox import askyesno
+
 
 class FilesView(ctk.CTkFrame):
     """

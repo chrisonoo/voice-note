@@ -3,7 +3,12 @@
 # gdzie użytkownik podaje folder do przeszukania jako argument startowy.
 
 import os  # Moduł do interakcji z systemem operacyjnym, niezbędny do przeszukiwania folderów.
-from src import config, database  # Importujemy własne moduły: konfigurację i operacje na bazie danych.
+
+from src import (  # Importujemy własne moduły: konfigurację i operacje na bazie danych.
+    config,
+    database,
+)
+
 
 def get_audio_file_list_cli(input_directory):
     """

@@ -2,9 +2,12 @@
 # używany do wyświetlania list plików w różnych panelach statusu,
 # np. "Wczytane", "Do przetworzenia", "Przetworzone".
 
-import customtkinter as ctk
 import os
+
+import customtkinter as ctk
+
 from src import config
+
 
 class StatusView(ctk.CTkFrame):
     """

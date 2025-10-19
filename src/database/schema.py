@@ -1,10 +1,12 @@
 # Database schema management module
 
-import sqlite3
 import os
 import shutil
-from .connection import get_db_connection, _execute_query, log_db_operation
+
 from src import config
+
+from .connection import _execute_query, get_db_connection, log_db_operation
+
 
 @log_db_operation
 def initialize_database():

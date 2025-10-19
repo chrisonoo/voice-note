@@ -2,7 +2,9 @@
 # przeznaczony do wyświetlania finalnego tekstu transkrypcji.
 
 import customtkinter as ctk
+
 from src import config
+
 
 class TranscriptionView(ctk.CTkFrame):
     """

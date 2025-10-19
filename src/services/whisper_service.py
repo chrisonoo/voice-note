@@ -4,8 +4,10 @@
 # szczegóły implementacyjne komunikacji z API.
 
 import os  # Moduł do interakcji z systemem operacyjnym, używany tutaj do odczytu zmiennych środowiskowych.
+
 from dotenv import load_dotenv  # Funkcja do wczytywania zmiennych z pliku .env.
 from openai import OpenAI  # Główna klasa z biblioteki OpenAI do komunikacji z API.
+
 from src import config  # Importujemy nasz plik konfiguracyjny.
 
 # `load_dotenv()` to kluczowa funkcja, która szuka w głównym folderze projektu

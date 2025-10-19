@@ -2,7 +2,9 @@
 # Zapewnia czyste rozdzielenie logiki biznesowej od konfiguracji.
 
 import os
+
 from src import config
+
 
 def get_file_type(file_path):
     """
