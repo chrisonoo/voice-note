@@ -1,11 +1,12 @@
 # Moduł zawierający dekoratory do obsługi błędów i monitoringu wydajności
 
+import contextlib
 import functools
 import logging
 import os
 import time
 from collections.abc import Callable
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -27,7 +28,7 @@ def with_error_handling(operation_name: str) -> Callable[[F], F]:
 
     def decorator(func: F) -> F:
         @functools.wraps(func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             try:
                 return func(*args, **kwargs)
             except Exception as e:
@@ -37,14 +38,12 @@ def with_error_handling(operation_name: str) -> Callable[[F], F]:
 
                 # Jeśli mamy dostęp do GUI, pokaż błąd użytkownikowi
                 if hasattr(args[0] if args else None, "show_error"):
-                    try:
+                    with contextlib.suppress(BaseException):
                         args[0].show_error(f"Błąd w {operation_name}: {str(e)}")
-                    except:
-                        pass  # Jeśli GUI nie jest dostępne, pomiń
 
                 return None
 
-        return wrapper
+        return cast(F, wrapper)
 
     return decorator
 
@@ -56,7 +55,7 @@ def measure_performance(func: F) -> F:
     """
 
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         start_time = time.time()
         result = func(*args, **kwargs)
         end_time = time.time()
@@ -67,29 +66,28 @@ def measure_performance(func: F) -> F:
 
         return result
 
-    return wrapper
+    return cast(F, wrapper)
 
 
-def validate_file_access(func):
+def validate_file_access(func: F) -> F:
     """
     Dekorator sprawdzający dostępność plików przed przetworzeniem.
     """
 
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         from src import database
 
         # Znajdź argumenty zawierające ścieżki plików
-        file_paths = []
+        file_paths: list[str] = []
         for arg in args:
             if isinstance(arg, str) and (
-                arg.endswith((".mp3", ".wav", ".m4a", ".mp4", ".wma"))
-                or os.path.isfile(arg)
+                arg.endswith((".mp3", ".wav", ".m4a", ".mp4", ".wma")) or os.path.isfile(arg)
             ):
                 file_paths.append(arg)
 
         # Sprawdź dostępność plików
-        invalid_files = []
+        invalid_files: list[tuple[str, str]] = []
         for path in file_paths:
             is_valid, error_msg = database.validate_file_access(path)
             if not is_valid:
@@ -99,10 +97,8 @@ def validate_file_access(func):
             error_details = "\n".join(
                 [f"{os.path.basename(path)}: {msg}" for path, msg in invalid_files]
             )
-            raise FileNotFoundError(
-                f"Następujące pliki są niedostępne:\n{error_details}"
-            )
+            raise FileNotFoundError(f"Następujące pliki są niedostępne:\n{error_details}")
 
         return func(*args, **kwargs)
 
-    return wrapper
+    return cast(F, wrapper)

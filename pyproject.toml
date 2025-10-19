@@ -51,3 +51,7 @@ ignore_missing_imports = true
 disallow_untyped_defs = true
 check_untyped_defs = true
 warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = "customtkinter.*"
+ignore_missing_imports = true
