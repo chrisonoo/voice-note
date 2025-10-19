@@ -11,6 +11,7 @@ from tkinter import (
 import customtkinter as ctk  # type: ignore  # Biblioteka do tworzenia nowoczesnego interfejsu graficznego.
 
 from src import config, database  # Importujemy nasze własne moduły: konfigurację i bazę danych.
+from src.database.connection import RowType
 from src.utils.temp_file_manager import cleanup_all_temp_files
 
 from ..controllers.button_state_controller import ButtonStateController
@@ -43,7 +44,7 @@ class App(ctk.CTk):
 
     def __init__(self):
         # `super().__init__()` wywołuje konstruktor klasy nadrzędnej (`ctk.CTk`), co jest niezbędne do inicjalizacji okna.
-        super().__init__()
+        super().__init__()  # type: ignore
 
         # Initialize UI component attributes (will be created in interface_builder)
         self.file_selector_button: ctk.CTkButton | None = None
@@ -63,6 +64,16 @@ class App(ctk.CTk):
         self.transcription_queue_panel: StatusView | None = None
         self.completed_files_panel: StatusView | None = None
         self.transcription_output_panel: TranscriptionView | None = None
+
+        # Initialize counter label attributes (will be assigned in interface_builder)
+        self.files_counter_label: ctk.CTkLabel | None = None
+        self.loaded_counter_label: ctk.CTkLabel | None = None
+        self.processing_counter_label: ctk.CTkLabel | None = None
+        self.processed_counter_label: ctk.CTkLabel | None = None
+
+        # Initialize terminal attributes
+        self.terminal_frame: ctk.CTkFrame | None = None
+        self.terminal_text: ctk.CTkTextbox | None = None
 
         # Ustawiamy wygląd aplikacji (System - jasny/ciemny jak w systemie, "blue" - kolor akcentu).
         ctk.set_appearance_mode("System")
@@ -147,7 +158,7 @@ class App(ctk.CTk):
         """Unieważnia cache gdy dane mogły się zmienić."""
         self._cached_files_data = None
 
-    def update_all_counters(self, all_files=None):
+    def update_all_counters(self, all_files: list[RowType] | None = None):
         """
         Aktualizuje wszystkie etykiety z licznikami plików.
         Jeśli dane nie są dostarczone (`all_files` jest None), pobiera je z cache'a.
@@ -157,6 +168,7 @@ class App(ctk.CTk):
             # Używamy cache'a zamiast bezpośredniego zapytania do bazy
             if all_files is None:
                 all_files = self.get_cached_files_data()
+            assert all_files is not None
 
             # Jedna pętla dla wszystkich obliczeń - optymalizacja wydajności
             stats = {
@@ -183,12 +195,12 @@ class App(ctk.CTk):
                     stats["processed"] += 1
 
             # Aktualizuj etykiety
-            self.files_counter_label.configure(
+            self.files_counter_label.configure(  # type: ignore
                 text=f"Razem: {stats['total']} | Zaznaczone: {stats['selected']} | Długie: {stats['long']}"
             )
-            self.loaded_counter_label.configure(text=f"Wczytane: {stats['loaded']}")
-            self.processing_counter_label.configure(text=f"Kolejka: {stats['processing']}")
-            self.processed_counter_label.configure(text=f"Gotowe: {stats['processed']}")
+            self.loaded_counter_label.configure(text=f"Wczytane: {stats['loaded']}")  # type: ignore
+            self.processing_counter_label.configure(text=f"Kolejka: {stats['processing']}")  # type: ignore
+            self.processed_counter_label.configure(text=f"Gotowe: {stats['processed']}")  # type: ignore
 
         except Exception as e:
             print(f"Błąd podczas aktualizacji liczników: {e}")
@@ -248,17 +260,17 @@ class App(ctk.CTk):
             ]
 
             if not processed_files:
-                self.transcription_output_panel.update_text("")
+                self.transcription_output_panel.update_text("")  # type: ignore
                 return
 
             # Sprawdzamy ustawienia checkboxów
-            show_numbering = self.transcription_output_panel.should_show_numbering()
-            show_tags = self.transcription_output_panel.should_show_tags()
+            show_numbering = self.transcription_output_panel.should_show_numbering()  # type: ignore
+            show_tags = self.transcription_output_panel.should_show_tags()  # type: ignore
 
-            processed_transcriptions = []
+            processed_transcriptions: list[str] = []
             # Użyj enumerate do dynamicznego generowania numeracji
             for i, f in enumerate(processed_files, 1):
-                parts = []
+                parts: list[str] = []
                 transcription = f["transcription"] or ""
 
                 # Dodaj numerację, jeśli zaznaczone
@@ -281,7 +293,7 @@ class App(ctk.CTk):
             # Łączymy transkrypcje w jeden tekst
             final_text = "\n\n".join(processed_transcriptions)
             # Aktualizujemy główny panel wyjściowy
-            self.transcription_output_panel.update_text(final_text)
+            self.transcription_output_panel.update_text(final_text)  # type: ignore
 
         except Exception as e:
             print(f"Błąd podczas odświeżania wyświetlania transkrypcji: {e}")
@@ -295,7 +307,7 @@ class App(ctk.CTk):
         Resetuje aplikację do stanu początkowego, czyszcząc tabelę files i pliki audio.
         Prosi użytkownika o potwierdzenie tej operacji.
         """
-        answer = messagebox.askyesno(
+        answer = messagebox.askyesno(  # type: ignore
             "Potwierdzenie resetowania",
             "Czy na pewno chcesz zresetować aplikację?\n\n"
             "Spowoduje to usunięcie wszystkich wczytanych plików i transkrypcji.",
@@ -321,9 +333,9 @@ class App(ctk.CTk):
                 # Czyścimy również główny panel z transkrypcją.
                 self.refresh_transcription_display()
 
-                messagebox.showinfo("Reset zakończony", "Aplikacja została zresetowana.")
+                messagebox.showinfo("Reset zakończony", "Aplikacja została zresetowana.")  # type: ignore
             except Exception as e:
-                messagebox.showerror("Błąd", f"Wystąpił błąd podczas resetowania: {e}")
+                messagebox.showerror("Błąd", f"Wystąpił błąd podczas resetowania: {e}")  # type: ignore
 
     def on_transcription_progress(self):
         """
@@ -344,14 +356,14 @@ class App(ctk.CTk):
 
     def copy_transcription_to_clipboard(self):
         """Kopiuje zawartość panelu wyjściowego do schowka systemowego."""
-        text = self.transcription_output_panel.get_text()
+        text = self.transcription_output_panel.get_text()  # type: ignore
         # Sprawdzamy, czy jest co kopiować (ignorujemy białe znaki).
         if not text.strip():
-            messagebox.showinfo("Informacja", "Brak tekstu do skopiowania.")
+            messagebox.showinfo("Informacja", "Brak tekstu do skopiowania.")  # type: ignore
             return
         self.clipboard_clear()  # Czyścimy schowek.
         self.clipboard_append(text)  # Dodajemy tekst do schowka.
-        messagebox.showinfo("Skopiowano", "Transkrypcja została skopiowana do schowka.")
+        messagebox.showinfo("Skopiowano", "Transkrypcja została skopiowana do schowka.")  # type: ignore
 
     def _check_playback_status(self):
         """Cyklicznie sprawdza, czy odtwarzanie audio się zakończyło, aby zaktualizować UI."""
@@ -361,7 +373,7 @@ class App(ctk.CTk):
             # `hasattr` sprawdza, czy widżet został już utworzony.
             if hasattr(self, "file_selection_panel"):
                 # Aktualizujemy wygląd przycisków play/stop w panelu.
-                self.file_selection_panel.update_play_buttons()
+                self.file_selection_panel.update_play_buttons()  # type: ignore
         # `self.after(ms, func)` to metoda Tkinter, która planuje wykonanie funkcji `func` po `ms` milisekundach.
         # Wywołując samą siebie, tworzymy pętlę, która działa w tle bez blokowania GUI.
         self.after(100, self._check_playback_status)
@@ -370,43 +382,43 @@ class App(ctk.CTk):
         """Zwijanie/rozwijanie panelu terminala."""
         if self.terminal_expanded:
             # Zwijamy terminal
-            self.terminal_frame.grid_remove()
-            self.terminal_toggle_button.configure(text="▼ Terminal")
+            self.terminal_frame.grid_remove()  # type: ignore
+            self.terminal_toggle_button.configure(text="▼ Terminal")  # type: ignore
             self.terminal_expanded = False
             # Dostosuj rozmiar okna po zwinięciu
             current_width = self.winfo_width()
             self.geometry(f"{current_width}x600")
         else:
             # Rozwijamy terminal
-            self.terminal_frame.grid()
-            self.terminal_toggle_button.configure(text="▲ Terminal")
+            self.terminal_frame.grid()  # type: ignore
+            self.terminal_toggle_button.configure(text="▲ Terminal")  # type: ignore
             self.terminal_expanded = True
             # Dostosuj rozmiar okna po rozwinięciu
             current_width = self.winfo_width()
             self.geometry(f"{current_width}x850")
 
-    def append_to_terminal(self, text):
+    def append_to_terminal(self, text: str):
         """Dodaje tekst do terminala GUI z respektowaniem nowych linii."""
         if hasattr(self, "terminal_text"):
-            self.terminal_text.configure(state="normal")
+            self.terminal_text.configure(state="normal")  # type: ignore
 
             # Podziel tekst na linie i dodaj każdą linię osobno
             lines = text.split("\n")
             for i, line in enumerate(lines):
                 if i > 0:  # Dodaj nową linię przed każdą linią oprócz pierwszej
-                    self.terminal_text.insert("end", "\n")
-                self.terminal_text.insert("end", line)
+                    self.terminal_text.insert("end", "\n")  # type: ignore
+                self.terminal_text.insert("end", line)  # type: ignore
 
-            self.terminal_text.configure(state="disabled")
+            self.terminal_text.configure(state="disabled")  # type: ignore
             # Przewiń na dół
-            self.terminal_text.see("end")
+            self.terminal_text.see("end")  # type: ignore
 
     def clear_terminal(self):
         """Czyści zawartość terminala GUI."""
         if hasattr(self, "terminal_text"):
-            self.terminal_text.configure(state="normal")
-            self.terminal_text.delete("1.0", "end")
-            self.terminal_text.configure(state="disabled")
+            self.terminal_text.configure(state="normal")  # type: ignore
+            self.terminal_text.delete("1.0", "end")  # type: ignore
+            self.terminal_text.configure(state="disabled")  # type: ignore
 
     def on_closing(self):
         """Obsługuje zdarzenie zamknięcia okna."""
@@ -419,7 +431,7 @@ class App(ctk.CTk):
         # Sprawdzamy, czy wątek przetwarzający wciąż działa.
         if self.processing_thread and self.processing_thread.is_alive():
             # Jeśli tak, pytamy użytkownika, czy na pewno chce zamknąć aplikację.
-            if messagebox.askokcancel(
+            if messagebox.askokcancel(  # type: ignore
                 "Przetwarzanie w toku", "Proces jest aktywny. Czy na pewno chcesz wyjść?"
             ):
                 self.destroy()  # `destroy()` zamyka okno.
@@ -433,4 +445,4 @@ def main():
     # Komentarz: Inicjalizacja bazy danych została przeniesiona do głównego pliku main.py,
     # aby uniknąć podwójnego wywołania przy starcie w trybie GUI. To dobra praktyka.
     app = App()
-    app.mainloop()  # `mainloop()` uruchamia główną pętlę zdarzeń Tkinter, która czeka na akcje użytkownika.
+    app.mainloop()  # type: ignore  # `mainloop()` uruchamia główną pętlę zdarzeń Tkinter, która czeka na akcje użytkownika.
