@@ -1,14 +1,12 @@
 # CLI main module - command line interface logic
 
-import argparse  # Standardowa biblioteka Pythona do parsowania argumentów wiersza poleceń.
-import os  # Moduł do interakcji z systemem operacyjnym, np. sprawdzania ścieżek.
-import sys  # Moduł dający dostęp do funkcji systemowych, np. `sys.exit` do zamykania programu.
+import argparse
+import os
+import sys
 
-from src.metadata import process_and_update_all_metadata  # Moduł do obsługi metadanych.
-from src.services.transcription_service import (
-    TranscriptionService,
-)  # Główna klasa zarządzająca procesem transkrypcji.
-from src.utils.audio import encode_audio_files  # Funkcje do obsługi plików audio.
+from src.metadata.processor import process_and_update_all_metadata
+from src.services.transcription_service import TranscriptionService
+from src.utils.audio import encode_audio_files, get_audio_file_list_cli
 
 
 def main_cli(args: argparse.Namespace):
@@ -40,10 +38,8 @@ def main_cli(args: argparse.Namespace):
 
     print(f"Używam folderu źródłowego: {input_dir}")
 
-    # Używamy dedykowanej funkcji do wyszukania plików audio w podanym folderze i dodania ich do bazy.
-    # Importujemy ją tutaj, wewnątrz funkcji, ponieważ jest używana tylko w trybie CLI.
-    from src.utils.audio import get_audio_file_list_cli
-
+    # Używamy dedykowanej funkcji do wyszukania plików audio w podanym folderze i dodania ich
+    # do bazy.
     get_audio_file_list_cli(input_dir)
 
     # === KROK 1.5: Przetwarzanie metadanych i walidacja ===
@@ -62,7 +58,8 @@ def main_cli(args: argparse.Namespace):
         print("Wszystkie pliki gotowe do dalszego przetwarzania.")
 
     # === KROK 2: Konwersja plików audio ===
-    # Wywołujemy funkcję, która pobiera pliki z bazy i konwertuje je do formatu audio gotowego do transkrypcji.
+    # Wywołujemy funkcję, która pobiera pliki z bazy i konwertuje je do formatu
+    # audio gotowego do transkrypcji.
     encode_audio_files()
 
     # === KROK 3: Transkrypcja plików ===

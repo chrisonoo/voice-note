@@ -6,7 +6,7 @@ import threading  # Moduł do pracy z wątkami, niezbędny do uruchamiania opera
 from tkinter import filedialog, messagebox  # Moduły Tkinter do okien dialogowych.
 
 from src import config, database  # Nasze własne moduły.
-from src.metadata import process_and_update_all_metadata
+from src.metadata.processor import process_and_update_all_metadata
 from src.utils.audio import encode_audio_files  # Funkcja do konwersji plików.
 
 

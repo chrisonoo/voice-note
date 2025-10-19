@@ -4,13 +4,11 @@
 
 import os  # Moduł do interakcji z systemem operacyjnym, niezbędny do przeszukiwania folderów.
 
-from src import (  # Importujemy własne moduły: konfigurację i operacje na bazie danych.
-    config,
-    database,
-)
+from src import config  # Importujemy konfigurację.
+from src.database import add_file  # Importujemy funkcję do dodawania plików do bazy.
 
 
-def get_audio_file_list_cli(input_directory):
+def get_audio_file_list_cli(input_directory: str) -> None:
     """
     Rekursywnie przeszukuje podany katalog wejściowy (`input_directory`),
     znajduje wszystkie pliki pasujące do zdefiniowanych rozszerzeń audio
@@ -34,8 +32,7 @@ def get_audio_file_list_cli(input_directory):
             extension = os.path.splitext(file)[1].lower()
 
             # Sprawdzamy, czy znalezione rozszerzenie znajduje się na naszej liście dozwolonych rozszerzeń w `config`.
-            # Warunek `config.ALL_SUPPORTED_EXTENSIONS is None` jest zabezpieczeniem, gdyby lista była pusta (choć w tym projekcie nie jest).
-            if config.ALL_SUPPORTED_EXTENSIONS is None or extension in config.ALL_SUPPORTED_EXTENSIONS:
+            if extension in config.ALL_SUPPORTED_EXTENSIONS:
                 # Jeśli plik ma pasujące rozszerzenie:
                 # 1. `os.path.join(root, file)` tworzy pełną ścieżkę do pliku.
                 # 2. `os.path.abspath` konwertuje ją na ścieżkę absolutną (np. "C:\Users\...\plik.mp3").
@@ -43,7 +40,7 @@ def get_audio_file_list_cli(input_directory):
                 full_path = os.path.abspath(os.path.join(root, file))
                 # Dodajemy znalezioną ścieżkę do bazy danych. Funkcja `add_file` zajmie się resztą
                 # (sprawdzeniem, czy plik już istnieje, obliczeniem czasu trwania itp.).
-                database.add_file(full_path)
+                add_file(full_path)
                 # Zwiększamy licznik znalezionych plików.
                 found_files_count += 1
 

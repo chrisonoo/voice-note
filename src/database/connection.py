@@ -4,6 +4,8 @@ import functools  # Używane do tworzenia dekoratorów, które "owijają" inne f
 import os  # Biblioteka do interakcji z systemem operacyjnym, np. operacje na plikach i folderach.
 import sqlite3  # Standardowa biblioteka Pythona do obsługi baz danych SQLite.
 import time  # Dodane dla optymalizacji wydajności
+from collections.abc import Callable
+from typing import Any, TypeVar, cast
 
 from src import config  # Importujemy nasz plik konfiguracyjny.
 
@@ -11,20 +13,27 @@ from src import config  # Importujemy nasz plik konfiguracyjny.
 _db_connection = None
 _db_connection_lock = time.thread_time_ns()  # Prosty lock dla bezpieczeństwa wątkowego
 
-def _format_row(row):
+# TypeVar for preserving return type through decorator
+F = TypeVar("F", bound=Callable[..., Any])
+R = TypeVar("R")
+
+
+def _format_row(row: sqlite3.Row | None):
     """Formatuje obiekt sqlite3.Row do czytelnego ciągu znaków, np. 'id: 1, name: test'."""
     # Jeśli wiersz jest pusty (None), zwracamy informację.
     if not row:
         return "Brak wyniku"
     # Używamy "generator expression" do stworzenia par klucz:wartość dla każdego pola w wierszu
     # i łączymy je przecinkami w jeden string.
-    return ", ".join(f"{key}: {row[key]}" for key in row.keys())
+    return ", ".join(f"{key}: {row[key]}" for key in row)
 
-def log_db_operation(func):
+
+def log_db_operation(func: Callable[..., R]) -> Callable[..., R]:
     """Dekorator do logowania operacji na bazie danych, jeśli DATABASE_LOGGING ma wartość True."""
+
     # @functools.wraps(func) zachowuje metadane oryginalnej funkcji (np. jej nazwę), co jest dobrą praktyką.
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> R:
         # Sprawdzamy flagę w konfiguracji. Jeśli jest False, po prostu wywołujemy oryginalną funkcję bez logowania.
         if not config.DATABASE_LOGGING:
             return func(*args, **kwargs)
@@ -37,24 +46,36 @@ def log_db_operation(func):
 
         try:
             # Wywołujemy oryginalną funkcję i przechowujemy jej wynik.
-            result = func(*args, **kwargs)
+            result: R = func(*args, **kwargs)
             # Sprawdzamy typ wyniku, aby go ładnie sformatować w logach.
-            if isinstance(result, list) and all(isinstance(r, sqlite3.Row) for r in result):
-                print(f"--- DB LOG: {func.__name__} zwróciła {len(result)} wierszy:")
-                for row in result:
-                    print(f"  - {_format_row(row)}")
+            if isinstance(result, list):
+                result_list = cast(list[Any], result)
+                if all(isinstance(r, sqlite3.Row) for r in result_list):
+                    result_rows: list[sqlite3.Row] = cast(list[sqlite3.Row], result_list)
+                    print(f"--- DB LOG: {func.__name__} zwróciła {len(result_rows)} wierszy:")
+                    for row in result_rows:
+                        print(f"  - {_format_row(row)}")
+                else:
+                    print(f"--- DB LOG: {func.__name__} zwróciła: {result!r}")
             elif isinstance(result, sqlite3.Row):
-                 print(f"--- DB LOG: {func.__name__} zwróciła: {_format_row(result)}")
+                print(f"--- DB LOG: {func.__name__} zwróciła: {_format_row(result)}")
             else:
                 print(f"--- DB LOG: {func.__name__} zwróciła: {result!r}")
-            return result
+            return cast(R, result)
         except Exception as e:
             # Jeśli funkcja rzuci wyjątek, logujemy go.
             print(f"--- DB LOG: {func.__name__} rzuciła wyjątek: {e!r}")
             raise  # Rzucamy wyjątek dalej, aby nie zmieniać działania programu.
+
     return wrapper
 
-def _execute_query(cursor, query, params=None, fetch=None):
+
+def execute_query(
+    cursor: sqlite3.Cursor,
+    query: str,
+    params: tuple[Any, ...] | None = None,
+    fetch: str | None = None,
+) -> sqlite3.Row | list[sqlite3.Row] | None:
     """
     Pomocnicza funkcja do wykonywania zapytań SQL, która integruje logowanie.
 
@@ -77,10 +98,11 @@ def _execute_query(cursor, query, params=None, fetch=None):
         cursor.execute(query)
 
     # Zwracamy wyniki w zależności od wartości argumentu `fetch`.
-    if fetch == 'one':
+    if fetch == "one":
         return cursor.fetchone()
-    if fetch == 'all':
+    if fetch == "all":
         return cursor.fetchall()
+
 
 @log_db_operation
 def get_db_connection():
@@ -101,9 +123,11 @@ def get_db_connection():
         # Optymalizacje SQLite dla lepszej wydajności
         _db_connection.execute("PRAGMA synchronous = NORMAL")  # Zbalansowana synchronizacja
         _db_connection.execute("PRAGMA cache_size = -1000000")  # 1GB cache (ujemna wartość = KB)
-        _db_connection.execute("PRAGMA temp_store = memory")   # Przechowuj temp tabele w pamięci
-        _db_connection.execute("PRAGMA mmap_size = 268435456") # 256MB memory-mapped I/O
-        _db_connection.execute("PRAGMA journal_mode = WAL")    # Write-Ahead Logging dla lepszej współbieżności
+        _db_connection.execute("PRAGMA temp_store = memory")  # Przechowuj temp tabele w pamięci
+        _db_connection.execute("PRAGMA mmap_size = 268435456")  # 256MB memory-mapped I/O
+        _db_connection.execute(
+            "PRAGMA journal_mode = WAL"
+        )  # Write-Ahead Logging dla lepszej współbieżności
         _db_connection.execute("PRAGMA wal_autocheckpoint = 1000")  # Auto-checkpoint co 1000 stron
 
     return _db_connection

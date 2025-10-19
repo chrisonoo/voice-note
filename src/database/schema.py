@@ -5,7 +5,7 @@ import shutil
 
 from src import config
 
-from .connection import _execute_query, get_db_connection, log_db_operation
+from .connection import execute_query, get_db_connection, log_db_operation
 
 
 @log_db_operation
@@ -18,11 +18,15 @@ def initialize_database():
     with get_db_connection() as conn:
         cursor = conn.cursor()
         # Sprawdzamy w specjalnej tabeli `sqlite_master`, czy nasza tabela `files` już istnieje.
-        table_exists = _execute_query(cursor, "SELECT name FROM sqlite_master WHERE type='table' AND name='files'", fetch='one')
+        table_exists = execute_query(
+            cursor,
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='files'",
+            fetch="one",
+        )
 
         # Jeśli tabela istnieje, sprawdzamy, czy zawiera jakiekolwiek dane.
         if table_exists:
-            has_data = _execute_query(cursor, "SELECT 1 FROM files LIMIT 1", fetch='one')
+            has_data = execute_query(cursor, "SELECT 1 FROM files LIMIT 1", fetch="one")
             if has_data:
                 print("Baza danych już istnieje i zawiera dane. Inicjalizacja pominięta.")
                 return
@@ -30,7 +34,9 @@ def initialize_database():
         # Tworzymy tabelę `files`, jeśli nie istnieje.
         # `IF NOT EXISTS` zapobiega błędowi, gdyby tabela już istniała.
         # Definiujemy kolumny, ich typy oraz ograniczenia (np. NOT NULL, UNIQUE).
-        _execute_query(cursor, """
+        execute_query(
+            cursor,
+            """
         CREATE TABLE IF NOT EXISTS files (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             source_file_path TEXT NOT NULL UNIQUE,
@@ -47,20 +53,32 @@ def initialize_database():
             duration_ms INTEGER,
             previous_ms INTEGER
         );
-        """)
+        """,
+        )
         # Dodajemy indeksy dla lepszej wydajności zapytań
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_selected_loaded ON files(is_selected, is_loaded)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_loaded_processed ON files(is_loaded, is_processed)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_start_datetime ON files(start_datetime)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_source_path ON files(source_file_path)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_files_selected_loaded ON files(is_selected, is_loaded)"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_files_loaded_processed ON files(is_loaded, is_processed)"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_files_start_datetime ON files(start_datetime)"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_files_source_path ON files(source_file_path)"
+        )
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_duration_ms ON files(duration_ms)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_tag ON files(tag)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_parent_path ON files(parent_file_path)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_files_parent_path ON files(parent_file_path)"
+        )
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_chunk_index ON files(chunk_index)")
 
         # `conn.commit()` zapisuje wszystkie zmiany wykonane w transakcji.
         conn.commit()
     print(f"Baza danych została zainicjalizowana w: {config.DATABASE_FILE}")
+
 
 @log_db_operation
 def ensure_files_table_exists():
@@ -72,7 +90,11 @@ def ensure_files_table_exists():
         cursor = conn.cursor()
 
         # Sprawdzamy czy tabela files istnieje
-        table_exists = _execute_query(cursor, "SELECT name FROM sqlite_master WHERE type='table' AND name='files'", fetch='one')
+        table_exists = execute_query(
+            cursor,
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='files'",
+            fetch="one",
+        )
 
         if not table_exists:
             # Tworzymy tabelę files jeśli nie istnieje
@@ -96,17 +118,28 @@ def ensure_files_table_exists():
             """)
 
             # Dodajemy indeksy dla lepszej wydajności zapytań
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_selected_loaded ON files(is_selected, is_loaded)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_loaded_processed ON files(is_loaded, is_processed)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_start_datetime ON files(start_datetime)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_source_path ON files(source_file_path)")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_files_selected_loaded ON files(is_selected, is_loaded)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_files_loaded_processed ON files(is_loaded, is_processed)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_files_start_datetime ON files(start_datetime)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_files_source_path ON files(source_file_path)"
+            )
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_duration_ms ON files(duration_ms)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_tag ON files(tag)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_parent_path ON files(parent_file_path)")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_files_parent_path ON files(parent_file_path)"
+            )
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_chunk_index ON files(chunk_index)")
 
             conn.commit()
             print("Tabela 'files' została utworzona.")
+
 
 @log_db_operation
 def reset_files_table():
@@ -143,13 +176,23 @@ def reset_files_table():
         """)
 
         # Dodajemy indeksy dla lepszej wydajności zapytań
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_selected_loaded ON files(is_selected, is_loaded)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_loaded_processed ON files(is_loaded, is_processed)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_start_datetime ON files(start_datetime)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_source_path ON files(source_file_path)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_files_selected_loaded ON files(is_selected, is_loaded)"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_files_loaded_processed ON files(is_loaded, is_processed)"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_files_start_datetime ON files(start_datetime)"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_files_source_path ON files(source_file_path)"
+        )
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_duration_ms ON files(duration_ms)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_tag ON files(tag)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_parent_path ON files(parent_file_path)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_files_parent_path ON files(parent_file_path)"
+        )
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_chunk_index ON files(chunk_index)")
 
         conn.commit()
@@ -168,6 +211,7 @@ def reset_files_table():
                 print(f"Błąd podczas usuwania pliku {file_path}: {e}")
 
     print("Reset tabeli files zakończony.")
+
 
 @log_db_operation
 def clear_database_and_tmp_folder():
