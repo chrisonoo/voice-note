@@ -3,8 +3,9 @@
 # np. "Wczytane", "Do przetworzenia", "Przetworzone".
 
 import os
+from typing import Any
 
-import customtkinter as ctk
+import customtkinter as ctk  # type: ignore
 
 from src import config
 
@@ -14,7 +15,8 @@ class StatusView(ctk.CTkFrame):
     Komponent GUI, który wyświetla listę nazw plików w określonym stanie
     (np. oczekujących na przetworzenie) wewnątrz pola tekstowego.
     """
-    def __init__(self, parent, text, **kwargs):
+
+    def __init__(self, parent: Any, text: str, **kwargs: Any) -> None:
         """
         Inicjalizuje ramkę statusu.
 
@@ -23,7 +25,7 @@ class StatusView(ctk.CTkFrame):
             text (str): Etykieta do wyświetlenia nad listą (np. "Wczytane").
         """
         # Wywołujemy konstruktor klasy nadrzędnej `ctk.CTkFrame`.
-        super().__init__(parent, **kwargs)
+        super().__init__(parent, **kwargs)  # type: ignore
 
         # Konfigurujemy siatkę (grid) wewnątrz tej ramki.
         # Wiersz 1 (z polem tekstowym) i kolumna 0 będą się rozciągać,
@@ -33,7 +35,7 @@ class StatusView(ctk.CTkFrame):
 
         # Etykieta tytułowa dla panelu.
         self.label = ctk.CTkLabel(self, text=text, anchor="center")
-        self.label.grid(row=0, column=0, sticky="ew", pady=(0, 5))
+        self.label.grid(row=0, column=0, sticky="ew", pady=(0, 5))  # type: ignore
 
         # Pole tekstowe do wyświetlania listy plików.
         # Używamy `CTkTextbox`, ponieważ `CTkLabel` nie obsługuje łatwo
@@ -44,18 +46,18 @@ class StatusView(ctk.CTkFrame):
             state="disabled",  # Domyślnie wyłączone, aby użytkownik nie mógł edytować tekstu.
             width=config.PANEL_STATUS_WIDTH,  # Stała szerokość z konfiguracji.
             padx=8,  # Wewnętrzne marginesy.
-            pady=8
+            pady=8,
         )
-        self.text.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+        self.text.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)  # type: ignore
 
-    def _truncate_filename(self, filename, max_length=None):
+    def _truncate_filename(self, filename: str, max_length: int | None = None) -> str:
         """
         Skraca nazwę pliku do określonej długości i dodaje '...' jeśli jest za długa.
-        
+
         Argumenty:
             filename (str): Oryginalna nazwa pliku
             max_length (int): Maksymalna długość nazwy (domyślnie z config)
-            
+
         Zwraca:
             str: Skrócona nazwa pliku z '...' jeśli potrzeba
         """
@@ -63,22 +65,24 @@ class StatusView(ctk.CTkFrame):
             max_length = config.MAX_FILENAME_LENGTH_STATUS
         if len(filename) <= max_length:
             return filename
-        return filename[:max_length-3] + "..."
+        return filename[: max_length - 3] + "..."
 
-    def update_from_list(self, file_paths):
+    def update_from_list(self, file_paths: list[str]) -> None:
         """Wypełnia pole tekstowe listą nazw plików."""
         # Musimy tymczasowo włączyć pole tekstowe, aby móc je modyfikować.
-        self.text.configure(state="normal")
+        self.text.configure(state="normal")  # type: ignore
         # Usuwamy całą poprzednią zawartość. '1.0' to początek, "end" to koniec.
-        self.text.delete('1.0', "end")
+        self.text.delete("1.0", "end")  # type: ignore
         try:
             # Konwertujemy pełne ścieżki na same nazwy plików za pomocą `os.path.basename`.
             # Sprawdzamy `if path`, aby uniknąć błędów dla pustych wpisów.
-            file_names = [self._truncate_filename(os.path.basename(path)) for path in file_paths if path]
+            file_names = [
+                self._truncate_filename(os.path.basename(path)) for path in file_paths if path
+            ]
             # Łączymy nazwy plików w jeden ciąg znaków, oddzielając je znakiem nowej linii.
             # `insert("end", ...)` wstawia tekst na końcu pola tekstowego.
-            self.text.insert("end", '\n'.join(file_names))
+            self.text.insert("end", "\n".join(file_names))  # type: ignore
         except Exception as e:
             print(f"Błąd podczas aktualizacji widoku statusu: {e}")
         # Po zakończeniu modyfikacji ponownie wyłączamy pole tekstowe.
-        self.text.configure(state="disabled")
+        self.text.configure(state="disabled")  # type: ignore

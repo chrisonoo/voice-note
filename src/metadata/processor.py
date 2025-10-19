@@ -79,7 +79,8 @@ def process_and_update_all_metadata(allow_long: bool = False) -> list[str]:
     if all_metadata_to_update:
         database.update_all_metadata_bulk(all_metadata_to_update)
         print(
-            f"Pomyślnie przetworzono i zaktualizowano metadane dla {len(all_metadata_to_update)} plików."
+            f"Pomyślnie przetworzono i zaktualizowano metadane dla "
+            f"{len(all_metadata_to_update)} plików."
         )
 
     print("--- Zakończono centralne przetwarzanie metadanych ---")
