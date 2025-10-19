@@ -3,6 +3,8 @@
 # interfejsu użytkownika (przycisków, paneli, etykiet). Oddzielenie tej logiki
 # od głównej klasy aplikacji (`App`) sprawia, że kod jest czystszy i łatwiejszy w zarządzaniu.
 
+from __future__ import annotations
+
 import customtkinter as ctk  # type: ignore  # Importujemy bibliotekę do tworzenia widżetów.
 
 from ..utils.audio_player import AudioPlayer
@@ -12,7 +14,6 @@ from ..utils.audio_player import AudioPlayer
 from ..widgets.files_view import FilesView
 from ..widgets.status_view import StatusView
 from ..widgets.transcription_view import TranscriptionView
-from .main_window import App
 
 
 class InterfaceBuilder:

@@ -37,20 +37,20 @@ DATABASE_LOGGING = False
 # --- PARAMETRY TRANSKRYPCJI WHISPER ---
 # Ustawienia przekazywane bezpośrednio do API OpenAI Whisper.
 # `model`: ID modelu do użycia. Obecnie dostępny tylko "whisper-1".
-WHISPER_API_MODEL = "whisper-1"
+WHISPER_API_MODEL: str = "whisper-1"
 # `language`: Język wejściowego audio w formacie ISO-639-1. Poprawia dokładność i szybkość transkrypcji.
-WHISPER_API_LANGUAGE = "pl"
+WHISPER_API_LANGUAGE: str = "pl"
 # `response_format`: Określa format, w jakim chcemy otrzymać odpowiedź. "json" jest łatwy do przetwarzania.
-WHISPER_API_RESPONSE_FORMAT = "json"
+WHISPER_API_RESPONSE_FORMAT: str = "json"
 # `temperature`: Parametr kontrolujący "kreatywność" modelu. Wartość 0 oznacza najbardziej deterministyczne i powtarzalne wyniki.
-WHISPER_API_TEMPERATURE = 0
+WHISPER_API_TEMPERATURE: float = 0
 # `prompt`: Opcjonalny tekst, który można przekazać modelowi, aby poprawić jakość transkrypcji,
 # np. podając specyficzne terminy lub imiona.
-WHISPER_API_PROMPT = ""
+WHISPER_API_PROMPT: str = ""
 # `timestamp_granularities`: Granularności znaczników czasu dla transkrypcji.
 # Wymaga response_format ustawionego na "verbose_json".
 # Możliwe wartości: "word", "segment". Pozostaw pustą listę jeśli nie używasz verbose_json.
-WHISPER_API_TIMESTAMP_GRANULARITIES = []
+WHISPER_API_TIMESTAMP_GRANULARITIES: list[str] = []
 
 
 # --- USTAWIENIA KODOWANIA AUDIO ---
@@ -69,9 +69,7 @@ ALL_SUPPORTED_EXTENSIONS = AUDIO_EXTENSIONS + VIDEO_EXTENSIONS
 # `-c:a aac`: Kodek AAC.
 # `-b:a 24k`: Bitrate 24kbps.
 # Te ustawienia są zoptymalizowane dla API OpenAI Whisper.
-FFMPEG_PARAMS = (
-    "-ac 1 -ar 16000 -af loudnorm=I=-12:TP=-1.0:LRA=7:dual_mono=true -c:a aac -b:a 32k"
-)
+FFMPEG_PARAMS = "-ac 1 -ar 16000 -af loudnorm=I=-12:TP=-1.0:LRA=7:dual_mono=true -c:a aac -b:a 32k"
 
 # --- USTAWIENIA INTERFEJSU GRAFICZNEGO (GUI) ---
 # Maksymalna dopuszczalna długość pliku w sekundach.

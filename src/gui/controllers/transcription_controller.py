@@ -5,10 +5,13 @@
 
 import threading
 from tkinter import messagebox
+from typing import TYPE_CHECKING
 
 from src import database
-from src.gui.core.main_window import App
 from src.services.transcription_service import TranscriptionService
+
+if TYPE_CHECKING:
+    from src.gui.core.main_window import App
 
 
 class TranscriptionController:
@@ -17,7 +20,7 @@ class TranscriptionController:
     i obsługując komunikację (pauza/wznów) z głównym wątkiem GUI.
     """
 
-    def __init__(self, app: App):
+    def __init__(self, app: "App"):
         """
         Inicjalizuje kontroler transkrypcji.
 

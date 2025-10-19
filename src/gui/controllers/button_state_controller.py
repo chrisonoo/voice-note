@@ -5,10 +5,12 @@
 # Dzięki temu użytkownik nie może kliknąć przycisku, który w danym momencie
 # nie powinien być używany.
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from src import database
-from src.gui.core.main_window import App
+
+if TYPE_CHECKING:
+    from src.gui.core.main_window import App
 
 
 class ButtonStateController:
@@ -17,7 +19,7 @@ class ButtonStateController:
     opierając się na danych z bazy danych i stanie wątku roboczego.
     """
 
-    def __init__(self, app: App):
+    def __init__(self, app: "App"):
         """
         Inicjalizuje kontroler.
 

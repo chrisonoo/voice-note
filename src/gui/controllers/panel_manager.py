@@ -5,10 +5,13 @@
 
 import os
 from tkinter import messagebox
+from typing import TYPE_CHECKING
 
-from gui.core.main_window import App
 from src import database
 from src.database.connection import RowType
+
+if TYPE_CHECKING:
+    from src.gui.core.main_window import App
 
 
 class PanelManager:
@@ -17,7 +20,7 @@ class PanelManager:
     pobierając i filtrując dane bezpośrednio z bazy danych.
     """
 
-    def __init__(self, app: App):
+    def __init__(self, app: "App"):
         """
         Inicjalizuje menedżera paneli.
 

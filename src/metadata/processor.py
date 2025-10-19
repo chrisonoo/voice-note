@@ -2,12 +2,13 @@
 
 import os
 from datetime import datetime, timedelta
+from typing import Any, cast
 
 from src import config, database
 from src.utils.audio.duration_checker import get_file_duration
 from src.utils.error_handlers import measure_performance, with_error_handling
 
-from .formatter import _create_file_tag
+from .formatter import create_file_tag
 
 
 @with_error_handling("Przetwarzanie metadanych")
@@ -27,18 +28,18 @@ def process_and_update_all_metadata(allow_long: bool = False) -> list[str]:
         return []
 
     try:
-        files_with_mtime = []
+        files_with_mtime: list[dict[str, Any]] = []
         for file_row in files_to_process:
             mtime = os.path.getmtime(file_row["source_file_path"])
             files_with_mtime.append({**file_row, "mtime": mtime})
 
-        sorted_files = sorted(files_with_mtime, key=lambda x: x["mtime"])
+        sorted_files: list[dict[str, Any]] = sorted(files_with_mtime, key=lambda x: x["mtime"])
     except OSError as e:
         print(f"BŁĄD: Nie można posortować plików, problem z dostępem do pliku: {e}")
         return []
 
-    all_metadata_to_update = []
-    long_files = []
+    all_metadata_to_update: list[dict[str, Any]] = []
+    long_files: list[str] = []
     previous_end_datetime = None
 
     for file_info in sorted_files:
@@ -56,12 +57,12 @@ def process_and_update_all_metadata(allow_long: bool = False) -> list[str]:
 
         is_long = duration_sec > config.MAX_FILE_DURATION_SECONDS
         if is_long:
-            long_files.append(os.path.basename(file_info["source_file_path"]))
+            long_files.append(os.path.basename(cast(str, file_info["source_file_path"])))
 
         is_selected = True if allow_long else not is_long
 
         # Tworzymy tag na podstawie metadanych
-        tag = _create_file_tag(start_dt, end_dt, duration_ms, previous_ms)
+        tag = create_file_tag(start_dt, end_dt, duration_ms, previous_ms)
 
         all_metadata_to_update.append(
             {

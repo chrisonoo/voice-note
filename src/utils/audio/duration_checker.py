@@ -10,7 +10,7 @@ from src import (  # Importujemy własne moduły: konfigurację i operacje na ba
 )
 
 
-def get_file_duration(file_path):
+def get_file_duration(file_path: str) -> float:
     """
     Pobiera czas trwania pliku audio za pomocą narzędzia ffprobe z cachowaniem.
 
@@ -26,7 +26,7 @@ def get_file_duration(file_path):
     # Najpierw sprawdź cache w bazie danych
     cached_result = database.get_cached_duration(file_path)
     if cached_result:
-        return cached_result['duration_ms'] / 1000.0
+        return cached_result["duration_ms"] / 1000.0
 
     # Jeśli nie ma w cache, oblicz duration
     duration_sec = _calculate_file_duration(file_path)
@@ -37,24 +37,29 @@ def get_file_duration(file_path):
 
     return duration_sec
 
-def _calculate_file_duration(file_path):
+
+def _calculate_file_duration(file_path: str) -> float:
     """
     Oblicza czas trwania pliku audio za pomocą ffprobe (bez cachowania).
     """
     command = [
-        'ffprobe',
-        '-v', 'quiet',
-        '-print_format', 'json',
-        '-show_format',
-        '-show_streams',
-        file_path
+        "ffprobe",
+        "-v",
+        "quiet",
+        "-print_format",
+        "json",
+        "-show_format",
+        "-show_streams",
+        file_path,
     ]
     try:
         result = subprocess.run(command, capture_output=True, text=True, check=True, timeout=30)
         data = json.loads(result.stdout)
-        return float(data['format']['duration'])
+        return float(data["format"]["duration"])
     except subprocess.TimeoutExpired:
-        print(f"TIMEOUT: Sprawdzanie długości pliku {os.path.basename(file_path)} przekroczyło limit czasu")
+        print(
+            f"TIMEOUT: Sprawdzanie długości pliku {os.path.basename(file_path)} przekroczyło limit czasu"
+        )
         return 0.0
     except Exception as e:
         print(f"Błąd podczas sprawdzania czasu trwania pliku {os.path.basename(file_path)}: {e}")
