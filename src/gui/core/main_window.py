@@ -37,9 +37,22 @@ class App(ctk.CTk):
     Główna klasa aplikacji, która dziedziczy po `customtkinter.CTk`,
     tworząc główne okno i zarządzając całym cyklem życia aplikacji w trybie GUI.
     """
+
     def __init__(self):
         # `super().__init__()` wywołuje konstruktor klasy nadrzędnej (`ctk.CTk`), co jest niezbędne do inicjalizacji okna.
         super().__init__()
+
+        # Initialize UI component attributes (will be created in interface_builder)
+        self.file_selector_button: ctk.CTkButton = None  # type: ignore
+        self.convert_files_button: ctk.CTkButton = None  # type: ignore
+        self.start_transcription_button: ctk.CTkButton = None  # type: ignore
+        self.transcription_control_button: ctk.CTkButton = None  # type: ignore
+        self.resume_button: ctk.CTkButton = None  # type: ignore
+        self.copy_transcription_button: ctk.CTkButton = None  # type: ignore
+        self.reset_button: ctk.CTkButton = None  # type: ignore
+        self.terminal_toggle_button: ctk.CTkButton = None  # type: ignore
+        self.clear_terminal_button: ctk.CTkButton = None  # type: ignore
+        self.button_frame: ctk.CTkFrame = None  # type: ignore
 
         # Ustawiamy wygląd aplikacji (System - jasny/ciemny jak w systemie, "blue" - kolor akcentu).
         ctk.set_appearance_mode("System")
@@ -110,7 +123,10 @@ class App(ctk.CTk):
     def get_cached_files_data(self):
         """Zwraca dane z cache'a lub odświeża jeśli cache jest przestarzały."""
         current_time = time.time()
-        if self._cached_files_data is None or (current_time - self._cache_timestamp) > self._cache_timeout:
+        if (
+            self._cached_files_data is None
+            or (current_time - self._cache_timestamp) > self._cache_timeout
+        ):
             self._cached_files_data = database.get_all_files()
             self._cache_timestamp = current_time
         return self._cached_files_data
@@ -132,30 +148,32 @@ class App(ctk.CTk):
 
             # Jedna pętla dla wszystkich obliczeń - optymalizacja wydajności
             stats = {
-                'total': len(all_files),
-                'selected': 0,
-                'long': 0,
-                'loaded': 0,
-                'processing': 0,
-                'processed': 0
+                "total": len(all_files),
+                "selected": 0,
+                "long": 0,
+                "loaded": 0,
+                "processing": 0,
+                "processed": 0,
             }
 
             max_duration_ms = config.MAX_FILE_DURATION_SECONDS * 1000
 
             for row in all_files:
-                if row['is_selected']:
-                    stats['selected'] += 1
-                if row['duration_ms'] and row['duration_ms'] > max_duration_ms:
-                    stats['long'] += 1
-                if row['is_loaded']:
-                    stats['loaded'] += 1
-                    if not row['is_processed']:
-                        stats['processing'] += 1
-                if row['is_processed']:
-                    stats['processed'] += 1
+                if row["is_selected"]:
+                    stats["selected"] += 1
+                if row["duration_ms"] and row["duration_ms"] > max_duration_ms:
+                    stats["long"] += 1
+                if row["is_loaded"]:
+                    stats["loaded"] += 1
+                    if not row["is_processed"]:
+                        stats["processing"] += 1
+                if row["is_processed"]:
+                    stats["processed"] += 1
 
             # Aktualizuj etykiety
-            self.files_counter_label.configure(text=f"Razem: {stats['total']} | Zaznaczone: {stats['selected']} | Długie: {stats['long']}")
+            self.files_counter_label.configure(
+                text=f"Razem: {stats['total']} | Zaznaczone: {stats['selected']} | Długie: {stats['long']}"
+            )
             self.loaded_counter_label.configure(text=f"Wczytane: {stats['loaded']}")
             self.processing_counter_label.configure(text=f"Kolejka: {stats['processing']}")
             self.processed_counter_label.configure(text=f"Gotowe: {stats['processed']}")
@@ -193,7 +211,9 @@ class App(ctk.CTk):
 
         # Sprawdzamy, czy wszystkie zaznaczone pliki zostały przetworzone.
         all_files = database.get_all_files()
-        is_fully_processed = all_files and all(f['is_processed'] for f in all_files if f['is_selected'])
+        is_fully_processed = all_files and all(
+            f["is_processed"] for f in all_files if f["is_selected"]
+        )
 
         if is_fully_processed:
             # Wyświetlamy transkrypcje z uwzględnieniem ustawień checkboxa
@@ -210,8 +230,9 @@ class App(ctk.CTk):
 
             # Filtrujemy tylko przetworzone pliki z zaznaczonymi plikami, które mają transkrypcję
             processed_files = [
-                f for f in all_files
-                if f['is_processed'] and f['is_selected'] and f['transcription']
+                f
+                for f in all_files
+                if f["is_processed"] and f["is_selected"] and f["transcription"]
             ]
 
             if not processed_files:
@@ -226,7 +247,7 @@ class App(ctk.CTk):
             # Użyj enumerate do dynamicznego generowania numeracji
             for i, f in enumerate(processed_files, 1):
                 parts = []
-                transcription = f['transcription'] or ''
+                transcription = f["transcription"] or ""
 
                 # Dodaj numerację, jeśli zaznaczone
                 if show_numbering:
@@ -234,7 +255,7 @@ class App(ctk.CTk):
 
                 # Dodaj tag, jeśli zaznaczone i istnieje
                 if show_tags:
-                    tag = f['tag'] or ''
+                    tag = f["tag"] or ""
                     if tag:
                         parts.append(tag)
 
@@ -265,7 +286,7 @@ class App(ctk.CTk):
         answer = messagebox.askyesno(
             "Potwierdzenie resetowania",
             "Czy na pewno chcesz zresetować aplikację?\n\n"
-            "Spowoduje to usunięcie wszystkich wczytanych plików i transkrypcji."
+            "Spowoduje to usunięcie wszystkich wczytanych plików i transkrypcji.",
         )
         if answer:
             try:
@@ -326,7 +347,7 @@ class App(ctk.CTk):
         if self.audio_player.is_playing and not self.audio_player.is_busy():
             self.audio_player.stop()  # Aktualizujemy stan naszego odtwarzacza.
             # `hasattr` sprawdza, czy widżet został już utworzony.
-            if hasattr(self, 'file_selection_panel'):
+            if hasattr(self, "file_selection_panel"):
                 # Aktualizujemy wygląd przycisków play/stop w panelu.
                 self.file_selection_panel.update_play_buttons()
         # `self.after(ms, func)` to metoda Tkinter, która planuje wykonanie funkcji `func` po `ms` milisekundach.
@@ -354,11 +375,11 @@ class App(ctk.CTk):
 
     def append_to_terminal(self, text):
         """Dodaje tekst do terminala GUI z respektowaniem nowych linii."""
-        if hasattr(self, 'terminal_text'):
+        if hasattr(self, "terminal_text"):
             self.terminal_text.configure(state="normal")
 
             # Podziel tekst na linie i dodaj każdą linię osobno
-            lines = text.split('\n')
+            lines = text.split("\n")
             for i, line in enumerate(lines):
                 if i > 0:  # Dodaj nową linię przed każdą linią oprócz pierwszej
                     self.terminal_text.insert("end", "\n")
@@ -370,7 +391,7 @@ class App(ctk.CTk):
 
     def clear_terminal(self):
         """Czyści zawartość terminala GUI."""
-        if hasattr(self, 'terminal_text'):
+        if hasattr(self, "terminal_text"):
             self.terminal_text.configure(state="normal")
             self.terminal_text.delete("1.0", "end")
             self.terminal_text.configure(state="disabled")
@@ -380,17 +401,20 @@ class App(ctk.CTk):
         self.audio_player.stop()
 
         # Zatrzymaj przekierowanie terminala
-        if hasattr(self, 'terminal_redirector'):
+        if hasattr(self, "terminal_redirector"):
             self.terminal_redirector.stop_redirect()
 
         # Sprawdzamy, czy wątek przetwarzający wciąż działa.
         if self.processing_thread and self.processing_thread.is_alive():
             # Jeśli tak, pytamy użytkownika, czy na pewno chce zamknąć aplikację.
-            if messagebox.askokcancel("Przetwarzanie w toku", "Proces jest aktywny. Czy na pewno chcesz wyjść?"):
+            if messagebox.askokcancel(
+                "Przetwarzanie w toku", "Proces jest aktywny. Czy na pewno chcesz wyjść?"
+            ):
                 self.destroy()  # `destroy()` zamyka okno.
         else:
             # Jeśli nic nie jest przetwarzane, zamykamy od razu.
             self.destroy()
+
 
 def main():
     """Główna funkcja uruchamiająca aplikację w trybie GUI."""
