@@ -89,6 +89,11 @@ SILENCE_DETECTION_THRESHOLD = 5.0  # sekundy
 # Jeśli plik po usunięciu ciszy jest dłuższy, zostanie podzielony na mniejsze fragmenty
 MAX_CHUNK_DURATION_MINUTES = 30  # minuty
 
+# Nakładanie się (overlap) między fragmentami w sekundach
+# Zapobiega ucinaniu słów w środku podczas dzielenia długich plików
+# Każdy kolejny fragment zaczyna się X sekund przed końcem poprzedniego fragmentu
+CHUNK_OVERLAP_SECONDS = 10  # sekundy
+
 # --- USTAWIENIA INTERFEJSU GRAFICZNEGO (GUI) ---
 # Maksymalna dopuszczalna długość pliku w sekundach.
 # Pliki dłuższe niż ta wartość zostaną specjalnie oznaczone w interfejsie.

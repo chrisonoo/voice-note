@@ -411,7 +411,11 @@ def _split_long_audio_into_chunks(
     audio_path: str, original_path: str
 ) -> list[tuple[str, str]] | None:
     """
-    Dzieli długi plik audio na mniejsze fragmenty o określonej maksymalnej długości.
+    Dzieli długi plik audio na mniejsze fragmenty o określonej maksymalnej długości
+    z nakładaniem się (overlap) między fragmentami.
+
+    Overlap zapobiega ucinaniu słów w środku - każdy kolejny fragment zaczyna się
+    kilka sekund przed końcem poprzedniego fragmentu.
 
     Argumenty:
         audio_path (str): Ścieżka do pliku audio do podzielenia (po usunięciu ciszy)
@@ -429,6 +433,7 @@ def _split_long_audio_into_chunks(
             return None
 
         max_chunk_duration_sec = config.MAX_CHUNK_DURATION_MINUTES * 60
+        overlap_sec = config.CHUNK_OVERLAP_SECONDS
 
         # Jeśli plik jest krótszy niż maksymalna długość fragmentu, nie dziel
         if duration_sec <= max_chunk_duration_sec:
@@ -436,40 +441,44 @@ def _split_long_audio_into_chunks(
 
         filename = os.path.basename(audio_path)
         formatted_duration = _format_duration_ffmpeg(duration_sec)
+        overlap_formatted = _format_duration_ffmpeg(overlap_sec)
         print(
-            f"[{filename}] [{formatted_duration}] Plik dłuższy niż {config.MAX_CHUNK_DURATION_MINUTES} minut - rozpoczynam dzielenie..."
+            f"[{filename}] [{formatted_duration}] Plik dłuższy niż "
+            f"{config.MAX_CHUNK_DURATION_MINUTES} minut - rozpoczynam dzielenie z "
+            f"overlapem {overlap_formatted}..."
         )
 
-        # Oblicz liczbę fragmentów
-        num_chunks = int(duration_sec / max_chunk_duration_sec) + 1
-        print(
-            f"    Dzielę na {num_chunks} fragmentów po ~{config.MAX_CHUNK_DURATION_MINUTES} minut każdy"
-        )
-
-        # Twórz fragmenty
+        # Twórz fragmenty z overlapem
         chunks = []
-        base_name = os.path.basename(audio_path)
-        name_without_ext = os.path.splitext(base_name)[0]
+        current_start = 0
+        chunk_index = 0
 
-        for i in range(num_chunks):
-            start_time = i * max_chunk_duration_sec
-            end_time = min((i + 1) * max_chunk_duration_sec, duration_sec)
+        while current_start < duration_sec:
+            start_time = current_start
+            end_time = min(start_time + max_chunk_duration_sec, duration_sec)
             chunk_duration = end_time - start_time
 
-            if chunk_duration < 1.0:  # Pomijamy bardzo krótkie końcowe fragmenty
-                continue
+            # Pomijamy bardzo krótkie końcowe fragmenty (krócej niż 1 sekunda)
+            if chunk_duration < 1.0:
+                break
 
-            chunk_suffix = f"part{i + 1:03d}"
+            chunk_index += 1
+            chunk_suffix = f"part{chunk_index:03d}"
             chunk_path = _create_trimmed_file(audio_path, start_time, end_time, chunk_suffix)
 
             if chunk_path:
                 chunks.append((original_path, chunk_path))
                 chunk_formatted_duration = _format_duration_ffmpeg(chunk_duration)
+                start_formatted = _format_duration_ffmpeg(start_time)
+                end_formatted = _format_duration_ffmpeg(end_time)
                 print(
-                    f"    ✓ Utworzono fragment {i + 1}/{num_chunks}: {os.path.basename(chunk_path)} [{chunk_formatted_duration}]"
+                    f"    ✓ Utworzono fragment {chunk_index}: "
+                    f"{os.path.basename(chunk_path)} "
+                    f"[{start_formatted} - {end_formatted}] "
+                    f"(długość: {chunk_formatted_duration})"
                 )
             else:
-                print(f"    ✗ Nie udało się utworzyć fragmentu {i + 1}/{num_chunks}")
+                print(f"    ✗ Nie udało się utworzyć fragmentu {chunk_index}")
                 # W przypadku błędu, czyścimy już utworzone fragmenty
                 for _, chunk in chunks:
                     try:
@@ -478,8 +487,12 @@ def _split_long_audio_into_chunks(
                         pass
                 return None
 
+            # Następny fragment zaczyna się (długość_fragmentu - overlap) dalej
+            # Dzięki temu fragmenty nakładają się na siebie
+            current_start = start_time + max_chunk_duration_sec - overlap_sec
+
         if chunks:
-            print(f"    ✓ Pomyślnie podzielono plik na {len(chunks)} fragmentów")
+            print(f"    ✓ Pomyślnie podzielono plik na {len(chunks)} fragmentów z overlapem")
             # Usuń oryginalny plik po podzieleniu
             try:
                 os.remove(audio_path)
