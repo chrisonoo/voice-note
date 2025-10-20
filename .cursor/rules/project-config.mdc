@@ -1,0 +1,22 @@
+---
+alwaysApply: true
+---
+## Stack technologiczny
+- Python 3.11+ (wersja definiowana w `pyproject.toml`)
+- SQLite dla trwałych danych
+- OpenAI API dla wykorzystywanych modeli AI
+- Terminal: `pwsh.exe`
+- Narzędzia deweloperskie: Ruff (linting), MyPy (type checking), Pytest (testy)
+
+## Kluczowe elementy projektu
+
+- **Modularna architektura**: Główny `main.py` jako punkt wejścia deweloperski, folder `src/` zawierający wszystkie moduły aplikacji, osobne pakiety do wyspecjalizowanych zadań, wrapperów API i warstwy danych. Po instalacji pakietu (`pip install -e .`) aplikacja dostępna jako komenda systemowa.
+- **Asynchroniczne przetwarzanie**: Ciężkie zadania w wątkach asynchronicznych z konfigurowalną liczbą jednoczesnych wątków.
+- **Zarządzanie zależnościami**: Jawne wymagania w `pyproject.toml`, plik `.env.example` dla zmiennych środowiskowych.
+- **Trwały stan**: SQLite zamiast plików tymczasowych - zapewnia integralność danych i możliwość wznowienia pracy.
+- **Konfiguracja**: Klasa konfiguracyjna wstrzykiwana do modułów - unika globali i ułatwia testowanie.
+- **Warstwa danych**: Cienka warstwa repozytorium z metodami biznesowymi (np. `add_file`, `save_result`). Kod biznesowy nie zna SQL, używane konteksty dla połączeń DB.
+- **Unifikowane API**: Jeden asynchroniczny "silnik" dla CLI i GUI. GUI subskrybuje postęp, CLI wyświetla logi - minimalizuje duplikację kodu.
+- **Logowanie i obsługa błędów**: Jednolity system `logging` i model błędów. W interfejsach użytkownika wyjątki tłumaczone na przyjazne komunikaty.
+- **Jakość kodu**: Adnotacje typów, Ruff do lintingu, MyPy do sprawdzania typów. Dla małych projektów to minimalny narzut z szybkim zwrotem.
+- **Testy**: Testy jednostkowe dla funkcji czystych i warstwy danych. API zewnętrzne testowane na próbkach.

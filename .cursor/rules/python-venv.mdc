@@ -5,37 +5,48 @@ alwaysApply: true
 
 Cel
 - Cały projekt musi być uruchamiany, testowany, instalowany i utrzymywany wyłącznie w kontekście lokalnego środowiska `.venv` znajdującego się w katalogu głównym repozytorium.
+- Środowisko `.venv` zawsze będzie obecne w katalogu głównym projektu.
 
 Zakres
 - Zasada dotyczy każdej operacji wykonywanej przez agenta lub użytkownika z poziomu edytora, w tym uruchamiania aplikacji, instalacji i aktualizacji zależności, uruchamiania testów, narzędzi deweloperskich, skryptów, migracji, zadań, notebooków i procesów budowania.
 
 Wykrywanie środowiska
-- Jeśli w katalogu głównym istnieje folder `.venv`, uznaj go za jedyne poprawne środowisko wykonawcze projektu.
-- Jeśli `.venv` nie istnieje, przerwij pracę i najpierw utwórz oraz skonfiguruj środowisko zgodnie z dokumentacją modułu `venv`. Dopiero potem kontynuuj.
+- Agent zawsze sprawdza obecność folderu `.venv` w katalogu głównym projektu.
+- Jeśli folder `.venv` istnieje, agent korzysta wyłącznie z niego.
+- Jeśli folder `.venv` nie istnieje, agent informuje użytkownika o konieczności jego utworzenia.
 
-Aktywacja
-- Przed każdą operacją aktywuj środowisko `.venv` właściwą metodą dla aktualnego systemu operacyjnego.
-- Jeśli operacja wykonywana jest w nowej sesji, w nieinteraktywnym terminalu, w zadaniu edytora lub debugerze, zapewnij aktywację w tej samej sesji, w której będzie wykonana właściwa operacja.
-- Nie wykonuj żadnej operacji poza aktywnym środowiskiem `.venv`.
+Jeśli środowisko nie zostanie wykryte `.venv`. 
+- **Tworzenie środowiska i instalacja zależności TYLKO!!! przez użytkownika**
+- Użytkownik tworzy środowisko poleceniem: `py -3.12 -m venv .venv --upgrade-deps`
+- Wersję Python (3.12) należy odczytać z pliku `pyproject.toml` z pola `requires-python`
+- Agent nigdy nie tworzy środowiska samodzielnie - tylko informuje o tej potrzebie użytkownika.
+- Po utworzeniu środowiska użytkownik instaluje wszystkie zależności komendą: `pip install -e .[dev]`
+- Agent nigdy nie instaluje pakietów samodzielnie - tylko informuje o tej potrzebie użytkownika.
 
-Instalacje i modyfikacje systemu
-- Zakaz jakichkolwiek instalacji globalnych.
-- Nie zmieniaj globalnego interpretera, globalnych pakietów ani konfiguracji poza katalogiem `.venv`.
-- Instalacje i aktualizacje zależności wykonuj wyłącznie wewnątrz aktywnego środowiska projektowego.
+Aktywacja środowiska przez agenta
+- Agent zawsze aktywuje środowisko `.venv` za pomocą `.venv\Scripts\activate`.
+- Jeśli operacja wykonywana jest w nowej sesji, w nieinteraktywnym terminalu, w zadaniu edytora lub debugerze, agent zapewnia aktywację w tej samej sesji.
 
-Weryfikacja poprawności środowiska
-- Przed wykonaniem merytorycznych działań zweryfikuj, że interpreter pochodzi z `.venv` poleceniem:
+Weryfikacja poprawności środowiska przez agenta
+- Przed wykonaniem merytorycznych działań agent sprawdza, że interpreter pochodzi z `.venv` poleceniem:
   - `python -c "import sys; print(sys.executable)"`
-- Jeśli wynik nie wskazuje na ścieżkę wewnątrz `.venv`, aktywuj właściwe środowisko i powtórz weryfikację. Do czasu pozytywnej weryfikacji nie kontynuuj.
+- Jeśli wynik nie wskazuje na ścieżkę wewnątrz `.venv`, agent aktywuje właściwe środowisko i powtarza weryfikację.
+- Do czasu pozytywnej weryfikacji agent nie kontynuuje merytorycznych działań.
 
-Pliki konfiguracyjne i standardy projektu
-- Jeżeli projekt posiada pliki deklarujące zależności, używaj ich wyłącznie w aktywnym `.venv`.
-- Jeśli projekt udostępnia cele w narzędziach automatyzujących, uruchamiaj je wyłącznie w kontekście aktywnego `.venv`.
+Operacje agenta w środowisku
+- Agent nigdy nie wykonuje operacji poza aktywnym środowiskiem `.venv`.
+- Wszystkie komendy terminalowe agenta zawierają aktywację środowiska w tym samym wywołaniu.
+- Agent nigdy nie dzieli aktywacji środowiska na osobne wywołania terminalowe.
 
-Diagnostyka i samonaprawa
-- W razie błędów środowiskowych przerwij bieżącą operację, poinformuj o problemie i zaproponuj odbudowanie `.venv` zgodnie z dokumentacją narzędzi używanych w projekcie.
-- Po naprawie ponownie przeprowadź weryfikację interpretera i dopiero wtedy kontynuuj.
+Zakazy dla agenta
+- Agent nigdy nie instaluje pakietów ani nie aktualizuje zależności.
+- Agent nigdy nie tworzy środowiska wirtualnego samodzielnie.
+- Agent nigdy nie wykonuje instalacji globalnych ani zmian w systemie poza katalogiem `.venv`.
+- Agent nigdy nie zmienia globalnego interpretera ani konfiguracji Python.
 
-Priorytety
-- Priorytet ma zawsze spójność z `.venv` nad szybkością wykonania.
-- Nie podejmuj działań, które omijają aktywację środowiska, nawet jeśli wydają się szybsze.
+Komunikacja z użytkownikiem
+- Jeśli środowisko `.venv` nie istnieje, agent informuje użytkownika o konieczności wykonania następujących kroków:
+  1. Utworzenie środowiska: `py -3.12 -m venv .venv --upgrade-deps`
+  2. Instalacja zależności: `pip install -e .[dev]`
+- Agent zawsze priorytetyzuje spójność z `.venv` nad szybkością wykonania.
+- Agent nigdy nie omija aktywacji środowiska, nawet jeśli wydaje się to szybsze.
