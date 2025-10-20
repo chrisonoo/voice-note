@@ -4,6 +4,7 @@
 # który jest zoptymalizowany dla API Whisper.
 
 import os  # Moduł do interakcji z systemem operacyjnym, np. do operacji na ścieżkach plików.
+import re  # Moduł wyrażeń regularnych
 import subprocess  # Moduł pozwalający na uruchamianie zewnętrznych programów, w tym przypadku FFMPEG.
 import threading  # Dodane dla obsługi postępu w czasie rzeczywistym
 import time  # Dodane dla kontrolowania odstępów czasowych wyświetlania postępu
@@ -21,6 +22,7 @@ from src.utils.error_handlers import (  # Dekoratory
     with_error_handling,
 )
 from src.utils.file_type_helper import (
+    is_aac_audio_file,  # Funkcja do sprawdzania czy plik jest w AAC
     is_video_file,  # Funkcja do wykrywania plików wideo
 )
 
@@ -34,6 +36,273 @@ def _format_duration_ffmpeg(duration_sec):
     seconds = int(duration_sec % 60)
     milliseconds = int((duration_sec % 1) * 1000)
     return f"{hours:02d}:{minutes:02d}:{seconds:02d}.{milliseconds:03d}"
+
+
+def _split_by_long_silence(audio_path, leading_trailing_threshold=1.0, long_silence_threshold=5.0):
+    """
+    Dzieli plik audio na segmenty dźwięku, usuwając długie okresy ciszy.
+
+    Algorytm:
+    1. Usuwa ciszę z początku i końca (jeśli > leading_trailing_threshold)
+    2. Dzieli pozostały plik na segmenty dźwięku, pomijając długie okresy ciszy (> long_silence_threshold)
+    3. Każdy segment dźwięku staje się osobnym plikiem
+
+    Argumenty:
+        audio_path (str): Ścieżka do pliku audio do przetworzenia
+        leading_trailing_threshold (float): Próg ciszy na początku i końcu (sekundy)
+        long_silence_threshold (float): Próg długiej ciszy do pominięcia (sekundy)
+
+    Zwraca:
+        list: Lista ścieżek do plików-segmentów dźwięku, lub [oryginalna_ścieżka] jeśli nie ma zmian
+    """
+    try:
+        # Najpierw sprawdzamy długość oryginalnego pliku
+        from src.utils.audio.duration_checker import get_file_duration
+
+        original_duration = get_file_duration(audio_path)
+        if original_duration <= 0:
+            print("    Błąd: Nie można określić długości pliku oryginalnego")
+            return [audio_path]
+
+        # KROK 1: Analizujemy wszystkie okresy ciszy
+        print("    Analiza wszystkich okresów ciszy...")
+        command = [
+            "ffmpeg",
+            "-i",
+            audio_path,
+            "-af",
+            f"silencedetect=noise=-30dB:d={leading_trailing_threshold}",
+            "-f",
+            "null",
+            "-",
+        ]
+
+        try:
+            result = subprocess.run(command, capture_output=True, text=True, timeout=300)
+        except subprocess.TimeoutExpired:
+            print(
+                f"    TIMEOUT: Analiza ciszy dla pliku {os.path.basename(audio_path)} przekroczyła limit czasu"
+            )
+            return [audio_path]
+
+        silence_periods = []
+        current_silence = None
+        for line in result.stderr.split("\n"):
+            if "silence_start:" in line:
+                match = re.search(r"silence_start:\s*([0-9.]+)", line)
+                if match:
+                    current_silence = {"start": float(match.group(1))}
+
+            elif "silence_end:" in line and current_silence is not None:
+                match = re.search(r"silence_end:\s*([0-9.]+).*silence_duration:\s*([0-9.]+)", line)
+                if match:
+                    current_silence.update(
+                        {"end": float(match.group(1)), "duration": float(match.group(2))}
+                    )
+                    silence_periods.append(current_silence)
+                    current_silence = None
+
+        if not silence_periods:
+            print(f"    Brak okresów ciszy w pliku {os.path.basename(audio_path)}")
+            return [audio_path]
+
+        # KROK 2: Znajdź ciszę na początku i końcu
+        leading_silence = None
+        for silence in silence_periods:
+            if silence["start"] < 1.0 and silence["duration"] >= leading_trailing_threshold:
+                leading_silence = silence
+                break
+
+        trailing_silence = None
+        for silence in reversed(silence_periods):
+            if (
+                abs(silence["end"] - original_duration) < 1.0
+                and silence["duration"] >= leading_trailing_threshold
+            ):
+                trailing_silence = silence
+                break
+
+        # KROK 3: Oblicz efektywny zakres dźwięku (bez ciszy na początku i końcu)
+        effective_start = leading_silence["end"] if leading_silence else 0.0
+        effective_end = trailing_silence["start"] if trailing_silence else original_duration
+
+        if effective_start >= effective_end:
+            print("    Efektywny zakres dźwięku jest nieprawidłowy")
+            return [audio_path]
+
+        effective_duration = effective_end - effective_start
+        if effective_duration < 5.0:
+            print(
+                f"    Efektywny dźwięk jest za krótki ({effective_duration:.1f}s), pozostawiam oryginalny plik"
+            )
+            return [audio_path]
+
+        # KROK 4: Znajdź długie okresy ciszy w efektywnym zakresie
+        long_silences = []
+        for silence in silence_periods:
+            # Sprawdź czy cisza jest w efektywnym zakresie i jest odpowiednio długa
+            if (
+                silence["start"] >= effective_start
+                and silence["end"] <= effective_end
+                and silence["duration"] >= long_silence_threshold
+            ):
+                long_silences.append(silence)
+
+        # KROK 5: Jeśli nie ma długich okresów ciszy, zwróć plik po usunięciu ciszy z początku i końca
+        if not long_silences:
+            print(f"    Brak długich okresów ciszy (> {long_silence_threshold}s) do usunięcia")
+            # Utwórz plik bez ciszy z początku i końca
+            return _create_trimmed_file(audio_path, effective_start, effective_end, "trimmed")
+
+        # KROK 6: Podziel na segmenty dźwięku
+        print(
+            f"    Znaleziono {len(long_silences)} długich okresów ciszy, dzielenie na segmenty dźwięku..."
+        )
+
+        segments = []
+        current_start = effective_start
+
+        # Dodaj segmenty między długimi okresami ciszy
+        for long_silence in long_silences:
+            segment_end = long_silence["start"]
+            segment_duration = segment_end - current_start
+
+            if segment_duration >= 1.0:  # Minimalny segment 1 sekunda
+                segments.append(
+                    {"start": current_start, "end": segment_end, "duration": segment_duration}
+                )
+
+            # Przesuń początek następnego segmentu za długą ciszę
+            current_start = long_silence["end"]
+
+        # Dodaj ostatni segment (od końca ostatniej długiej ciszy do końca efektywnego zakresu)
+        if current_start < effective_end:
+            final_segment_duration = effective_end - current_start
+            if final_segment_duration >= 1.0:
+                segments.append(
+                    {
+                        "start": current_start,
+                        "end": effective_end,
+                        "duration": final_segment_duration,
+                    }
+                )
+
+        if not segments:
+            print("    Brak segmentów dźwięku do utworzenia")
+            return [audio_path]
+
+        # KROK 7: Utwórz pliki dla każdego segmentu
+        print(f"    Tworzenie {len(segments)} segmentów dźwięku...")
+        segment_paths = []
+
+        for i, segment in enumerate(segments):
+            segment_path = _create_trimmed_file(
+                audio_path, segment["start"], segment["end"], f"segment_{i + 1:03d}"
+            )
+            if segment_path:
+                segment_paths.append(segment_path)
+                print(
+                    f"      ✓ Segment {i + 1}: {segment['start']:.1f}s - {segment['end']:.1f}s ({segment['duration']:.1f}s)"
+                )
+            else:
+                print(f"      ✗ Błąd podczas tworzenia segmentu {i + 1}")
+
+        if segment_paths:
+            removed_silence = sum(silence["duration"] for silence in long_silences)
+            print(
+                f"    ✓ Utworzono {len(segment_paths)} segmentów, usunięto {removed_silence:.1f}s długiej ciszy"
+            )
+            return segment_paths
+        else:
+            print("    ✗ Nie udało się utworzyć żadnego segmentu")
+            return [audio_path]
+
+    except Exception as e:
+        print(f"    Błąd podczas dzielenia przez długą ciszę: {e}")
+        return [audio_path]
+
+
+def _create_trimmed_file(audio_path, start_time, end_time, suffix):
+    """
+    Tworzy plik audio z określonego zakresu czasowego.
+
+    Argumenty:
+        audio_path (str): Ścieżka do oryginalnego pliku
+        start_time (float): Czas rozpoczęcia (sekundy)
+        end_time (float): Czas zakończenia (sekundy)
+        suffix (str): Sufiks dla nazwy pliku wyjściowego
+
+    Zwraca:
+        str | None: Ścieżka do utworzonego pliku lub None przy błędzie
+    """
+    try:
+        duration = end_time - start_time
+        if duration < 0.1:  # Minimalna długość 0.1 sekundy
+            return None
+
+        # Tworzymy nazwę nowego pliku
+        base_name = os.path.basename(audio_path)
+        name_without_ext = os.path.splitext(base_name)[0]
+        output_filename = f"{name_without_ext}_{suffix}.m4a"
+        output_path = os.path.join(config.AUDIO_TMP_DIR, output_filename)
+
+        start_formatted = _format_duration_ffmpeg(start_time)
+        duration_formatted = _format_duration_ffmpeg(duration)
+
+        # Sprawdzamy czy plik źródłowy jest już w AAC
+        is_source_aac = is_aac_audio_file(audio_path)
+
+        if is_source_aac:
+            # Dla plików AAC - kopiujemy bez reenkodowania
+            command = [
+                "ffmpeg",
+                "-y",
+                "-i",
+                audio_path,
+                "-ss",
+                start_formatted,
+                "-t",
+                duration_formatted,
+                "-vn",
+                "-acodec",
+                "copy",
+                output_path,
+            ]
+        else:
+            # Dla innych formatów - pełna konwersja do AAC
+            command = [
+                "ffmpeg",
+                "-y",
+                "-i",
+                audio_path,
+                "-ss",
+                start_formatted,
+                "-t",
+                duration_formatted,
+                "-acodec",
+                "aac",
+                "-b:a",
+                "32k",
+                "-ac",
+                "1",
+                "-ar",
+                "16000",
+                "-af",
+                "loudnorm=I=-12:TP=-1.0:LRA=7:dual_mono=true",
+                output_path,
+            ]
+
+        result = subprocess.run(command, capture_output=True, text=True, timeout=600)
+
+        if result.returncode == 0:
+            return output_path
+        else:
+            print(f"    Błąd FFmpeg: {result.stderr}")
+            return None
+
+    except Exception as e:
+        print(f"    Błąd podczas tworzenia pliku {suffix}: {e}")
+        return None
 
 
 def _analyze_silence_points(audio_path):
@@ -353,6 +622,247 @@ def _run_ffmpeg_with_progress(command, filename=None, total_duration=None):
         return False
 
 
+def _handle_aac_file(original_path, duration_sec, standardized_name):
+    """
+    Obsługuje pliki, które są już w formacie AAC.
+    Dla krótkich plików - kopiuje bez zmian.
+    Dla długich plików - dzieli na segmenty bez reenkodowania.
+
+    Argumenty:
+        original_path (str): Ścieżka do oryginalnego pliku AAC
+        duration_sec (float): Długość pliku w sekundach
+        standardized_name (str): Standaryzowana nazwa pliku
+
+    Zwraca:
+        list: Lista tupli (source_path, tmp_path) lub None przy błędzie
+    """
+    try:
+        # Sprawdzamy czy plik jest dłuższy niż limit
+        if duration_sec > config.MAX_FILE_DURATION_SECONDS:
+            print(
+                f"  Długi plik AAC wykryty: {os.path.basename(original_path)} ({duration_sec:.1f}s)"
+            )
+
+            # Dla plików AAC dzielimy bez reenkodowania
+            result = _split_aac_file(original_path, duration_sec, standardized_name)
+            if result and len(result) > 0:
+                return result
+            else:
+                print("    Błąd podczas dzielenia pliku AAC, kopiuję bez zmian")
+                # Fallback: kopiuj bez zmian
+                result = _copy_aac_file(original_path, standardized_name)
+                return [result] if result else None
+        else:
+            # Plik AAC jest odpowiednio krótki - kopiujemy bez zmian
+            print(f"  Krótki plik AAC: {os.path.basename(original_path)} - kopiuję bez zmian")
+            result = _copy_aac_file(original_path, standardized_name)
+            return [result] if result else None
+
+    except Exception as ex:
+        print(f"    BŁĄD podczas obsługi pliku AAC {os.path.basename(original_path)}: {ex}")
+        return None
+
+
+def _copy_aac_file(original_path, standardized_name):
+    """
+    Kopiuje plik AAC bez reenkodowania, zachowując oryginalne parametry.
+
+    Argumenty:
+        original_path (str): Ścieżka do oryginalnego pliku AAC
+        standardized_name (str): Standaryzowana nazwa pliku
+
+    Zwraca:
+        tuple: (source_path, tmp_path) lub None przy błędzie
+    """
+    try:
+        output_filename = f"{standardized_name}.m4a"
+        tmp_file_path = os.path.join(config.AUDIO_TMP_DIR, output_filename)
+
+        print(
+            f"  Kopiowanie AAC: {os.path.basename(original_path)} -> {os.path.basename(tmp_file_path)}"
+        )
+
+        # Kopiujemy strumień audio bez reenkodowania
+        command = [
+            "ffmpeg",
+            "-y",
+            "-i",
+            original_path,
+            "-vn",  # Ignoruj wideo jeśli istnieje
+            "-acodec",
+            "copy",  # Kopiuj bez reenkodowania
+            tmp_file_path,
+        ]
+
+        result = subprocess.run(command, capture_output=True, text=True, timeout=300)
+
+        if result.returncode == 0:
+            return (original_path, tmp_file_path)
+        else:
+            print(f"    Błąd podczas kopiowania AAC: {result.stderr}")
+            return None
+
+    except Exception as ex:
+        print(f"    BŁĄD podczas kopiowania pliku AAC {os.path.basename(original_path)}: {ex}")
+        return None
+
+
+def _split_aac_file(original_path, duration_sec, standardized_name):
+    """
+    Dzieli długi plik AAC na segmenty bez reenkodowania, usuwając długie okresy ciszy.
+
+    Argumenty:
+        original_path (str): Ścieżka do oryginalnego pliku AAC
+        duration_sec (float): Długość pliku w sekundach
+        standardized_name (str): Standaryzowana nazwa pliku
+
+    Zwraca:
+        list: Lista tupli (source_path, segment_path) lub None przy błędzie
+    """
+    try:
+        print("  Strategia AAC: dzielenie bez reenkodowania z usunięciem długiej ciszy")
+
+        # KROK 1: Podziel plik na segmenty dźwięku, usuwając długie okresy ciszy
+        segment_paths = _split_by_long_silence_aac(original_path)
+
+        if segment_paths and len(segment_paths) > 0:
+            if len(segment_paths) > 1:
+                print(f"    ✓ Utworzono {len(segment_paths)} segmentów AAC (długa cisza usunięta)")
+                return [(original_path, segment_path) for segment_path in segment_paths]
+            else:
+                # Tylko jeden segment - sprawdzamy czy trzeba dzielić na chunk'y
+                from src.utils.audio.duration_checker import get_file_duration
+
+                single_segment = segment_paths[0]
+                segment_duration = get_file_duration(single_segment)
+
+                if segment_duration > config.MAX_FILE_DURATION_SECONDS:
+                    # Segment nadal za długi - dzielimy na równe chunk'y
+                    print("    Segment nadal za długi, dzielenie na chunk'y...")
+                    chunk_paths = _split_aac_into_chunks(
+                        single_segment, standardized_name, original_path
+                    )
+                    # Usuń tymczasowy segment
+                    try:
+                        os.remove(single_segment)
+                    except:
+                        pass
+                    return chunk_paths if chunk_paths else None
+                else:
+                    # Segment odpowiedniej długości
+                    return [(original_path, single_segment)]
+        else:
+            print("    Nie udało się utworzyć segmentów, dzielenie na równe chunk'y")
+            return _split_aac_into_chunks(original_path, standardized_name, original_path)
+
+    except Exception as ex:
+        print(f"    BŁĄD podczas dzielenia pliku AAC {os.path.basename(original_path)}: {ex}")
+        return None
+
+
+def _split_by_long_silence_aac(audio_path):
+    """
+    Dzieli plik AAC na segmenty dźwięku, usuwając długie okresy ciszy.
+    Wersja dla plików AAC - bez reenkodowania.
+
+    Argumenty:
+        audio_path (str): Ścieżka do pliku AAC
+
+    Zwraca:
+        list: Lista ścieżek do plików-segmentów lub [oryginalna_ścieżka] jeśli nie ma zmian
+    """
+    # Używamy istniejącej funkcji _split_by_long_silence, ale z parametrami dla AAC
+    # Funkcja ta już sama wykrywa czy plik jest AAC i używa odpowiednich parametrów
+    return _split_by_long_silence(
+        audio_path, leading_trailing_threshold=1.0, long_silence_threshold=5.0
+    )
+
+
+def _split_aac_into_chunks(original_path, standardized_name, source_path):
+    """
+    Dzieli plik AAC na równe chunk'y bez reenkodowania.
+
+    Argumenty:
+        original_path (str): Ścieżka do pliku do podzielenia
+        standardized_name (str): Standaryzowana nazwa pliku
+        source_path (str): Oryginalna ścieżka źródłowa
+
+    Zwraca:
+        list: Lista tupli (source_path, chunk_path) lub None przy błędzie
+    """
+    try:
+        # Analizujemy punkty ciszy
+        silence_periods = _analyze_silence_points(original_path)
+        if silence_periods is None:
+            silence_periods = []
+
+        # Obliczamy punkty podziału
+        from src.utils.audio.duration_checker import get_file_duration
+
+        split_points = _calculate_split_points(get_file_duration(original_path), silence_periods)
+
+        if len(split_points) < 2:
+            print("    Za mało punktów podziału, kopiuję bez zmian")
+            return [_copy_aac_file(original_path, standardized_name)]
+
+        chunk_tuples = []
+
+        # Iterujemy przez pary punktów podziału
+        for i in range(len(split_points) - 1):
+            start_time = split_points[i]
+            end_time = split_points[i + 1]
+            duration = end_time - start_time
+
+            if duration < 1.0:
+                continue
+
+            chunk_number = i + 1
+            output_filename = f"{standardized_name}_{chunk_number:03d}.m4a"
+            output_path = os.path.join(config.AUDIO_TMP_DIR, output_filename)
+
+            start_formatted = _format_duration_ffmpeg(start_time)
+            duration_formatted = _format_duration_ffmpeg(duration)
+
+            # Kopiujemy bez reenkodowania
+            command = [
+                "ffmpeg",
+                "-y",
+                "-i",
+                original_path,
+                "-ss",
+                start_formatted,
+                "-t",
+                duration_formatted,
+                "-vn",
+                "-acodec",
+                "copy",
+                output_path,
+            ]
+
+            print(
+                f"    Tworzenie chunk AAC {chunk_number}: {start_formatted} - {_format_duration_ffmpeg(end_time)} ({duration:.1f}s)"
+            )
+
+            result = subprocess.run(command, capture_output=True, text=True, timeout=300)
+
+            if result.returncode == 0:
+                chunk_tuples.append((source_path, output_path))
+                print(f"      ✓ Chunk AAC {chunk_number} utworzony")
+            else:
+                print(f"      ✗ Błąd podczas tworzenia chunk AAC {chunk_number}: {result.stderr}")
+                if os.path.exists(output_path):
+                    try:
+                        os.remove(output_path)
+                    except:
+                        pass
+
+        return chunk_tuples if chunk_tuples else None
+
+    except Exception as ex:
+        print(f"    BŁĄD podczas dzielenia AAC na chunk'y: {ex}")
+        return None
+
+
 def _convert_single_file(original_path):
     """
     Konwertuje pojedynczy plik i zwraca listę tupli (source, tmp) lub None przy błędzie.
@@ -372,6 +882,18 @@ def _convert_single_file(original_path):
         # Tworzymy standardową, bezpieczną nazwę pliku wyjściowego.
         base_name = os.path.basename(original_path)
         standardized_name, _ = os.path.splitext(base_name.lower().replace(" ", "_"))
+
+        # SPRAWDZENIE KLUCZOWE: Czy plik jest już w AAC?
+        is_aac = is_aac_audio_file(original_path)
+        if is_aac:
+            print(
+                f"  Plik już w AAC wykryty: {os.path.basename(original_path)} - pomijam konwersję"
+            )
+            return _handle_aac_file(original_path, duration_sec, standardized_name)
+        else:
+            print(
+                f"  Plik wymaga konwersji: {os.path.basename(original_path)} - rozpoczynam konwersję do AAC"
+            )
 
         # Sprawdzamy czy plik jest dłuższy niż limit
         if duration_sec > config.MAX_FILE_DURATION_SECONDS:
@@ -463,19 +985,52 @@ def _convert_and_split_file(original_path):
 
         print("    ✓ Cały plik został skonwertowany")
 
-        # KROK 2: Analizuj ciszę w skonwertowanym pliku
-        print("  Krok 2: Analiza ciszy w skonwertowanym pliku...")
+        # KROK 2: Podziel plik na segmenty dźwięku, usuwając długie okresy ciszy
+        print("  Krok 2: Dzielenie na segmenty dźwięku z usunięciem długiej ciszy...")
+        segment_paths = _split_by_long_silence(full_tmp_path)
+
+        # Jeśli utworzono segmenty, użyj pierwszego segmentu do dalszego przetwarzania
+        if segment_paths and len(segment_paths) > 0:
+            first_segment_path = segment_paths[0]
+            if first_segment_path != full_tmp_path:
+                # Usuń oryginalny skonwertowany plik
+                try:
+                    os.remove(full_tmp_path)
+                    print(
+                        f"    ✓ Usunięto oryginalny plik skonwertowany: {os.path.basename(full_tmp_path)}"
+                    )
+                except:
+                    pass
+                full_tmp_path = first_segment_path
+
+            # Jeśli mamy wiele segmentów, zwróć je wszystkie jako finalne pliki
+            if len(segment_paths) > 1:
+                print(
+                    f"    ✓ Utworzono {len(segment_paths)} segmentów dźwięku (długa cisza usunięta)"
+                )
+                # Usuń oryginalny skonwertowany plik jeśli został zastąpiony
+                if full_tmp_path != segment_paths[0]:
+                    try:
+                        os.remove(full_tmp_path)
+                    except:
+                        pass
+                return [(original_path, segment_path) for segment_path in segment_paths]
+        else:
+            print("    ✗ Nie udało się utworzyć segmentów, używam oryginalnego pliku")
+
+        # KROK 3: Jeśli nie mamy wielu segmentów, analizuj ciszę dla dzielenia na chunk'y
+        print("  Krok 3: Analiza ciszy w przetworzonym pliku...")
         silence_periods = _analyze_silence_points(full_tmp_path)
         if silence_periods is None:
             print("    Błąd podczas analizy ciszy, dzielenie na równe części")
             silence_periods = []
 
-        # KROK 3: Oblicz punkty podziału
-        print("  Krok 3: Obliczanie punktów podziału...")
+        # KROK 4: Oblicz punkty podziału
+        print("  Krok 4: Obliczanie punktów podziału...")
         split_points = _calculate_split_points(duration_sec, silence_periods)
 
-        # KROK 4: Podziel skonwertowany plik na chunk'y
-        print("  Krok 4: Dzielenie na chunk'y...")
+        # KROK 5: Podziel skonwertowany plik na chunk'y
+        print("  Krok 5: Dzielenie na chunk'y...")
         chunk_paths = _split_from_converted_file(
             full_tmp_path, split_points, standardized_name, original_path
         )
