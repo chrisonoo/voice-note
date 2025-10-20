@@ -131,15 +131,21 @@ def add_file_chunk(original_path: str, chunk_path: str, chunk_index: int) -> Non
         chunk_index (int): Numer części (1, 2, 3, ...)
     """
     try:
+        # Oblicz duration_ms dla chunk'a
+        from src.utils.audio.duration_checker import get_file_duration
+
+        duration_sec = get_file_duration(chunk_path)
+        duration_ms = int(duration_sec * 1000) if duration_sec > 0 else 0
+
         with get_db_connection() as conn:
             cursor = conn.cursor()
-            # Dodajemy chunk jako nowy wpis w bazie
+            # Dodajemy chunk jako nowy wpis w bazie z obliczoną długością
             execute_query(
                 cursor,
                 """INSERT INTO files
-                   (source_file_path, tmp_file_path, parent_file_path, chunk_index, is_selected, is_loaded)
-                   VALUES (?, ?, ?, ?, 1, 1)""",
-                (chunk_path, chunk_path, original_path, chunk_index),
+                   (source_file_path, tmp_file_path, parent_file_path, chunk_index, duration_ms, is_selected, is_loaded)
+                   VALUES (?, ?, ?, ?, ?, 1, 1)""",
+                (chunk_path, chunk_path, original_path, chunk_index, duration_ms),
             )
             conn.commit()
     except sqlite3.IntegrityError:

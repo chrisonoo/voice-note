@@ -191,21 +191,33 @@ def _split_by_long_silence(audio_path, leading_trailing_threshold=1.0, long_sile
             print("    Brak segmentów dźwięku do utworzenia")
             return [audio_path]
 
-        # KROK 7: Utwórz pliki dla każdego segmentu
+        # KROK 7: Utwórz pliki dla każdego segmentu, sprawdzając długość
         print(f"    Tworzenie {len(segments)} segmentów dźwięku...")
         segment_paths = []
 
         for i, segment in enumerate(segments):
-            segment_path = _create_trimmed_file(
-                audio_path, segment["start"], segment["end"], f"segment_{i + 1:03d}"
-            )
-            if segment_path:
-                segment_paths.append(segment_path)
+            # Sprawdź czy segment przekracza maksymalną długość
+            if segment["duration"] > config.MAX_FILE_DURATION_SECONDS:
                 print(
-                    f"      ✓ Segment {i + 1}: {segment['start']:.1f}s - {segment['end']:.1f}s ({segment['duration']:.1f}s)"
+                    f"      Segment {i + 1} jest za długi ({segment['duration']:.1f}s > {config.MAX_FILE_DURATION_SECONDS}s), dzielenie dalej..."
                 )
+                # Podziel długi segment na mniejsze części
+                sub_segments = _split_long_segment(
+                    audio_path, segment["start"], segment["end"], f"segment_{i + 1:03d}"
+                )
+                segment_paths.extend(sub_segments)
             else:
-                print(f"      ✗ Błąd podczas tworzenia segmentu {i + 1}")
+                # Segment ma odpowiednią długość - utwórz plik
+                segment_path = _create_trimmed_file(
+                    audio_path, segment["start"], segment["end"], f"segment_{i + 1:03d}"
+                )
+                if segment_path:
+                    segment_paths.append(segment_path)
+                    print(
+                        f"      ✓ Segment {i + 1}: {segment['start']:.1f}s - {segment['end']:.1f}s ({segment['duration']:.1f}s)"
+                    )
+                else:
+                    print(f"      ✗ Błąd podczas tworzenia segmentu {i + 1}")
 
         if segment_paths:
             removed_silence = sum(silence["duration"] for silence in long_silences)
@@ -220,6 +232,153 @@ def _split_by_long_silence(audio_path, leading_trailing_threshold=1.0, long_sile
     except Exception as e:
         print(f"    Błąd podczas dzielenia przez długą ciszę: {e}")
         return [audio_path]
+
+
+def _split_long_segment(audio_path, start_time, end_time, prefix):
+    """
+    Dzieli długi segment audio na mniejsze części, które nie przekraczają MAX_FILE_DURATION_SECONDS.
+
+    Argumenty:
+        audio_path (str): Ścieżka do oryginalnego pliku audio
+        start_time (float): Czas rozpoczęcia segmentu (sekundy)
+        end_time (float): Czas zakończenia segmentu (sekundy)
+        prefix (str): Prefix dla nazw plików wyjściowych
+
+    Zwraca:
+        list: Lista ścieżek do utworzonych plików-segmentów
+    """
+    try:
+        segment_duration = end_time - start_time
+        print(
+            f"        Dzielenie segmentu {prefix}: {start_time:.1f}s - {end_time:.1f}s ({segment_duration:.1f}s)"
+        )
+
+        # KROK 1: Spróbuj znaleźć punkty ciszy w tym segmencie z mniejszym progiem
+        command = [
+            "ffmpeg",
+            "-i",
+            audio_path,
+            "-ss",
+            _format_duration_ffmpeg(start_time),
+            "-t",
+            _format_duration_ffmpeg(segment_duration),
+            "-af",
+            "silencedetect=noise=-30dB:d=2.0",  # Mniejszy próg ciszy (2s zamiast 5s)
+            "-f",
+            "null",
+            "-",
+        ]
+
+        try:
+            result = subprocess.run(command, capture_output=True, text=True, timeout=300)
+        except subprocess.TimeoutExpired:
+            print(f"        TIMEOUT: Analiza ciszy dla segmentu {prefix} przekroczyła limit czasu")
+            # Fallback: dziel na równe części
+            return _split_segment_into_equal_chunks(audio_path, start_time, end_time, prefix)
+
+        silence_periods = []
+        current_silence = None
+        for line in result.stderr.split("\n"):
+            if "silence_start:" in line:
+                match = re.search(r"silence_start:\s*([0-9.]+)", line)
+                if match:
+                    current_silence = {"start": float(match.group(1)) + start_time}  # Dodaj offset
+
+            elif "silence_end:" in line and current_silence is not None:
+                match = re.search(r"silence_end:\s*([0-9.]+).*silence_duration:\s*([0-9.]+)", line)
+                if match:
+                    current_silence.update(
+                        {
+                            "end": float(match.group(1)) + start_time,  # Dodaj offset
+                            "duration": float(match.group(2)),
+                        }
+                    )
+                    silence_periods.append(current_silence)
+                    current_silence = None
+
+        # KROK 2: Oblicz punkty podziału na podstawie znalezionych ciszy
+        split_points = _calculate_split_points(
+            segment_duration, silence_periods, config.MAX_FILE_DURATION_SECONDS
+        )
+
+        # Dodaj offset do wszystkich punktów podziału
+        split_points = [point + start_time for point in split_points]
+
+        # KROK 3: Utwórz pliki dla każdego podsegmentu
+        sub_segment_paths = []
+        for i in range(len(split_points) - 1):
+            sub_start = split_points[i]
+            sub_end = split_points[i + 1]
+            sub_duration = sub_end - sub_start
+
+            if sub_duration >= 1.0:  # Minimalny segment 1 sekunda
+                sub_suffix = f"{prefix}_{i + 1:02d}"
+                sub_path = _create_trimmed_file(audio_path, sub_start, sub_end, sub_suffix)
+                if sub_path:
+                    sub_segment_paths.append(sub_path)
+                    print(
+                        f"          ✓ Podsegment {i + 1}: {sub_start:.1f}s - {sub_end:.1f}s ({sub_duration:.1f}s)"
+                    )
+                else:
+                    print(f"          ✗ Błąd podczas tworzenia podsegmentu {i + 1}")
+
+        return (
+            sub_segment_paths
+            if sub_segment_paths
+            else _split_segment_into_equal_chunks(audio_path, start_time, end_time, prefix)
+        )
+
+    except Exception as e:
+        print(f"        Błąd podczas dzielenia długiego segmentu {prefix}: {e}")
+        # Fallback: dziel na równe części
+        return _split_segment_into_equal_chunks(audio_path, start_time, end_time, prefix)
+
+
+def _split_segment_into_equal_chunks(audio_path, start_time, end_time, prefix):
+    """
+    Dzieli segment na równe części co MAX_FILE_DURATION_SECONDS sekund.
+    Fallback gdy nie można znaleźć punktów ciszy.
+
+    Argumenty:
+        audio_path (str): Ścieżka do oryginalnego pliku audio
+        start_time (float): Czas rozpoczęcia segmentu (sekundy)
+        end_time (float): Czas zakończenia segmentu (sekundy)
+        prefix (str): Prefix dla nazw plików wyjściowych
+
+    Zwraca:
+        list: Lista ścieżek do utworzonych plików-segmentów
+    """
+    try:
+        segment_duration = end_time - start_time
+        print(f"        Fallback: dzielenie na równe części co {config.MAX_FILE_DURATION_SECONDS}s")
+
+        chunk_paths = []
+        current_time = start_time
+
+        chunk_index = 1
+        while current_time < end_time:
+            chunk_end = min(current_time + config.MAX_FILE_DURATION_SECONDS, end_time)
+            chunk_duration = chunk_end - current_time
+
+            if chunk_duration >= 1.0:  # Minimalny segment 1 sekunda
+                chunk_suffix = f"{prefix}_chunk_{chunk_index:02d}"
+                chunk_path = _create_trimmed_file(audio_path, current_time, chunk_end, chunk_suffix)
+                if chunk_path:
+                    chunk_paths.append(chunk_path)
+                    print(
+                        f"          ✓ Chunk {chunk_index}: {current_time:.1f}s - {chunk_end:.1f}s ({chunk_duration:.1f}s)"
+                    )
+                else:
+                    print(f"          ✗ Błąd podczas tworzenia chunk {chunk_index}")
+
+            current_time = chunk_end
+            chunk_index += 1
+
+        return chunk_paths
+
+    except Exception as e:
+        print(f"        Błąd podczas fallback dzielenia segmentu {prefix}: {e}")
+        return []
 
 
 def _create_trimmed_file(audio_path, start_time, end_time, suffix):

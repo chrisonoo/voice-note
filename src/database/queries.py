@@ -43,6 +43,7 @@ def set_files_as_loaded(file_paths: list[str], tmp_file_paths: list[str]) -> Non
     """
     Oznacza listę plików jako wczytane (skonwertowane) i zapisuje ścieżki do ich przetworzonych wersji audio.
     Dla plików które mają różne source_path i tmp_file_path traktuje je jako chunk'y.
+    Gdy tworzone są chunk'y, oryginalny plik zostaje automatycznie odznaczony.
     """
     from .operations import add_file_chunk  # Importujemy funkcję do dodawania chunków
 
@@ -69,16 +70,31 @@ def set_files_as_loaded(file_paths: list[str], tmp_file_paths: list[str]) -> Non
                 update_data,
             )
 
-        # Dodajemy chunk'y jako nowe wpisy
-        for source_path, tmp_path in chunk_files:
-            # Wyciągnij numer chunk'a z nazwy pliku (format: nazwa_001.m4a)
-            import re
+        # Dodajemy chunk'y jako nowe wpisy i odznaczamy oryginalny plik
+        if chunk_files:
+            # Zbierz unikalne ścieżki oryginalnych plików, które zostały podzielone na chunk'y
+            original_files_to_unmark = set(source_path for source_path, _ in chunk_files)
 
-            match = re.search(r"_(\d{3})\.m4a$", tmp_path)
-            if match:
-                chunk_index = int(match.group(1))
-                # Dodajemy chunk używając nowej funkcji
-                add_file_chunk(source_path, tmp_path, chunk_index)
+            # Odznacz oryginalne pliki
+            for original_path in original_files_to_unmark:
+                cursor.execute(
+                    "UPDATE files SET is_selected = 0 WHERE source_file_path = ?",
+                    (original_path,),
+                )
+                print(
+                    f"    Oryginalny plik został odznaczony po podzieleniu na chunk'y: {original_path}"
+                )
+
+            # Dodajemy chunk'y jako nowe wpisy
+            for source_path, tmp_path in chunk_files:
+                # Wyciągnij numer chunk'a z nazwy pliku (format: nazwa_001.m4a)
+                import re
+
+                match = re.search(r"_(\d{3})\.m4a$", tmp_path)
+                if match:
+                    chunk_index = int(match.group(1))
+                    # Dodajemy chunk używając nowej funkcji
+                    add_file_chunk(source_path, tmp_path, chunk_index)
 
         conn.commit()
 
@@ -103,7 +119,7 @@ def get_files_needing_metadata() -> list[RowType]:
             list[RowType],
             execute_query(
                 cursor,
-                "SELECT id, source_file_path FROM files WHERE start_datetime IS NULL",
+                "SELECT id, source_file_path, parent_file_path, chunk_index FROM files WHERE start_datetime IS NULL",
                 fetch="all",
             ),
         )
