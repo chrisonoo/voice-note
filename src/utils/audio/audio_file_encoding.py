@@ -407,6 +407,96 @@ def _create_trimmed_file(audio_path, start_time, end_time, suffix):
         return None
 
 
+def _split_long_audio_into_chunks(
+    audio_path: str, original_path: str
+) -> list[tuple[str, str]] | None:
+    """
+    Dzieli długi plik audio na mniejsze fragmenty o określonej maksymalnej długości.
+
+    Argumenty:
+        audio_path (str): Ścieżka do pliku audio do podzielenia (po usunięciu ciszy)
+        original_path (str): Ścieżka do oryginalnego pliku źródłowego
+
+    Zwraca:
+        list[tuple[str, str]] | None: Lista tupli (original_path, chunk_path) lub None przy błędzie
+    """
+    try:
+        from src.utils.audio.duration_checker import get_file_duration
+
+        duration_sec = get_file_duration(audio_path)
+        if duration_sec <= 0:
+            print(f"    Błąd: Nie można określić długości pliku {os.path.basename(audio_path)}")
+            return None
+
+        max_chunk_duration_sec = config.MAX_CHUNK_DURATION_MINUTES * 60
+
+        # Jeśli plik jest krótszy niż maksymalna długość fragmentu, nie dziel
+        if duration_sec <= max_chunk_duration_sec:
+            return [(original_path, audio_path)]
+
+        filename = os.path.basename(audio_path)
+        formatted_duration = _format_duration_ffmpeg(duration_sec)
+        print(
+            f"[{filename}] [{formatted_duration}] Plik dłuższy niż {config.MAX_CHUNK_DURATION_MINUTES} minut - rozpoczynam dzielenie..."
+        )
+
+        # Oblicz liczbę fragmentów
+        num_chunks = int(duration_sec / max_chunk_duration_sec) + 1
+        print(
+            f"    Dzielę na {num_chunks} fragmentów po ~{config.MAX_CHUNK_DURATION_MINUTES} minut każdy"
+        )
+
+        # Twórz fragmenty
+        chunks = []
+        base_name = os.path.basename(audio_path)
+        name_without_ext = os.path.splitext(base_name)[0]
+
+        for i in range(num_chunks):
+            start_time = i * max_chunk_duration_sec
+            end_time = min((i + 1) * max_chunk_duration_sec, duration_sec)
+            chunk_duration = end_time - start_time
+
+            if chunk_duration < 1.0:  # Pomijamy bardzo krótkie końcowe fragmenty
+                continue
+
+            chunk_suffix = f"part{i + 1:03d}"
+            chunk_path = _create_trimmed_file(audio_path, start_time, end_time, chunk_suffix)
+
+            if chunk_path:
+                chunks.append((original_path, chunk_path))
+                chunk_formatted_duration = _format_duration_ffmpeg(chunk_duration)
+                print(
+                    f"    ✓ Utworzono fragment {i + 1}/{num_chunks}: {os.path.basename(chunk_path)} [{chunk_formatted_duration}]"
+                )
+            else:
+                print(f"    ✗ Nie udało się utworzyć fragmentu {i + 1}/{num_chunks}")
+                # W przypadku błędu, czyścimy już utworzone fragmenty
+                for _, chunk in chunks:
+                    try:
+                        os.remove(chunk)
+                    except:
+                        pass
+                return None
+
+        if chunks:
+            print(f"    ✓ Pomyślnie podzielono plik na {len(chunks)} fragmentów")
+            # Usuń oryginalny plik po podzieleniu
+            try:
+                os.remove(audio_path)
+                print(
+                    f"    ✓ Usunięto oryginalny plik po podzieleniu: {os.path.basename(audio_path)}"
+                )
+            except:
+                pass
+            return chunks
+        else:
+            return None
+
+    except Exception as e:
+        print(f"    Błąd podczas dzielenia pliku na fragmenty: {e}")
+        return None
+
+
 # Removed: chunk splitting utilities (_calculate_split_points, _split_audio_file)
 def _run_ffmpeg_with_progress(command, filename=None, total_duration=None):
     """
@@ -548,9 +638,20 @@ def _convert_single_file(original_path):
                     os.remove(tmp_path)
                 except Exception:
                     pass
-                return [(original_path, output_path)]
+                # Sprawdź czy plik po usunięciu ciszy jest dłuższy niż limit i podziel jeśli potrzeba
+                chunks = _split_long_audio_into_chunks(output_path, original_path)
+                if chunks:
+                    return chunks
+                else:
+                    # Jeśli dzielenie się nie powiodło, zwróć cały plik
+                    return [(original_path, output_path)]
             elif output_path == tmp_path:
-                return [(original_path, tmp_path)]
+                # Sprawdź czy plik jest dłuższy niż limit i podziel jeśli potrzeba
+                chunks = _split_long_audio_into_chunks(tmp_path, original_path)
+                if chunks:
+                    return chunks
+                else:
+                    return [(original_path, tmp_path)]
             else:
                 # Jeśli usuwanie ciszy się nie powiodło, zwróć plik po konwersji
                 return [(original_path, tmp_path)]
@@ -633,8 +734,14 @@ def _convert_and_split_file(original_path):
         else:
             print("    ✗ Nie udało się utworzyć pliku bez ciszy, używam oryginalnego pliku")
 
-        # KROK 3: Wynik zawsze jeden plik – zwróć przetworzony plik (bez ciszy jeśli się udało)
-        return [(original_path, full_tmp_path)]
+        # KROK 3: Sprawdź czy plik po usunięciu ciszy jest dłuższy niż limit i podziel jeśli potrzeba
+        print("  Krok 3: Sprawdzanie długości i ewentualne dzielenie...")
+        chunks = _split_long_audio_into_chunks(full_tmp_path, original_path)
+        if chunks:
+            return chunks
+        else:
+            # Jeśli dzielenie się nie powiodło, zwróć cały plik
+            return [(original_path, full_tmp_path)]
 
     except Exception as ex:
         print(
@@ -729,22 +836,26 @@ def encode_audio_files(app: "App | None" = None):
         if result and len(result) > 0:
             # result może być listą tupli (source, tmp) dla chunków lub pojedynczej tupli
             if len(result) > 1:
-                # Wielokrotne wyniki (chunk'y)
+                # Wielokrotne wyniki (fragmenty) - oryginalny plik został podzielony
+                print(f"    Plik został podzielony na {len(result)} fragmentów")
+
+                # Odznacz oryginalny plik (nie będzie widoczny w interfejsie)
+                database.mark_file_as_chunked(original_path)
+                print(f"    ✓ Oryginalny plik odznaczony: {os.path.basename(original_path)}")
+
+                # Dodaj każdy fragment jako osobny plik do bazy
                 for source_path, tmp_path in result:
+                    database.add_chunk_file(tmp_path)
                     successful_conversions.append((source_path, tmp_path))
-                    print(f"    ✓ Przetworzono chunk: {os.path.basename(tmp_path)}")
+                    print(f"    ✓ Dodano fragment do bazy: {os.path.basename(tmp_path)}")
             else:
-                # Pojedynczy wynik
+                # Pojedynczy wynik - plik nie został podzielony
                 source_path, tmp_path = result[0]
                 successful_conversions.append((source_path, tmp_path))
-                print(f"    ✓ Przetworzono i dodano do bazy: {os.path.basename(source_path)}")
+                print(f"    ✓ Przetworzono plik: {os.path.basename(source_path)}")
 
-            # Zbierz wszystkie ścieżki źródłowe i tymczasowe do aktualizacji bazy
-            source_paths = [r[0] for r in result]
-            tmp_paths = [r[1] for r in result]
-
-            # Aktualizuj bazę danych natychmiast po przetworzeniu pliku/chunków
-            database.set_files_as_loaded(source_paths, tmp_paths)
+                # Standardowa aktualizacja bazy dla pojedynczego pliku
+                database.set_files_as_loaded([source_path], [tmp_path])
 
             # Odśwież GUI jeśli mamy referencję do aplikacji
             if app:

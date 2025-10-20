@@ -13,8 +13,10 @@ APP_NAME = "Voice Note"
 # Ta linia dynamicznie określa główny folder projektu.
 # `__file__` to ścieżka do bieżącego pliku (config.py).
 # `os.path.abspath` tworzy z tego pełną, absolutną ścieżkę.
-# `os.path.dirname` usuwa ostatni komponent ścieżki (nazwę pliku), dając nam katalog `src`.
-# Używamy `os.path.dirname` po raz trzeci, aby wyjść z folderu `src` i znaleźć się w głównym katalogu projektu.
+# `os.path.dirname` usuwa ostatni komponent ścieżki (nazwę pliku),
+# dając nam katalog `src`.
+# Używamy `os.path.dirname` po raz trzeci, aby wyjść z folderu `src`
+# i znaleźć się w głównym katalogu projektu.
 APP_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # --- KATALOGI ROBOCZE ---
@@ -38,11 +40,14 @@ DATABASE_LOGGING = False
 # Ustawienia przekazywane bezpośrednio do API OpenAI Whisper.
 # `model`: ID modelu do użycia. Obecnie dostępny tylko "whisper-1".
 WHISPER_API_MODEL: str = "whisper-1"
-# `language`: Język wejściowego audio w formacie ISO-639-1. Poprawia dokładność i szybkość transkrypcji.
+# `language`: Język wejściowego audio w formacie ISO-639-1.
+# Poprawia dokładność i szybkość transkrypcji.
 WHISPER_API_LANGUAGE: str = "pl"
-# `response_format`: Określa format, w jakim chcemy otrzymać odpowiedź. "json" jest łatwy do przetwarzania.
+# `response_format`: Określa format, w jakim chcemy otrzymać odpowiedź.
+# "json" jest łatwy do przetwarzania.
 WHISPER_API_RESPONSE_FORMAT: str = "json"
-# `temperature`: Parametr kontrolujący "kreatywność" modelu. Wartość 0 oznacza najbardziej deterministyczne i powtarzalne wyniki.
+# `temperature`: Parametr kontrolujący "kreatywność" modelu.
+# Wartość 0 oznacza najbardziej deterministyczne i powtarzalne wyniki.
 WHISPER_API_TEMPERATURE: float = 0
 # `prompt`: Opcjonalny tekst, który można przekazać modelowi, aby poprawić jakość transkrypcji,
 # np. podając specyficzne terminy lub imiona.
@@ -79,6 +84,10 @@ SILENCE_DETECTION_NOISE_LEVEL = -30.0  # dB
 
 # Próg dla znaczącej ciszy, którą należy usunąć
 SILENCE_DETECTION_THRESHOLD = 5.0  # sekundy
+
+# Maksymalna długość fragmentu audio w minutach (po usunięciu ciszy)
+# Jeśli plik po usunięciu ciszy jest dłuższy, zostanie podzielony na mniejsze fragmenty
+MAX_CHUNK_DURATION_MINUTES = 30  # minuty
 
 # --- USTAWIENIA INTERFEJSU GRAFICZNEGO (GUI) ---
 # Maksymalna dopuszczalna długość pliku w sekundach.
