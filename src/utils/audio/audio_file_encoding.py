@@ -27,7 +27,7 @@ from src.utils.file_type_helper import (
 )
 
 
-def _format_duration_ffmpeg(duration_sec):
+def _format_duration_ffmpeg(duration_sec: float):
     """
     Formatuje czas trwania w sekundach do formatu FFmpeg (hh:mm:ss.ms).
     """
@@ -38,7 +38,11 @@ def _format_duration_ffmpeg(duration_sec):
     return f"{hours:02d}:{minutes:02d}:{seconds:02d}.{milliseconds:03d}"
 
 
-def _split_by_long_silence(audio_path, leading_trailing_threshold=1.0, long_silence_threshold=5.0):
+def _split_by_long_silence(
+    audio_path: str,
+    leading_trailing_threshold: float = 1.0,
+    long_silence_threshold: float = 5.0,
+) -> list[str]:
     """
     Dzieli plik audio na segmenty dźwięku, usuwając długie okresy ciszy.
 
@@ -238,7 +242,21 @@ def _split_by_long_silence(audio_path, leading_trailing_threshold=1.0, long_sile
             segment_end = long_silence["start"]
             segment_duration = segment_end - current_start
 
-            if segment_duration >= 1.0:  # Minimalny segment 1 sekunda
+            # Sprawdź czy segment zawiera rzeczywisty dźwięk (nie zaczyna się w ciszy)
+            segment_contains_speech = True
+            for silence in silence_periods:
+                # Jeśli początek segmentu pokrywa się z początkiem ciszy, segment zawiera ciszę
+                if (
+                    abs(current_start - silence["start"]) < 0.1
+                    and silence["duration"] >= leading_trailing_threshold
+                ):
+                    segment_contains_speech = False
+                    print(
+                        f"    Pomijanie segmentu {current_start:.1f}s - {segment_end:.1f}s (zawiera ciszę na początku)"
+                    )
+                    break
+
+            if segment_contains_speech and segment_duration >= 1.0:  # Minimalny segment 1 sekunda
                 segments.append(
                     {"start": current_start, "end": segment_end, "duration": segment_duration}
                 )
@@ -249,7 +267,22 @@ def _split_by_long_silence(audio_path, leading_trailing_threshold=1.0, long_sile
         # Dodaj ostatni segment (od końca ostatniej długiej ciszy do końca efektywnego zakresu)
         if current_start < effective_end:
             final_segment_duration = effective_end - current_start
-            if final_segment_duration >= 1.0:
+
+            # Sprawdź czy ostatni segment zawiera rzeczywisty dźwięk (nie zaczyna się w ciszy)
+            final_segment_contains_speech = True
+            for silence in silence_periods:
+                # Jeśli początek ostatniego segmentu pokrywa się z początkiem ciszy, segment zawiera ciszę
+                if (
+                    abs(current_start - silence["start"]) < 0.1
+                    and silence["duration"] >= leading_trailing_threshold
+                ):
+                    final_segment_contains_speech = False
+                    print(
+                        f"    Pomijanie ostatniego segmentu {current_start:.1f}s - {effective_end:.1f}s (zawiera ciszę na początku)"
+                    )
+                    break
+
+            if final_segment_contains_speech and final_segment_duration >= 1.0:
                 segments.append(
                     {
                         "start": current_start,
@@ -669,8 +702,9 @@ def _calculate_split_points_optimized(
     OPTYMALIZOWANA FUNKCJA: Oblicza wszystkie punkty podziału na podstawie pojedynczej analizy ciszy.
 
     NOWA STRATEGIA:
-    1. Wszystkie końce długich okresów ciszy (>5s) są obowiązkowymi punktami podziału
-    2. Dla odcinków między tymi punktami dłuższych niż 10 min, dzielimy na 10 min + reszta
+    1. Pomiń ciszę na początku i końcu pliku (>1s)
+    2. Wszystkie końce długich okresów ciszy (>5s) są obowiązkowymi punktami podziału
+    3. Dla odcinków między tymi punktami dłuższych niż 10 min, dzielimy na 10 min + reszta
 
     Argumenty:
         total_duration (float): Całkowity czas trwania pliku w sekundach
@@ -680,23 +714,67 @@ def _calculate_split_points_optimized(
     Zwraca:
         list: Lista punktów podziału (timestampy w sekundach)
     """
-    # Filtruj tylko znaczące okresy ciszy (> SILENCE_DETECTION_LONG_THRESHOLD)
+    # KROK 1: Znajdź ciszę na początku i końcu (podobnie jak w innych funkcjach)
+    leading_silence = None
+    trailing_silence = None
+
+    # Znajdź ciszę na początku (zaczyna się blisko 0.0 i trwa co najmniej 5 sekund)
+    for silence in silence_periods:
+        if silence["start"] < 1.0 and silence["duration"] >= 5.0:
+            if leading_silence is None or silence["duration"] > leading_silence["duration"]:
+                leading_silence = silence
+
+    # Znajdź ciszę na końcu (kończy się blisko końca pliku i trwa co najmniej 1 sekundę)
+    for silence in silence_periods:
+        if abs(silence["end"] - total_duration) < 1.0 and silence["duration"] >= 1.0:
+            if trailing_silence is None or silence["duration"] > trailing_silence["duration"]:
+                trailing_silence = silence
+
+    # Oblicz efektywny zakres dźwięku (bez ciszy na początku i końcu)
+    effective_start = leading_silence["end"] if leading_silence else 0.0
+    effective_end = trailing_silence["start"] if trailing_silence else total_duration
+
+    if effective_start >= effective_end:
+        print("    Efektywny zakres dźwięku jest nieprawidłowy, używam całego pliku")
+        effective_start = 0.0
+        effective_end = total_duration
+
+    # Wyświetl informację o pominiętej ciszy
+    if leading_silence:
+        print(
+            f"    Pomijanie początkowej ciszy: 0.0s - {effective_start:.1f}s ({leading_silence['duration']:.1f}s)"
+        )
+    if trailing_silence:
+        print(
+            f"    Pomijanie końcowej ciszy: {effective_end:.1f}s - {total_duration:.1f}s ({trailing_silence['duration']:.1f}s)"
+        )
+
+    # Filtruj tylko znaczące okresy ciszy w efektywnym zakresie (> SILENCE_DETECTION_LONG_THRESHOLD)
     significant_silences = [
-        s for s in silence_periods if s["duration"] > config.SILENCE_DETECTION_LONG_THRESHOLD
+        s
+        for s in silence_periods
+        if (
+            s["duration"] > config.SILENCE_DETECTION_LONG_THRESHOLD
+            and s["start"] >= effective_start
+            and s["end"] <= effective_end
+        )
     ]
 
-    # Zbierz wszystkie obowiązkowe punkty podziału: początek pliku, końce długich ciszy, koniec pliku
-    mandatory_split_points = [0.0]  # Zawsze zaczynaj od początku
+    # Zbierz wszystkie obowiązkowe punkty podziału: początki długich ciszy
+    # Segmenty dźwięku będą między tymi punktami
+    mandatory_split_points = [effective_start]  # Zaczynaj od początku efektywnego zakresu
 
     for silence in significant_silences:
-        # Koniec długiej ciszy = obowiązkowy początek nowego chunk'a
-        mandatory_split_points.append(silence["end"])
+        # POCZĄTEK długiej ciszy = koniec segmentu dźwięku
+        # Nie dodawaj punktu, jeśli pokrywa się z początkiem efektywnego zakresu
+        if abs(silence["start"] - effective_start) > 0.1:  # Tolerancja 0.1s
+            mandatory_split_points.append(silence["start"])
 
-    mandatory_split_points.append(total_duration)  # Koniec pliku
+    mandatory_split_points.append(effective_end)  # Koniec efektywnego zakresu
     mandatory_split_points = sorted(list(set(mandatory_split_points)))  # Usuń duplikaty i posortuj
 
     # Teraz dla każdego odcinka między obowiązkowymi punktami, sprawdź czy nie jest za długi
-    final_split_points = [0.0]  # Zawsze zaczynaj od początku
+    final_split_points = [effective_start]  # Zaczynaj od początku efektywnego zakresu
 
     for i in range(len(mandatory_split_points) - 1):
         segment_start = mandatory_split_points[i]
@@ -720,9 +798,9 @@ def _calculate_split_points_optimized(
     # Usuń duplikaty i posortuj
     final_split_points = sorted(list(set(final_split_points)))
 
-    # Upewnij się, że koniec pliku jest uwzględniony
-    if final_split_points[-1] < total_duration - 1:
-        final_split_points.append(total_duration)
+    # Upewnij się, że koniec efektywnego zakresu jest uwzględniony
+    if final_split_points[-1] < effective_end - 1:
+        final_split_points.append(effective_end)
 
     print(f"    ✓ Obliczono {len(final_split_points) - 1} punktów podziału:")
     print(f"      - {len(significant_silences)} obowiązkowych (końce długich ciszy)")
@@ -868,11 +946,46 @@ def _analyze_silence_points(audio_path):
 
         # Szczegółowe logowanie wykrytych fragmentów ciszy
         if silence_periods:
-            print("    Wykryte fragmenty ciszy:")
-            for i, silence in enumerate(silence_periods, 1):
+            # Podzielenie okresów ciszy na krótkie i długie
+            short_silences = [
+                s
+                for s in silence_periods
+                if s["duration"] <= config.SILENCE_DETECTION_LONG_THRESHOLD
+            ]
+            long_silences = [
+                s
+                for s in silence_periods
+                if s["duration"] > config.SILENCE_DETECTION_LONG_THRESHOLD
+            ]
+
+            # Wyświetlenie parametrów wykrywania ciszy
+            print("    Parametry wykrywania ciszy:")
+            print(f"      Poziom ciszy: {config.SILENCE_DETECTION_NOISE_LEVEL}dB")
+            print(f"      Minimalny próg ciszy: {config.SILENCE_DETECTION_SHORT_THRESHOLD}s")
+            print(f"      Próg długiej ciszy: {config.SILENCE_DETECTION_LONG_THRESHOLD}s")
+            print()
+
+            # Wyświetlenie krótkich okresów ciszy
+            if short_silences:
                 print(
-                    f"      {i}. {silence['start']:.1f}s - {silence['end']:.1f}s (długość: {silence['duration']:.1f}s)"
+                    f"    Krótkie okresy ciszy (≤{config.SILENCE_DETECTION_LONG_THRESHOLD}s) - {len(short_silences)} znalezionych:"
                 )
+                for i, silence in enumerate(short_silences, 1):
+                    print(
+                        f"      {i}. {silence['start']:.1f}s - {silence['end']:.1f}s (długość: {silence['duration']:.1f}s)"
+                    )
+                print()
+
+            # Wyświetlenie długich okresów ciszy
+            if long_silences:
+                print(
+                    f"    Długie okresy ciszy (>{config.SILENCE_DETECTION_LONG_THRESHOLD}s) - {len(long_silences)} znalezionych:"
+                )
+                for i, silence in enumerate(long_silences, 1):
+                    print(
+                        f"      {i}. {silence['start']:.1f}s - {silence['end']:.1f}s (długość: {silence['duration']:.1f}s)"
+                    )
+                print()
 
         return silence_periods
 
@@ -886,6 +999,7 @@ def _calculate_split_points(
 ):
     """
     Oblicza optymalne punkty podziału pliku audio na podstawie punktów ciszy.
+    Unika włączania okresów ciszy na początku i końcu segmentów.
 
     Argumenty:
         total_duration (float): Całkowity czas trwania pliku w sekundach
@@ -905,16 +1019,55 @@ def _calculate_split_points(
         split_points.append(total_duration)
         return split_points
 
-    # Przygotuj listę wszystkich timestampów ciszy
-    silence_timestamps = []
-    for silence in silence_periods:
-        # Użyj środka okresu ciszy jako punktu podziału
-        silence_timestamps.append((silence["start"] + silence["end"]) / 2)
+    # Znajdź początek pliku (pomiń WSZYSTKIE okresy ciszy na początku)
+    start_point = 0.0
+    # Znajdź wszystkie okresy ciszy, które zaczynają się od początku pliku (z tolerancją 0.1s)
+    initial_silences = [s for s in silence_periods if s["start"] <= 0.1]
+    if initial_silences:
+        # Znajdź najdłuższy okres ciszy na początku (mogą być połączone)
+        max_end = max(s["end"] for s in initial_silences)
+        start_point = max_end
+        print(f"    Pomijanie początkowej ciszy: 0.0s - {start_point:.1f}s")
+        # Usuń wszystkie początkowe cisze z listy wszystkich ciszy
+        silence_periods = [s for s in silence_periods if s["start"] > start_point - 0.1]
 
-    split_points = [0.0]  # Zawsze zaczynaj od początku
-    current_time = chunk_duration
+    # Znajdź koniec pliku (pomiń WSZYSTKIE okresy ciszy na końcu)
+    end_point = total_duration
+    # Znajdź wszystkie okresy ciszy, które kończą się na końcu pliku (z tolerancją 1s)
+    final_silences = [s for s in silence_periods if s["end"] >= total_duration - 1.0]
+    if final_silences:
+        # Znajdź najwcześniejszy początek końcowej ciszy
+        min_start = min(s["start"] for s in final_silences)
+        end_point = min_start
+        print(f"    Pomijanie końcowej ciszy: {end_point:.1f}s - {total_duration:.1f}s")
+        # Usuń wszystkie końcowe cisze z listy wszystkich ciszy
+        silence_periods = [s for s in silence_periods if s["end"] < end_point + 0.1]
 
-    while current_time < total_duration:
+    # Filtruj długie okresy ciszy (powyżej progu) - tylko one będą używane do podziału
+    long_silences = [
+        s for s in silence_periods if s["duration"] > config.SILENCE_DETECTION_LONG_THRESHOLD
+    ]
+
+    if not long_silences:
+        # Jeśli nie ma długich okresów ciszy po odfiltrowaniu początku i końca,
+        # dziel na równe części w dostępnym zakresie
+        print("    Brak długich okresów ciszy do podziału - dzielenie na równe części")
+        split_points = [start_point]
+        current_time = start_point + chunk_duration
+        while current_time < end_point:
+            split_points.append(current_time)
+            current_time += chunk_duration
+        split_points.append(end_point)
+        return split_points
+
+    # Przygotuj listę timestampów POCZĄTKU długich okresów ciszy (nie środka!)
+    # Segmenty dźwięku będą kończyć się na początku ciszy
+    silence_timestamps = [silence["start"] for silence in long_silences]
+
+    split_points = [start_point]  # Zacznij od początku po pominięciu ewentualnej ciszy
+    current_time = start_point + chunk_duration
+
+    while current_time < end_point:
         # Znajdź najbliższą ciszę w skonfigurowanym zakresie od current_time
         best_silence = None
         min_distance = float("inf")
@@ -937,11 +1090,12 @@ def _calculate_split_points(
             current_time += chunk_duration
 
     # Dodaj koniec pliku jeśli nie jest już dodany
-    if split_points[-1] < total_duration - 1:  # -1 dla tolerancji
-        split_points.append(total_duration)
+    if split_points[-1] < end_point - 1:  # -1 dla tolerancji
+        split_points.append(end_point)
 
     print(
-        f"    Obliczono {len(split_points) - 1} punktów podziału dla pliku trwającego {total_duration:.1f}s"
+        f"    Obliczono {len(split_points) - 1} punktów podziału dla pliku trwającego {total_duration:.1f}s "
+        f"(efektywny zakres: {start_point:.1f}s - {end_point:.1f}s)"
     )
     return split_points
 

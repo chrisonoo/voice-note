@@ -75,7 +75,7 @@ FFMPEG_PARAMS = "-ac 1 -ar 16000 -af loudnorm=I=-12:TP=-1.0:LRA=7:dual_mono=true
 # --- USTAWIENIA WYKRYWANIA CISZY I PODZIAŁU PLIKÓW ---
 # Parametry wykrywania ciszy w audio
 # Poziom ciszy - próg głośności poniżej którego dźwięk jest uznawany za ciszę (w dB)
-SILENCE_DETECTION_NOISE_LEVEL = -20.0  # dB
+SILENCE_DETECTION_NOISE_LEVEL = -30.0  # dB
 
 # Krótka cisza - minimalny próg wykrywania ciszy w FFmpeg (w sekundach)
 SILENCE_DETECTION_SHORT_THRESHOLD = 1.0  # sekundy
@@ -85,7 +85,7 @@ SILENCE_DETECTION_LONG_THRESHOLD = 5.0  # sekundy
 
 # Długość pojedynczego chunk'a audio (w sekundach)
 # Pliki dłuższe niż ta wartość zostaną podzielone na chunk'y tej długości
-CHUNK_DURATION_SECONDS = 600
+CHUNK_DURATION_SECONDS = 540
 
 # Zakres wyszukiwania ciszy wokół docelowych punktów podziału (w sekundach)
 # Określa jak daleko (±) od idealnego punktu podziału szukać ciszy
