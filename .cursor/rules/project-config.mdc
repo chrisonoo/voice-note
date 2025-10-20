@@ -1,6 +1,11 @@
 ---
 alwaysApply: true
 ---
+## Główne wytyczne
+- Wszystkie modyfikacje kodu wykonuj atomowo, oznacza to, że dokonujesz tylko niezbędnych i minimalnych zmian, które zrealizują postawione przed tobą zadania.
+- Nie wolno modyfikować Ci żadnych fragmentów aplikacji poza tymi, które jasno wynikają z polecania, które otrzymałeś.
+- Jeśli masz wątpliwości czy dana zmiana lub modyfikacja powinna być wykonana i jest atomową zmianą to spytaj się o decyzję użytkownika.
+
 ## Stack technologiczny
 - Python 3.11+ (wersja definiowana w `pyproject.toml`)
 - SQLite dla trwałych danych
