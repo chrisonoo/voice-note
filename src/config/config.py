@@ -62,6 +62,7 @@ VIDEO_EXTENSIONS = [".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv", ".webm"]
 
 # Wszystkie obsługiwane rozszerzenia (dla dialogu wyboru plików)
 ALL_SUPPORTED_EXTENSIONS = AUDIO_EXTENSIONS + VIDEO_EXTENSIONS
+
 # Parametry dla narzędzia FFMPEG, używanego do konwersji audio.
 # `-ac 1`: Ustawia jeden kanał audio (mono).
 # `-ar 16000`: Ustawia częstotliwość próbkowania na 16000 Hz.
@@ -70,6 +71,25 @@ ALL_SUPPORTED_EXTENSIONS = AUDIO_EXTENSIONS + VIDEO_EXTENSIONS
 # `-b:a 24k`: Bitrate 24kbps.
 # Te ustawienia są zoptymalizowane dla API OpenAI Whisper.
 FFMPEG_PARAMS = "-ac 1 -ar 16000 -af loudnorm=I=-12:TP=-1.0:LRA=7:dual_mono=true -c:a aac -b:a 64k"
+
+# --- USTAWIENIA WYKRYWANIA CISZY I PODZIAŁU PLIKÓW ---
+# Parametry wykrywania ciszy w audio
+# Poziom ciszy - próg głośności poniżej którego dźwięk jest uznawany za ciszę (w dB)
+SILENCE_DETECTION_NOISE_LEVEL = -20.0  # dB
+
+# Krótka cisza - minimalny próg wykrywania ciszy w FFmpeg (w sekundach)
+SILENCE_DETECTION_SHORT_THRESHOLD = 1.0  # sekundy
+
+# Długa cisza - próg dla znaczącej ciszy, która oznacza granicę między segmentami (w sekundach)
+SILENCE_DETECTION_LONG_THRESHOLD = 5.0  # sekundy
+
+# Długość pojedynczego chunk'a audio (w sekundach)
+# Pliki dłuższe niż ta wartość zostaną podzielone na chunk'y tej długości
+CHUNK_DURATION_SECONDS = 600
+
+# Zakres wyszukiwania ciszy wokół docelowych punktów podziału (w sekundach)
+# Określa jak daleko (±) od idealnego punktu podziału szukać ciszy
+SILENCE_DETECTION_SEARCH_WINDOW = 120  # sekundy
 
 # --- USTAWIENIA INTERFEJSU GRAFICZNEGO (GUI) ---
 # Maksymalna dopuszczalna długość pliku w sekundach.

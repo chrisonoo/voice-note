@@ -76,7 +76,7 @@ def _split_by_long_silence(audio_path, leading_trailing_threshold=1.0, long_sile
             "-i",
             audio_path,
             "-af",
-            f"silencedetect=noise=-30dB:d={leading_trailing_threshold}",
+            f"silencedetect=noise={config.SILENCE_DETECTION_NOISE_LEVEL}dB:d={leading_trailing_threshold}",
             "-f",
             "null",
             "-",
@@ -334,7 +334,7 @@ def _split_long_segment(audio_path, start_time, end_time, prefix):
             "-t",
             _format_duration_ffmpeg(segment_duration),
             "-af",
-            "silencedetect=noise=-30dB:d=2.0",  # Mniejszy próg ciszy (2s zamiast 5s)
+            f"silencedetect=noise={config.SILENCE_DETECTION_NOISE_LEVEL}dB:d={config.SILENCE_DETECTION_SHORT_THRESHOLD}",  # Próg wykrywania ciszy
             "-f",
             "null",
             "-",
@@ -569,7 +569,7 @@ def _analyze_and_split_optimized(audio_path):
         "-i",
         audio_path,
         "-af",
-        "silencedetect=noise=-30dB:d=2.0",
+        f"silencedetect=noise={config.SILENCE_DETECTION_NOISE_LEVEL}dB:d={config.SILENCE_DETECTION_SHORT_THRESHOLD}",
         "-f",
         "null",
         "-",
@@ -663,7 +663,7 @@ def _analyze_and_split_optimized(audio_path):
 
 
 def _calculate_split_points_optimized(
-    total_duration, silence_periods, chunk_duration=config.MAX_FILE_DURATION_SECONDS
+    total_duration, silence_periods, chunk_duration=config.CHUNK_DURATION_SECONDS
 ):
     """
     OPTYMALIZOWANA FUNKCJA: Oblicza wszystkie punkty podziału na podstawie pojedynczej analizy ciszy.
@@ -680,8 +680,10 @@ def _calculate_split_points_optimized(
     Zwraca:
         list: Lista punktów podziału (timestampy w sekundach)
     """
-    # Filtruj tylko znaczące okresy ciszy (> 5 sekund)
-    significant_silences = [s for s in silence_periods if s["duration"] > 5.0]
+    # Filtruj tylko znaczące okresy ciszy (> SILENCE_DETECTION_LONG_THRESHOLD)
+    significant_silences = [
+        s for s in silence_periods if s["duration"] > config.SILENCE_DETECTION_LONG_THRESHOLD
+    ]
 
     # Zbierz wszystkie obowiązkowe punkty podziału: początek pliku, końce długich ciszy, koniec pliku
     mandatory_split_points = [0.0]  # Zawsze zaczynaj od początku
@@ -760,7 +762,7 @@ def _analyze_silence_points(audio_path):
         "-i",
         audio_path,
         "-af",
-        "silencedetect=noise=-30dB:d=2.0",
+        f"silencedetect=noise={config.SILENCE_DETECTION_NOISE_LEVEL}dB:d={config.SILENCE_DETECTION_SHORT_THRESHOLD}",
         "-f",
         "null",
         "-",
@@ -913,12 +915,13 @@ def _calculate_split_points(
     current_time = chunk_duration
 
     while current_time < total_duration:
-        # Znajdź najbliższą ciszę w promieniu ±60 sekund od current_time
+        # Znajdź najbliższą ciszę w skonfigurowanym zakresie od current_time
         best_silence = None
         min_distance = float("inf")
 
         for silence_time in silence_timestamps:
-            if current_time - 60 <= silence_time <= current_time + 60:
+            search_window = config.SILENCE_DETECTION_SEARCH_WINDOW
+            if current_time - search_window <= silence_time <= current_time + search_window:
                 distance = abs(silence_time - current_time)
                 if distance < min_distance:
                     min_distance = distance
@@ -1390,7 +1393,9 @@ def _split_by_long_silence_aac(audio_path):
         print(f"    BŁĄD podczas optymalizacji AAC: {ex}")
         # Fallback do starej metody
         return _split_by_long_silence(
-            audio_path, leading_trailing_threshold=1.0, long_silence_threshold=5.0
+            audio_path,
+            leading_trailing_threshold=1.0,
+            long_silence_threshold=config.SILENCE_DETECTION_LONG_THRESHOLD,
         )
 
 
