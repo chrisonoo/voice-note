@@ -332,8 +332,6 @@ class App(ctk.CTk):
                 self.refresh_all_views()
                 # Czyścimy również główny panel z transkrypcją.
                 self.refresh_transcription_display()
-
-                messagebox.showinfo("Reset zakończony", "Aplikacja została zresetowana.")  # type: ignore
             except Exception as e:
                 messagebox.showerror("Błąd", f"Wystąpił błąd podczas resetowania: {e}")  # type: ignore
 
