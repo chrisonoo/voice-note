@@ -75,7 +75,7 @@ ALL_SUPPORTED_EXTENSIONS = AUDIO_EXTENSIONS + VIDEO_EXTENSIONS
 # `-c:a aac`: Kodek AAC.
 # `-b:a 24k`: Bitrate 24kbps.
 # Te ustawienia są zoptymalizowane dla API OpenAI Whisper.
-FFMPEG_PARAMS = "-ac 1 -ar 16000 -af loudnorm=I=-12:TP=-1.0:LRA=7:dual_mono=true -c:a aac -b:a 24k"
+FFMPEG_PARAMS = "-ac 1 -ar 16000 -af loudnorm=I=-12:TP=-1.0:LRA=7:dual_mono=true -c:a aac -b:a 64k"
 
 # --- USTAWIENIA WYKRYWANIA CISZY I PODZIAŁU PLIKÓW ---
 # Parametry wykrywania ciszy w audio
@@ -87,7 +87,7 @@ SILENCE_DETECTION_THRESHOLD = 5.0  # sekundy
 
 # Maksymalna długość fragmentu audio w minutach (po usunięciu ciszy)
 # Jeśli plik po usunięciu ciszy jest dłuższy, zostanie podzielony na mniejsze fragmenty
-MAX_CHUNK_DURATION_MINUTES = 30  # minuty
+MAX_CHUNK_DURATION_MINUTES = 10  # minuty
 
 # Nakładanie się (overlap) między fragmentami w sekundach
 # Zapobiega ucinaniu słów w środku podczas dzielenia długich plików

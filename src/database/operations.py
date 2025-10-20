@@ -166,10 +166,15 @@ def mark_file_as_chunked(file_path: str) -> None:
 
 
 @log_db_operation
-def add_chunk_file(chunk_path: str) -> None:
+def add_chunk_file(chunk_path: str, duration_ms: int, tag: str) -> None:
     """
     Dodaje fragment pliku jako nowy plik do bazy danych.
     Fragment jest dodawany z source_file_path = tmp_file_path = chunk_path.
+
+    Argumenty:
+        chunk_path: Ścieżka do pliku fragmentu
+        duration_ms: Długość fragmentu w milisekundach
+        tag: Tag identyfikujący fragment (np. nazwa oryginalnego pliku)
     """
     try:
         with get_db_connection() as conn:
@@ -177,8 +182,8 @@ def add_chunk_file(chunk_path: str) -> None:
             # Dodajemy fragment jako nowy plik, gdzie source i tmp to ta sama ścieżka
             execute_query(
                 cursor,
-                "INSERT INTO files (source_file_path, tmp_file_path, is_selected, is_loaded) VALUES (?, ?, 1, 1)",
-                (chunk_path, chunk_path),
+                "INSERT INTO files (source_file_path, tmp_file_path, is_selected, is_loaded, duration_ms, tag) VALUES (?, ?, 1, 1, ?, ?)",
+                (chunk_path, chunk_path, duration_ms, tag),
             )
             conn.commit()
     except Exception as e:

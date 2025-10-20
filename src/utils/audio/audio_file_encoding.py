@@ -857,10 +857,25 @@ def encode_audio_files(app: "App | None" = None):
                 print(f"    ✓ Oryginalny plik odznaczony: {os.path.basename(original_path)}")
 
                 # Dodaj każdy fragment jako osobny plik do bazy
+                from src.utils.audio.duration_checker import get_file_duration
+
                 for source_path, tmp_path in result:
-                    database.add_chunk_file(tmp_path)
+                    # Utwórz tag na podstawie nazwy fragmentu
+                    chunk_filename = os.path.basename(tmp_path)
+                    tag = os.path.splitext(chunk_filename)[0]
+                    
+                    # Odczytaj długość fragmentu
+                    chunk_duration_sec = get_file_duration(tmp_path)
+                    chunk_duration_ms = (
+                        int(chunk_duration_sec * 1000) if chunk_duration_sec > 0 else 0
+                    )
+
+                    # Dodaj fragment z długością i tagiem
+                    database.add_chunk_file(tmp_path, chunk_duration_ms, tag)
                     successful_conversions.append((source_path, tmp_path))
-                    print(f"    ✓ Dodano fragment do bazy: {os.path.basename(tmp_path)}")
+                    print(
+                        f"    ✓ Dodano fragment do bazy: {os.path.basename(tmp_path)} (długość: {chunk_duration_sec:.1f}s, tag: {tag})"
+                    )
             else:
                 # Pojedynczy wynik - plik nie został podzielony
                 source_path, tmp_path = result[0]
