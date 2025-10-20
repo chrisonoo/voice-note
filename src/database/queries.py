@@ -42,59 +42,20 @@ def get_files_to_process() -> list[str]:
 def set_files_as_loaded(file_paths: list[str], tmp_file_paths: list[str]) -> None:
     """
     Oznacza listę plików jako wczytane (skonwertowane) i zapisuje ścieżki do ich przetworzonych wersji audio.
-    Dla plików które mają różne source_path i tmp_file_path traktuje je jako chunk'y.
-    Gdy tworzone są chunk'y, oryginalny plik zostaje automatycznie odznaczony.
+    W nowej logice każdy plik ma tylko jeden tmp_file_path.
     """
-    from .operations import add_file_chunk  # Importujemy funkcję do dodawania chunków
-
     with get_db_connection() as conn:
         cursor = conn.cursor()
 
-        # Rozdzielamy na zwykłe pliki i chunk'y
-        regular_files: list[tuple[str, str]] = []
-        chunk_files: list[tuple[str, str]] = []
-
-        for source_path, tmp_path in zip(file_paths, tmp_file_paths, strict=False):
-            if source_path == tmp_path:
-                # Zwykły plik - source i tmp są takie same
-                regular_files.append((source_path, tmp_path))
-            else:
-                # Chunk - source i tmp są różne
-                chunk_files.append((source_path, tmp_path))
-
-        # Aktualizujemy zwykłe pliki
-        if regular_files:
-            update_data = [(True, tmp_path, source_path) for source_path, tmp_path in regular_files]
-            cursor.executemany(
-                "UPDATE files SET is_loaded = ?, tmp_file_path = ? WHERE source_file_path = ?",
-                update_data,
-            )
-
-        # Dodajemy chunk'y jako nowe wpisy i odznaczamy oryginalny plik
-        if chunk_files:
-            # Zbierz unikalne ścieżki oryginalnych plików, które zostały podzielone na chunk'y
-            original_files_to_unmark = set(source_path for source_path, _ in chunk_files)
-
-            # Odznacz oryginalne pliki
-            for original_path in original_files_to_unmark:
-                cursor.execute(
-                    "UPDATE files SET is_selected = 0 WHERE source_file_path = ?",
-                    (original_path,),
-                )
-                print(
-                    f"    Oryginalny plik został odznaczony po podzieleniu na chunk'y: {original_path}"
-                )
-
-            # Dodajemy chunk'y jako nowe wpisy
-            for source_path, tmp_path in chunk_files:
-                # Wyciągnij numer chunk'a z nazwy pliku (format: nazwa_001.m4a)
-                import re
-
-                match = re.search(r"_(\d{3})\.m4a$", tmp_path)
-                if match:
-                    chunk_index = int(match.group(1))
-                    # Dodajemy chunk używając nowej funkcji
-                    add_file_chunk(source_path, tmp_path, chunk_index)
+        # W nowej logice wszystkie pliki traktujemy jako regularne pliki
+        update_data = [
+            (True, tmp_path, source_path)
+            for source_path, tmp_path in zip(file_paths, tmp_file_paths, strict=False)
+        ]
+        cursor.executemany(
+            "UPDATE files SET is_loaded = ?, tmp_file_path = ? WHERE source_file_path = ?",
+            update_data,
+        )
 
         conn.commit()
 
@@ -119,7 +80,7 @@ def get_files_needing_metadata() -> list[RowType]:
             list[RowType],
             execute_query(
                 cursor,
-                "SELECT id, source_file_path, parent_file_path, chunk_index FROM files WHERE start_datetime IS NULL",
+                "SELECT id, source_file_path FROM files WHERE start_datetime IS NULL",
                 fetch="all",
             ),
         )

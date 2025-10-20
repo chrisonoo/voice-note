@@ -41,8 +41,6 @@ def initialize_database():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             source_file_path TEXT NOT NULL UNIQUE,
             tmp_file_path TEXT,
-            parent_file_path TEXT,  -- Ścieżka do oryginalnego pliku dla chunków
-            chunk_index INTEGER,    -- Numer części dla chunków (1, 2, 3, ...)
             is_selected BOOLEAN NOT NULL DEFAULT 1,
             is_loaded BOOLEAN NOT NULL DEFAULT 0,
             is_processed BOOLEAN NOT NULL DEFAULT 0,
@@ -70,10 +68,6 @@ def initialize_database():
         )
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_duration_ms ON files(duration_ms)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_tag ON files(tag)")
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_files_parent_path ON files(parent_file_path)"
-        )
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_chunk_index ON files(chunk_index)")
 
         # `conn.commit()` zapisuje wszystkie zmiany wykonane w transakcji.
         conn.commit()
@@ -103,8 +97,6 @@ def ensure_files_table_exists():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 source_file_path TEXT NOT NULL UNIQUE,
                 tmp_file_path TEXT,
-                parent_file_path TEXT,  -- Ścieżka do oryginalnego pliku dla chunków
-                chunk_index INTEGER,    -- Numer części dla chunków (1, 2, 3, ...)
                 is_selected BOOLEAN NOT NULL DEFAULT 1,
                 is_loaded BOOLEAN NOT NULL DEFAULT 0,
                 is_processed BOOLEAN NOT NULL DEFAULT 0,
@@ -132,10 +124,6 @@ def ensure_files_table_exists():
             )
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_duration_ms ON files(duration_ms)")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_tag ON files(tag)")
-            cursor.execute(
-                "CREATE INDEX IF NOT EXISTS idx_files_parent_path ON files(parent_file_path)"
-            )
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_chunk_index ON files(chunk_index)")
 
             conn.commit()
             print("Tabela 'files' została utworzona.")
@@ -161,8 +149,6 @@ def reset_files_table():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             source_file_path TEXT NOT NULL UNIQUE,
             tmp_file_path TEXT,
-            parent_file_path TEXT,  -- Ścieżka do oryginalnego pliku dla chunków
-            chunk_index INTEGER,    -- Numer części dla chunków (1, 2, 3, ...)
             is_selected BOOLEAN NOT NULL DEFAULT 1,
             is_loaded BOOLEAN NOT NULL DEFAULT 0,
             is_processed BOOLEAN NOT NULL DEFAULT 0,
@@ -190,10 +176,6 @@ def reset_files_table():
         )
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_duration_ms ON files(duration_ms)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_tag ON files(tag)")
-        cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_files_parent_path ON files(parent_file_path)"
-        )
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_files_chunk_index ON files(chunk_index)")
 
         conn.commit()
         print("Tabela 'files' została utworzona ponownie.")

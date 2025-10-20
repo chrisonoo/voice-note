@@ -121,41 +121,6 @@ def optimize_database():
 
 
 @log_db_operation
-def add_file_chunk(original_path: str, chunk_path: str, chunk_index: int) -> None:
-    """
-    Dodaje chunk jako osobny wpis w bazie danych, powiązany z plikiem rodzicielskim.
-
-    Argumenty:
-        original_path (str): Ścieżka do oryginalnego pliku
-        chunk_path (str): Ścieżka do pliku chunk
-        chunk_index (int): Numer części (1, 2, 3, ...)
-    """
-    try:
-        # Oblicz duration_ms dla chunk'a
-        from src.utils.audio.duration_checker import get_file_duration
-
-        duration_sec = get_file_duration(chunk_path)
-        duration_ms = int(duration_sec * 1000) if duration_sec > 0 else 0
-
-        with get_db_connection() as conn:
-            cursor = conn.cursor()
-            # Dodajemy chunk jako nowy wpis w bazie z obliczoną długością
-            execute_query(
-                cursor,
-                """INSERT INTO files
-                   (source_file_path, tmp_file_path, parent_file_path, chunk_index, duration_ms, is_selected, is_loaded)
-                   VALUES (?, ?, ?, ?, ?, 1, 1)""",
-                (chunk_path, chunk_path, original_path, chunk_index, duration_ms),
-            )
-            conn.commit()
-    except sqlite3.IntegrityError:
-        # Jeśli chunk już istnieje, ignorujemy błąd
-        pass
-    except Exception as e:
-        print(f"Błąd podczas dodawania chunk {chunk_index} dla pliku {original_path}: {e}")
-
-
-@log_db_operation
 def validate_file_access(file_path: str) -> tuple[bool, str | None]:
     """Sprawdza dostępność pliku przed przetworzeniem."""
     if not os.path.exists(file_path):
