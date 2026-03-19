@@ -9,7 +9,7 @@ description = "Voice Note application"
 authors = [
     {name = "Chris", email = "chris@onoo.no"}
 ]
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.14,<3.15"
 
 dependencies = [
     "openai==2.5.0",
@@ -46,7 +46,7 @@ include = ["src*"]
 vnote = "src.__main__:main"
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.14"
 ignore_missing_imports = true
 disallow_untyped_defs = false
 check_untyped_defs = true
