@@ -1,13 +1,16 @@
 ---
+description: Core workflow, stack, and architecture for voice-note (atomic changes, uv, Python version).
 alwaysApply: true
 ---
+
 ## Główne wytyczne
 - Wszystkie modyfikacje kodu wykonuj atomowo, oznacza to, że dokonujesz tylko niezbędnych i minimalnych zmian, które zrealizują postawione przed tobą zadania.
 - Nie wolno modyfikować Ci żadnych fragmentów aplikacji poza tymi, które jasno wynikają z polecania, które otrzymałeś.
 - Jeśli masz wątpliwości czy dana zmiana lub modyfikacja powinna być wykonana i jest atomową zmianą to spytaj się o decyzję użytkownika.
 
 ## Stack technologiczny
-- Python 3.11+ (wersja definiowana w `pyproject.toml`)
+- **Python** – wersja z `requires-python` w `pyproject.toml` (obecnie **3.14.x**); interpreter i pakiety dla projektu zarządza **uv** (`uv sync`, `uv.lock`, folder `.venv`).
+- **Zależności** – deklaracja w `pyproject.toml`, lock w `uv.lock`; narzędzia dev: extra `dev` (`uv sync --extra dev`).
 - SQLite dla trwałych danych
 - OpenAI API dla wykorzystywanych modeli AI
 - Terminal: `pwsh.exe`
@@ -15,9 +18,9 @@ alwaysApply: true
 
 ## Kluczowe elementy projektu
 
-- **Modularna architektura**: Główny `main.py` jako punkt wejścia deweloperski, folder `src/` zawierający wszystkie moduły aplikacji, osobne pakiety do wyspecjalizowanych zadań, wrapperów API i warstwy danych. Po instalacji pakietu (`pip install -e .`) aplikacja dostępna jako komenda systemowa.
+- **Modularna architektura**: Główny `main.py` jako punkt wejścia deweloperski, folder `src/` zawierający wszystkie moduły aplikacji, osobne pakiety do wyspecjalizowanych zadań, wrapperów API i warstwy danych. Po `uv sync` aplikacja dostępna jako `uv run vnote` (entry point z `pyproject.toml`).
 - **Asynchroniczne przetwarzanie**: Ciężkie zadania w wątkach asynchronicznych z konfigurowalną liczbą jednoczesnych wątków.
-- **Zarządzanie zależnościami**: Jawne wymagania w `pyproject.toml`, plik `.env.example` dla zmiennych środowiskowych.
+- **Zarządzanie zależnościami**: Jawne wymagania w `pyproject.toml` + `uv.lock`; zmienne środowiskowe – wzorzec w `.env.example`, sekrety w `.env` (nie commituj).
 - **Trwały stan**: SQLite zamiast plików tymczasowych - zapewnia integralność danych i możliwość wznowienia pracy.
 - **Konfiguracja**: Klasa konfiguracyjna wstrzykiwana do modułów - unika globali i ułatwia testowanie.
 - **Warstwa danych**: Cienka warstwa repozytorium z metodami biznesowymi (np. `add_file`, `save_result`). Kod biznesowy nie zna SQL, używane konteksty dla połączeń DB.
@@ -25,3 +28,6 @@ alwaysApply: true
 - **Logowanie i obsługa błędów**: Jednolity system `logging` i model błędów. W interfejsach użytkownika wyjątki tłumaczone na przyjazne komunikaty.
 - **Jakość kodu**: Adnotacje typów, Ruff do lintingu, MyPy do sprawdzania typów. Dla małych projektów to minimalny narzut z szybkim zwrotem.
 - **Testy**: Testy jednostkowe dla funkcji czystych i warstwy danych. API zewnętrzne testowane na próbkach.
+
+## Dokumentacja operacyjna
+- Szczegóły instalacji, uruchamiania, skrótu Windows (`run_silent.vbs` / `run_gui.bat`), uv i konserwacji – w **`README.md`** (sekcje instalacji oraz „UV – konfiguracja w systemie i konserwacja”).

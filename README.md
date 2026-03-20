@@ -11,51 +11,64 @@ Ta aplikacja służy do automatycznej transkrypcji plików audio przy użyciu AP
 
 ## Wymagania
 
-*   Python 3.x
-*   `ffmpeg` - musi być zainstalowany i dostępny w ścieżce systemowej (PATH).
-*   Klucz API do OpenAI - zapisany w pliku `.env`.
+*   **[uv](https://docs.astral.sh/uv/)** – menedżer Pythona i zależności (instaluje też wymaganą wersję Pythona dla projektu).
+*   **Python** – wersja zgodna z `pyproject.toml` (obecnie **3.14**; `uv sync` tworzy `.venv` i instaluje interpreter przez uv).
+*   **`ffmpeg`** – zainstalowany i dostępny w PATH.
+*   **Klucz API OpenAI** – w pliku `.env`.
 
 ## Instalacja
 
-1.  **Sklonuj repozytorium:**
+1.  **Zainstaluj uv** (raz na maszynę):
+    *   Windows (PowerShell):
+        ```powershell
+        powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+        ```
+    *   macOS / Linux: [instrukcja w dokumentacji uv](https://docs.astral.sh/uv/getting-started/installation/).
+    *   Po instalacji upewnij się, że `uv` jest w PATH (na Windows często `%USERPROFILE%\.local\bin`). W nowym terminalu: `uv --version`.
+
+2.  **Sklonuj repozytorium i wejdź do katalogu:**
     ```bash
     git clone <adres-repozytorium>
-    ```
-    ```bash
     cd <nazwa-repozytorium>
     ```
 
-2.  **Utwórz i aktywuj wirtualne środowisko:**
-    *   Dla macOS/Linux:
-        ```bash
-        python3 -m venv .venv
-        ```
-        ```bash
-        source .venv/bin/activate
-        ```
-    *   Dla Windows:
-        ```bash
-        python -m venv .venv
-        ```
-        ```bash
-        .venv\Scripts\activate
-        ```
-
-3.  **Zainstaluj aplikację:**
+3.  **Zainstaluj Pythona w wersji wymaganej przez projekt** (jeśli uv jeszcze go nie ma):
     ```bash
-    pip install -e .
+    uv python install 3.14
     ```
 
-4.  **Skonfiguruj klucz API:**
-    *   Utwórz plik o nazwie `.env` w głównym katalogu projektu.
-    *   W pliku `.env` dodaj swój klucz API w następującym formacie:
+4.  **Zsynchronizuj środowisko i zależności** (tworzy `.venv`, instaluje pakiety z `uv.lock`):
+    ```bash
+    uv sync
+    ```
+    *   Narzędzia developerskie (ruff, mypy):
+        ```bash
+        uv sync --extra dev
+        ```
+
+5.  **Skonfiguruj klucz API:**
+    *   Skopiuj `.env.example` do `.env` (jeśli istnieje) lub utwórz plik `.env` w katalogu głównym projektu.
+    *   Dodaj klucz:
         ```
         API_KEY_WHISPER="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
         ```
 
+### Przenoszenie projektu (inny dysk / komputer)
+
+1.  Skopiuj **cały folder** projektu (łącznie z kodem; **nie** commituj sekretów – `.env` jest w `.gitignore`).
+2.  Na docelowej maszynie zainstaluj **uv** i **ffmpeg** (jak wyżej).
+3.  W katalogu projektu:
+    ```bash
+    uv python install 3.14
+    uv sync
+    ```
+    Opcjonalnie: `uv sync --extra dev`.
+4.  Odtwórz plik **`.env`** z kluczem API (ręcznie lub z kopii zapasowej).
+5.  Folder **`.venv`** możesz skopiować, ale **bezpieczniej** jest go nie kopiować i pozwolić `uv sync` odtworzyć środowisko – wtedy masz pewność zgodności z `uv.lock` i systemem docelowym.
+
 ## Jak używać?
 
-Aplikację można uruchomić w dwóch trybach.
+Aplikację można uruchomić w dwóch trybach. Wszystkie komendy z katalogu głównego projektu – **używaj `uv run`**, żeby korzystać z właściwego interpretera i środowiska (bez ręcznej aktywacji `.venv`).
 
 ### Tryb graficzny (GUI) - zalecany
 
@@ -63,8 +76,9 @@ Tryb graficzny zapewnia interaktywną obsługę i wizualizację całego procesu.
 
 1.  **Uruchom aplikację** w trybie GUI:
     ```bash
-    vnote --gui
+    uv run vnote --gui
     ```
+    *   Równoważnie: `uv run python main.py --gui` (entry point `vnote` jest zdefiniowany w `pyproject.toml`).
 2.  **Postępuj zgodnie z instrukcjami** na ekranie:
     *   Kliknij "Wybierz pliki", aby dodać pliki audio.
     *   Zaznacz pliki, które chcesz przetworzyć.
@@ -73,11 +87,19 @@ Tryb graficzny zapewnia interaktywną obsługę i wizualizację całego procesu.
 
 #### Ułatwione uruchamianie w Windows
 
-Aby uruchomić aplikację jednym kliknięciem (bez potrzeby ręcznego aktywowania środowiska wirtualnego i bez widocznego okna terminala), możesz użyć dołączonych skryptów.
+Aby uruchomić aplikację jednym kliknięciem **przez uv** (bez widocznego okna terminala):
 
-1.  **Utwórz skrót:** Kliknij prawym przyciskiem myszy na plik **`run_silent.vbs`** (nie `run_gui.bat`) i wybierz `Utwórz skrót`.
-2.  **(Opcjonalnie) Zmień ikonę:** Kliknij prawym przyciskiem na nowo utworzony skrót, wybierz `Właściwości` -> `Zmień ikonę...` i wybierz dowolną ikonę.
-3.  **Przenieś skrót** na pulpit lub w inne dogodne miejsce.
+*   **`run_silent.vbs`** uruchamia **`run_gui.bat`** w trybie ukrytym; batch ustawia PATH do uv (`%USERPROFILE%\.local\bin`) i wykonuje `uv run python main.py --gui`.
+*   Skrót na pulpicie powinien wskazywać na **`run_silent.vbs`**, a **katalog początkowy** na folder projektu (np. `D:\...\voice_note`).
+
+**Tworzenie skrótu:**
+
+1.  PPM na **`run_silent.vbs`** → `Utwórz skrót` (lub nowy skrót z celem: pełna ścieżka do `run_silent.vbs`).
+2.  W **Właściwościach** skrótu ustaw **Katalog początkowy** na katalog projektu.
+3.  (Opcjonalnie) Zmień ikonę w `Właściwości` → `Zmień ikonę...`.
+4.  Przenieś skrót na pulpit.
+
+**Uwaga:** Na maszynie musi być zainstalowany **uv** (jak w sekcji instalacji). Jeśli po dwukliku nic się nie dzieje, sprawdź PATH w nowym oknie cmd: `uv --version`.
 
 ### Tryb wiersza poleceń (CLI)
 
@@ -85,13 +107,13 @@ Tryb CLI służy do szybkiego przetwarzania plików z jednego folderu.
 
 1.  **Uruchom aplikację**, podając ścieżkę do folderu z plikami audio za pomocą flagi `--input-dir`:
     ```bash
-    vnote --input-dir /sciezka/do/twoich/plikow
+    uv run vnote --input-dir /sciezka/do/twoich/plikow
     ```
     *Aplikacja rekursywnie przeszuka cały podany folder i jego podfoldery.*
 
 2.  **Opcjonalnie**, jeśli chcesz przetwarzać pliki dłuższe niż 5 minut, dodaj flagę `-l` lub `--allow-long`:
     ```bash
-    vnote --input-dir /sciezka/do/plikow --allow-long
+    uv run vnote --input-dir /sciezka/do/plikow --allow-long
     ```
 
 3.  **Gotowe!** Po zakończeniu procesu, wszystkie transkrypcje zostaną zapisane w bazie danych w folderze `tmp/`.
@@ -228,26 +250,37 @@ graph TD
     AP -- "odtwarza audio z" --> FSP
 ```
 
-## Zarządzanie Zależnościami
+## Zarządzanie zależnościami (uv)
 
-Aby upewnić się, że korzystasz z najnowszych wersji bibliotek, możesz okresowo je aktualizować.
-
-1.  **Sprawdź dostępne aktualizacje:**
+*   **Zsynchronizuj środowisko z lockfilem** (po `git pull` lub zmianie `uv.lock`):
     ```bash
-    pip list --outdated
+    uv sync
     ```
-
-2.  **Zaktualizuj biblioteki:**
+*   **Dodaj nową zależność** i zaktualizuj lock:
     ```bash
-    pip install --upgrade openai python-dotenv customtkinter psutil
+    uv add nazwa-pakietu
     ```
-
-3.  **Zaktualizuj plik pyproject.toml:**
-    Po aktualizacji, zaktualizuj wersje w pliku `pyproject.toml` w sekcji `[project].dependencies`.
+*   **Dodaj narzędzie dev** (extra `dev` w `pyproject.toml`):
+    ```bash
+    uv add ruff --optional dev
+    ```
+    (albo edytuj `pyproject.toml` ręcznie, potem `uv lock` i `uv sync`.)
+*   **Aktualizacja pakietów** – świadomie zmień wersje w `pyproject.toml`, potem:
+    ```bash
+    uv lock
+    uv sync
+    ```
+*   **Lista zainstalowanych pakietów w tym projekcie:**
+    ```bash
+    uv pip list
+    ```
 
 ## Struktura projektu
 
 *   `main.py`: Główny plik uruchomieniowy, który parsuje argumenty i uruchamia odpowiedni tryb (CLI/GUI).
+*   `pyproject.toml`, `uv.lock`: definicja projektu i zablokowane wersje zależności (uv).
+*   `.venv/`: środowisko wirtualne tworzone przez `uv sync` (nie commituj – jest w `.gitignore`).
+*   `run_gui.bat`, `run_silent.vbs`: uruchomienie GUI na Windows przez uv (bez okna terminala – skrót do `run_silent.vbs`).
 *   `src/`: Główny folder z kodem źródłowym aplikacji.
     *   `config.py`: Centralny plik konfiguracyjny (ścieżki, parametry API).
     *   `database.py`: Moduł do zarządzania bazą danych SQLite.
@@ -268,7 +301,7 @@ Aby upewnić się, że korzystasz z najnowszych wersji bibliotek, możesz okreso
 - Próbowałem przejść na bibliotekę  pydub oraz PyAV, aby uniezależnić się od instalacji ffmpeg w systemie ale były ciągłe problemy i jest to gałąź martwa, ale zostawiłem.
 - Jest też ponoć jakaś biblioteka ffmpeg, która jest statyczna i można ją całą zaimportować do projektu i dzięki temu nie trzeba nic instalować w systemie i waży ok. 50 MB
 - Teraz jak rozumiem pydub wykorzystujemy jako wrapper dla ffmpeg i ffplay?
-- Maksymalna wersja Python to 3.12 ponieważ to ostatnia wersja z audioop, w 3.13 nie ma tego modułu i trzeba instalować audioop-lts
+- Wersja Pythona w projekcie jest ustalana w `pyproject.toml` (obecnie **3.14**; wcześniej rozważano limit 3.12 z powodu `audioop` – przy zmianie wersji Pythona warto to zweryfikować w kodzie).
 
 ## Architektura Audio - Decyzje Techniczne
 
@@ -399,3 +432,75 @@ playsound('output.wav', block=False)
 - Zacząć od odtwarzania (ffpyplayer) - mniejsze ryzyko
 - Potem konwersja (ffmpeg-python) - większa korzyść dla czytelności
 - Na końcu rozważyć PyAV jeśli potrzebne uniezależnienie
+
+---
+
+## UV – konfiguracja w systemie i konserwacja
+
+Ta sekcja jest „ściągą” na maszynę deweloperską: **gdzie jest uv**, jak to zweryfikować i jakie komendy są przydatne na co dzień.
+
+### Instalacja uv (jednorazowo)
+
+*   **Windows (PowerShell):**
+    ```powershell
+    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+    ```
+*   Domyślna lokalizacja binarek na Windows: `%USERPROFILE%\.local\bin` (`uv.exe`, `uvx.exe`).
+*   Instalator zwykle dopisuje ten katalog do PATH użytkownika; **po instalacji** zamknij i otwórz terminal (Cursor / PowerShell), żeby PATH się odświeżył.
+*   Jeśli `uv` nie jest rozpoznawane, tymczasowo w PowerShell:
+    ```powershell
+    $env:Path = "$env:USERPROFILE\.local\bin;$env:Path"
+    ```
+
+### Weryfikacja – czy uv działa
+
+```bash
+uv --version
+uv python list
+```
+
+`uv python list` pokazuje wersje Pythona, które uv może użyć (w tym zainstalowane przez `uv python install`).
+
+### Python dla projektu
+
+Wersja jest w `requires-python` w `pyproject.toml`. Zainstaluj brakującą wersję:
+
+```bash
+uv python install 3.14
+```
+
+### Najczęstsze komendy w tym repozytorium
+
+| Cel                                          | Komenda                              |
+| -------------------------------------------- | ------------------------------------ |
+| Odtworzenie `.venv` i instalacja z `uv.lock` | `uv sync`                            |
+| + narzędzia dev                              | `uv sync --extra dev`                |
+| Uruchomienie GUI                             | `uv run vnote --gui`                 |
+| Uruchomienie CLI                             | `uv run vnote --input-dir "ścieżka"` |
+| Lint (ruff)                                  | `uv run ruff check .`                |
+| Typy (mypy)                                  | `uv run mypy src`                    |
+
+### Konserwacja i diagnostyka
+
+```bash
+uv --version
+uv self update
+uv python list
+uv python find
+uv tree
+uv pip list
+```
+
+*   **`uv self update`** – aktualizacja samego uv.
+*   **`uv python find`** – który interpreter uv wybierze dla projektu (przydatne przy problemach z wersją).
+*   **`uv tree`** – drzewo zależności projektu.
+*   **`uv pip list`** – pakiety w aktywnym środowisku projektu (po `uv sync`).
+
+### Gdzie uv trzyma dane (orientacyjnie)
+
+*   Cache i pobrane Pythony: zwykle w katalogu danych użytkownika uv (szczegóły: [dokumentacja uv – storage](https://docs.astral.sh/uv/reference/storage/)).
+*   **Projekt:** folder `.venv` w katalogu repozytorium – to normalne; **uv run** i **uv sync** z tego korzystają.
+
+### Skrót Windows a uv
+
+Skrót do `run_silent.vbs` wywołuje `run_gui.bat`, który dodaje `%USERPROFILE%\.local\bin` do PATH i uruchamia `uv run python main.py --gui`. Jeśli po dwukliku nic się nie dzieje, sprawdź w terminalu `uv --version` i ewentualnie dopisz `.local\bin` do PATH użytkownika w ustawieniach Windows.

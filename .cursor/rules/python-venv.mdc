@@ -1,52 +1,46 @@
 ---
+description: Isolate work to project .venv via uv; verify interpreter; user runs uv sync when missing.
 alwaysApply: true
 ---
-# Zasada ogólna dla projektu Python z .venv
 
-Cel
-- Cały projekt musi być uruchamiany, testowany, instalowany i utrzymywany wyłącznie w kontekście lokalnego środowiska `.venv` znajdującego się w katalogu głównym repozytorium.
-- Środowisko `.venv` zawsze będzie obecne w katalogu głównym projektu.
+# Środowisko Python (uv + `.venv`)
 
-Zakres
-- Zasada dotyczy każdej operacji wykonywanej przez agenta lub użytkownika z poziomu edytora, w tym uruchamiania aplikacji, instalacji i aktualizacji zależności, uruchamiania testów, narzędzi deweloperskich, skryptów, migracji, zadań, notebooków i procesów budowania.
+## Cel
+- Cały projekt ma być uruchamiany, testowany i utrzymywany w kontekście **lokalnego** środowiska `.venv` w katalogu głównym repozytorium.
+- `.venv` jest **tworzone i aktualizowane przez uv** (`uv sync`); zawiera interpreter zgodny z `requires-python` w `pyproject.toml` oraz zainstalowane pakiety. Nie zastępuj tego ręcznym `python -m venv`, chyba że użytkownik wyraźnie tak zdecyduje.
 
-Wykrywanie środowiska
-- Agent zawsze sprawdza obecność folderu `.venv` w katalogu głównym projektu.
-- Jeśli folder `.venv` istnieje, agent korzysta wyłącznie z niego.
-- Jeśli folder `.venv` nie istnieje, agent informuje użytkownika o konieczności jego utworzenia.
+## Zakres
+- Dotyczy poleceń terminala, uruchamiania aplikacji, testów, Ruff, MyPy, skryptów i narzędzi z `pyproject.toml`.
 
-Jeśli środowisko nie zostanie wykryte `.venv`. 
-- **Tworzenie środowiska i instalacja zależności TYLKO!!! przez użytkownika**
-- Użytkownik tworzy środowisko poleceniem: `py -3.12 -m venv .venv --upgrade-deps`
-- Wersję Python (3.12) należy odczytać z pliku `pyproject.toml` z pola `requires-python`
-- Agent nigdy nie tworzy środowiska samodzielnie - tylko informuje o tej potrzebie użytkownika.
-- Po utworzeniu środowiska użytkownik instaluje wszystkie zależności komendą: `pip install -e .[dev]`
-- Agent nigdy nie instaluje pakietów samodzielnie - tylko informuje o tej potrzebie użytkownika.
+## Gdy brak folderu `.venv` lub środowisko jest niekompletne
+- **Nie zakładaj** samodzielnie, że możesz instalować pakiety globalnie.
+- Poinformuj użytkownika, że w katalogu projektu powinien wykonać (wersję Pythona weź z `requires-python`, np. `3.14`):
+  1. `uv python install 3.14` (jeśli ta wersja nie jest jeszcze dostępna dla uv)
+  2. `uv sync`
+  3. opcjonalnie narzędzia dev: `uv sync --extra dev`
+- Szczegóły: `README.md`.
 
-Aktywacja środowiska przez agenta
-- Agent zawsze aktywuje środowisko `.venv` za pomocą `.venv\Scripts\activate`.
-- Jeśli operacja wykonywana jest w nowej sesji, w nieinteraktywnym terminalu, w zadaniu edytora lub debugerze, agent zapewnia aktywację w tej samej sesji.
+## Preferowany sposób pracy agenta (bez ręcznej aktywacji w każdej linii)
+- Z katalogu głównego projektu używaj **`uv run …`**, np. `uv run python -c "…"`, `uv run pytest`, `uv run ruff check .`, `uv run mypy src`, `uv run vnote --gui`. To uruchamia narzędzia w kontekście zależności projektu (odpowiednik aktywnego `.venv`).
 
-Weryfikacja poprawności środowiska przez agenta
-- Przed wykonaniem merytorycznych działań agent sprawdza, że interpreter pochodzi z `.venv` poleceniem:
-  - `python -c "import sys; print(sys.executable)"`
-- Jeśli wynik nie wskazuje na ścieżkę wewnątrz `.venv`, agent aktywuje właściwe środowisko i powtarza weryfikację.
-- Do czasu pozytywnej weryfikacji agent nie kontynuuje merytorycznych działań.
+## Alternatywa: aktywacja `.venv` (PowerShell / Windows)
+- Jedna sesja, jedno wywołanie:
+  - `.\.venv\Scripts\Activate.ps1` (lub `.\.venv\Scripts\activate` w cmd), potem polecenia `python`, `pytest` itd.
+- Nie rozdzielaj aktywacji i poleceń na osobne sesje terminala bez uzasadnienia.
 
-Operacje agenta w środowisku
-- Agent nigdy nie wykonuje operacji poza aktywnym środowiskiem `.venv`.
-- Wszystkie komendy terminalowe agenta zawierają aktywację środowiska w tym samym wywołaniu.
-- Agent nigdy nie dzieli aktywacji środowiska na osobne wywołania terminalowe.
+## Weryfikacja interpretera przed merytorycznymi krokami
+- Po `uv run`:
+  - `uv run python -c "import sys; print(sys.executable)"` — ścieżka powinna wskazywać na **`.venv`** w repo.
+- Po aktywacji:
+  - `python -c "import sys; print(sys.executable)"` — to samo.
+- Jeśli wynik nie jest w `.venv`, nie kontynuuj instalacji poleceń zależnych od środowiska projektu; popraw środowisko lub poinformuj użytkownika.
 
-Zakazy dla agenta
-- Agent nigdy nie instaluje pakietów ani nie aktualizuje zależności.
-- Agent nigdy nie tworzy środowiska wirtualnego samodzielnie.
-- Agent nigdy nie wykonuje instalacji globalnych ani zmian w systemie poza katalogiem `.venv`.
-- Agent nigdy nie zmienia globalnego interpretera ani konfiguracji Python.
+## Ograniczenia dla agenta
+- Nie instaluj pakietów **globalnie** (systemowy Python poza projektem), nie zmieniaj domyślnego interpretera systemu.
+- **Instalacja / aktualizacja zależności** (`uv add`, `uv sync`, `uv lock` itd.) – tylko gdy użytkownik **wyraźnie** poprosi o zmianę zależności lub o uruchomienie sync; w przeciwnym razie odesłać do `README.md` i poleceń użytkownika.
 
-Komunikacja z użytkownikiem
-- Jeśli środowisko `.venv` nie istnieje, agent informuje użytkownika o konieczności wykonania następujących kroków:
-  1. Utworzenie środowiska: `py -3.12 -m venv .venv --upgrade-deps`
-  2. Instalacja zależności: `pip install -e .[dev]`
-- Agent zawsze priorytetyzuje spójność z `.venv` nad szybkością wykonania.
-- Agent nigdy nie omija aktywacji środowiska, nawet jeśli wydaje się to szybsze.
+## uv w PATH (Windows)
+- Jeśli `uv` nie jest rozpoznawane, typowa lokalizacja to `%USERPROFILE%\.local\bin` (po instalatorze uv). W jednej sesji można tymczasowo: `$env:Path = "$env:USERPROFILE\.local\bin;$env:Path"`.
+
+## Uruchamianie GUI z pulpitu (kontekst)
+- Skrót do `run_silent.vbs` wywołuje `run_gui.bat`, który ustawia PATH do uv i uruchamia `uv run python main.py --gui` — to nadal jest praca w obrębie projektu i uv, nie „goły” systemowy Python.
