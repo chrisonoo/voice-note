@@ -29,7 +29,7 @@ Ta aplikacja służy do automatycznej transkrypcji plików audio przy użyciu AP
 2.  **Sklonuj repozytorium i wejdź do katalogu:**
     ```bash
     git clone <adres-repozytorium>
-    cd <nazwa-repozytorium>
+    cd <nazforge-repozytorium>
     ```
 
 3.  **Zainstaluj Pythona w wersji wymaganej przez projekt** (jeśli uv jeszcze go nie ma):
@@ -258,7 +258,7 @@ graph TD
     ```
 *   **Dodaj nową zależność** i zaktualizuj lock:
     ```bash
-    uv add nazwa-pakietu
+    uv add nazforge-pakietu
     ```
 *   **Dodaj narzędzie dev** (extra `dev` w `pyproject.toml`):
     ```bash

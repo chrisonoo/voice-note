@@ -30,9 +30,9 @@ alwaysApply: true
 
 ## Weryfikacja interpretera przed merytorycznymi krokami
 - Po `uv run`:
-  - `uv run python -c "import sys; print(sys.executable)"` — ścieżka powinna wskazywać na **`.venv`** w repo.
+  - `uv run python -c "import sys; print(sys.executable)"` - ścieżka powinna wskazywać na **`.venv`** w repo.
 - Po aktywacji:
-  - `python -c "import sys; print(sys.executable)"` — to samo.
+  - `python -c "import sys; print(sys.executable)"` - to samo.
 - Jeśli wynik nie jest w `.venv`, nie kontynuuj instalacji poleceń zależnych od środowiska projektu; popraw środowisko lub poinformuj użytkownika.
 
 ## Ograniczenia dla agenta
@@ -43,4 +43,4 @@ alwaysApply: true
 - Jeśli `uv` nie jest rozpoznawane, typowa lokalizacja to `%USERPROFILE%\.local\bin` (po instalatorze uv). W jednej sesji można tymczasowo: `$env:Path = "$env:USERPROFILE\.local\bin;$env:Path"`.
 
 ## Uruchamianie GUI z pulpitu (kontekst)
-- Skrót do `run_silent.vbs` wywołuje `run_gui.bat`, który ustawia PATH do uv i uruchamia `uv run python main.py --gui` — to nadal jest praca w obrębie projektu i uv, nie „goły” systemowy Python.
+- Skrót do `run_silent.vbs` wywołuje `run_gui.bat`, który ustawia PATH do uv i uruchamia `uv run python main.py --gui` - to nadal jest praca w obrębie projektu i uv, nie „goły” systemowy Python.

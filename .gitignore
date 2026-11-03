@@ -1,7 +1,7 @@
 # Application-specific
 tmp/
 .env
-_backlog.md
+_`forge/parking-lot`
 voice_note.db
 .cursor/*
 !.cursor/rules/
